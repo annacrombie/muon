@@ -15,6 +15,9 @@ tests = [
     ['muon/python', ['python']],
     ['muon/script_module'],
 
+    # module tests imported from meson
+    ['modules/gnome', ['skip_analyze', 'glib']],
+
     # project tests imported from meson
     ['common/1 trivial'],
     ['common/2 cpp'],

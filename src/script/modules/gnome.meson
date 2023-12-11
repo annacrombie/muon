@@ -1,0 +1,558 @@
+# SPDX-FileCopyrightText: sewn <sewn@disroot.org>
+# SPDX-License-Identifier: GPL-3.0-only
+
+# TODO: investigate void kwarg in custom_target
+
+fs = import('fs')
+
+# TODO: investigate
+func post_install(
+    glib_compile_schemas bool: false,
+    gio_querymodules listify[str]: ,
+    gtk_update_icon_cache bool: false,
+    update_desktop_database bool: false,
+    update_mime_database bool: false,
+)
+    return false
+endfunc
+
+func compile_resources(
+    target_name str,
+    input custom_tgt|file|generated_list|str,
+    build_by_default bool: true,
+    c_name str: ,
+    dependencies listify[custom_tgt|file]: [],
+    export bool: false,
+    extra_args listify[str]: ,
+    gresource_bundle bool: false,
+    install bool: false,
+    install_header bool: false,
+    install_dir str: ,
+    source_dir listify[str]: ,
+) -> list[custom_tgt]
+    cmd = [
+        find_program('glib-compile-resources'),
+        '@INPUT@',
+        is_void(c_name) ? [] : ['--c-name', c_name],
+        export ? [] : ['--internal'],
+        '--generate',
+        '--target',
+        '@OUTPUT@',
+        is_void(extra_args) ? [] : extra_args,
+    ]
+
+    depends = []
+
+    foreach sd : source_dir
+        sd = fs.relative_to(meson.current_build_dir(), fs.make_absolute(sd))
+    endforeach
+
+    foreach d : dependencies
+        # is 'subdir' meson member struct or 'get_subdir' meson method fs.parent?
+        if typeof(d) == 'custom_tgt'
+            source_dir += fs.parent(d.full_path())
+        elif typeof(d) == 'file'
+            source_dir += fs.parent(d)
+            depends += d
+        else
+            source_dir += fs.parent(d)
+        endif
+    endforeach
+
+    source_dir += meson.current_build_dir()
+
+    foreach sd : source_dir
+        cmd += ['--sourcedir', sd]
+    endforeach
+
+    proj = meson.project()
+    if not gresource_bundle
+        output = target_name + '.gresource'
+        name = target_name + '_gresource'
+    elif not is_void(proj['compilers']['c'])
+        output = target_name + '.c'
+        name = target_name + '_c'
+    elif not is_void(proj['compilers']['c++'])
+        output = target_name + '.cpp'
+        name = target_name + '_cpp'
+    else
+        error(
+            'compiling gresources into code is only supported in c and c++ projects',
+        )
+    endif
+
+    if install and not gresource_bundle
+        error(
+            'the install kwarg only applies to gresource bundles, see install_header',
+        )
+    elif install_header and gresource_bundle
+        error('the install_header kwarg does not apply to gresource bundles')
+    elif install_header and not export
+        error('gresource header is installed yet export is not enabled')
+    endif
+
+    resources = []
+    resources += custom_target(
+        name,
+        build_by_default: build_by_default,
+        depfile: output + '.d',
+        input: input,
+        install: install,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_tag: 'runtime',
+        output: output,
+        command: [
+            cmd,
+            '--generate-source',
+            '--dependency-file', '@DEPFILE@',
+        ],
+    )
+
+    if gresource_bundle
+        return resources
+    endif
+
+    resources += custom_target(
+        name + '_h',
+        build_by_default: build_by_default,
+        input: input,
+        install: install_header,
+        install_dir: is_void(install_dir) ? get_option('includedir') : install_dir,
+        install_tag: 'devel',
+        output: name + '.h',
+        command: [
+            cmd,
+            '--generate-header',
+        ],
+    )
+
+    return resources
+endfunc
+
+# TODO: implement generate_gir properly, upstream Meson is messy
+# func generate_gir(
+#     targets glob[exe|both_libs],
+#     install bool: false,
+#     build_by_default bool: true,
+#     extra_args listify[str]: ,
+#     dependencies listify[dep]: ,
+#     export_packages listify[list|str]: ,
+#     fatal_warnings bool: false,
+#     header listify[list|str]: ,
+#     identifier_prefix listify[list|str]: ,
+#     include_directories listify[str]: ,
+#     install_gir bool: ,
+#     install_typelib bool: ,
+#     link_with listify[both_libs]: ,
+#     namespace str: ,
+#     nsversion str: ,
+#     sources listify[custom_tgt|file|generated_list|str]: ,
+#     symbol_prefix listify[str]: ,
+# ) -> list[custom_tgt]
+#     if is_void(namespace)
+#         error('namespace kwarg required')
+#     endif
+# 
+#     if is_void(nsversion)
+#         error('nsversion kwarg required')
+#     endif
+# 
+#     add_language('c')
+# 
+#     if len(targets) > 1
+#         isexe = false
+#         foreach t : targets
+#             if typeof(t) == 'exe'
+#                 isexe = true
+#             endif
+#         endforeach
+#         if not isexe
+#             error('generate_gir only accepts a single argument when one of the arguments is an executable')
+#         endif
+#     endif
+# 
+#     gir_dep = dependency('gobject-introspection-1.0')
+#     scanner = find_program('g-ir-scanner')
+#     compiler = find_program('g-ir-compiler')
+# 
+#     file = '@0@-@1@.gir'.format(namepsace, nsversion)
+#     depends = [ targets, gir_dep.sources ]
+# 
+#     langs_compilers = []
+#     cflags = []
+#     internal_ldflags = []
+#     external_ldflags = []
+# 
+#     foreach t : targets
+#        foreach lang, compiler : t
+#            if lang in ['c', 'cpp', 'objc', 'objcpp', 'd']
+#                langs_compilers += [lang, compiler]
+#                cflags +=
+#            endif
+#        endforeach
+#     endforeach
+# endfunc
+
+func compile_schemas(
+    build_by_default bool: true,
+    depend_files listify[file|list[file|str]|str]: [],
+) -> custom_tgt
+    name = 'gsettings-compile'
+    srcdir = meson.current_source_dir()
+    if srcdir != ''
+        name += srcdir.replace('/', '_')
+    endif
+
+    return custom_target(
+        name,
+        build_by_default: build_by_default,
+        depend_files: depend_files,
+        output: 'gschemas.compiled',
+        command: [
+            find_program('glib-compile-schemas'),
+        ],
+    )
+endfunc
+
+# TODO: implement yelp
+# TODO: implement gtkdoc
+# TODO: implement gtkdoc_html_dir
+
+# TODO: check glib >= 2.49.1 for autocleanup
+# TODO: check glib >= 2.56.2 for --body and --output
+# TODO: check glib >= 2.51.3 for --generate-c-code and --output-directory
+func gdbus_codegen(
+    name str,
+    input glob[custom_tgt|file|generated_list|str],
+    sources listify[custom_tgt|file|str]: [],
+    interface_prefix str: ,
+    namespace str: ,
+    extra_args listify[str]: ,
+    autocleanup str: 'default',
+    object_manager bool: false,
+    annotations list[list[str]]: [],
+    docbook str: ,
+    build_by_default bool: true,
+    install_dir str: get_option('includedir'),
+    install_header bool: false,
+) -> list[custom_tgt]
+    if autocleanup not in ['default', 'all', 'none', 'objects']
+        error('autocleanup must be one of default, all, none, objects')
+    endif
+
+    cmd = [
+        find_program('gdbus-codegen'),
+        '--c-generate-autocleanup',
+        [autocleanup == 'default' ? 'all' : autocleanup],
+        is_void(interface_prefix) ? [] : [
+            '--interface-prefix',
+            interface_prefix,
+        ],
+        is_void(namespace) ? [] : ['--c-namespace', namespace],
+        object_manager ? ['--c-generate-object-manager'] : [],
+    ]
+
+    xml_files = input
+    xml_files += sources
+
+    foreach annot : annotations
+        cmd += ['--annotate', annot]
+    endforeach
+
+    body = custom_target(
+        name + '_c',
+        build_by_default: build_by_default,
+        input: xml_files,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        output: name + '.c',
+        command: [
+            cmd,
+            '--output', '@OUTPUT@',
+            '--body', '@INPUT@',
+        ],
+    )
+
+    header = custom_target(
+        name + '_h',
+        build_by_default: build_by_default,
+        input: xml_files,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        install_tag: 'devel',
+        output: name + '.h',
+        command: [
+            cmd,
+            '--output', '@OUTPUT@',
+            '--header', '@INPUT@',
+        ],
+    )
+
+    targets = [body, header]
+
+    if not is_void(docbook)
+        outputs = []
+
+        foreach xml : xml_files
+            outputs += '@0@.@1@'.format(docbook, fs.name(xml))
+        endforeach
+
+        doc = custom_target(
+            name + '-docbook',
+            depends: body,
+            build_by_default: build_by_default,
+            input: xml_files,
+            output: outputs,
+            command: [
+                cmd,
+                '--output-directory', '@OUTDIR@',
+                '--generate-docbook', docbook,
+                '@INPUT@',
+            ],
+        )
+
+        targets += doc
+    endif
+
+    return targets
+endfunc
+
+func mkenums(
+    name str,
+    c_template file|str: ,
+    comments str: ,
+    h_template file|str: ,
+    identifier_prefix str: ,
+    install_header bool: false,
+    install_dir str: ,
+    depends listify[build_tgt|custom_tgt]: [],
+    sources listify[custom_tgt|file|generated_list|str]: ,
+    symbol_prefix str: ,
+    eprod str: ,
+    fhead str: ,
+    fprod str: ,
+    ftail str: ,
+    vhead str: ,
+    vprod str: ,
+    vtail str: ,
+) -> list[custom_tgt]
+    if is_void(sources)
+        error('sources kwarg required')
+    endif
+
+    cmd = [find_program('glib-mkenums')]
+
+    known_kwargs = {
+        'comments': comments,
+        'eprod': eprod,
+        'fhead': fhead,
+        'fprod': fprod,
+        'ftail': ftail,
+        'identifier-prefix': identifier_prefix,
+        'symbol-prefix': symbol_prefix,
+        'vhead': vhead,
+        'vprod': vprod,
+        'vtail': vtail,
+    }
+
+    foreach kwarg, value : known_kwargs
+        if not is_void(value)
+            cmd += ['--' + kwarg, value.replace('@', '\@')]
+        endif
+    endforeach
+
+    enums = []
+    enums += custom_target(
+        name + '_h',
+        capture: true,
+        depends: depends,
+        input: sources,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        output: name + '.h',
+        command: [
+            cmd,
+            is_void(h_template) ? [] : ['--template', h_template],
+            '@INPUT@',
+        ],
+    )
+
+    enums += custom_target(
+        name + '_c',
+        capture: true,
+        input: sources,
+        depends: depends,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        output: name + '.c',
+        command: [
+            cmd,
+            is_void(c_template) ? [] : ['--template', c_template],
+            '@INPUT@',
+        ],
+    )
+
+    return enums
+endfunc
+
+func mkenums_simple(
+    name str,
+    identifier_prefix str: ,
+    install_header bool: false,
+    install_dir str: ,
+    symbol_prefix str: ,
+    sources listify[file|str]: ,
+    header_prefix str: '',
+    function_prefix str: '',
+    body_prefix str: '',
+    decorator str: '',
+) -> list[custom_tgt]
+    cmd = [
+        find_program('glib-mkenums'),
+        is_void(identifier_prefix) ? [] : [
+            '--identifier-prefix',
+            identifier_prefix,
+        ],
+        is_void(symbol_prefix) ? [] : ['--symbol-prefix', symbol_prefix],
+    ]
+
+    fhead = body_prefix + '\n' + '#include "@0@"\n'.format(name + '.h')
+    foreach s : sources
+        h_path = fs.relative_to(
+            meson.current_build_dir(),
+            typeof(s) == 'file' ? s.full_path() : files(s)[0].full_path(),
+        )
+        fhead += '#include "@0@"'.format(h_path)
+    endforeach
+    fhead += '\n#define C_ENUM(v) ((gint) v)\n#define C_FLAGS(v) ((guint) v)\n'
+
+    c_file = custom_target(
+        name + '.c',
+        capture: true,
+        input: sources,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        output: name + '.c',
+        command: [
+            cmd,
+            '--fhead', fhead,
+            '--fprod', '\n/* enumerations from "\@basename\@" */\n',
+            '--vhead', '\nGType\n' + function_prefix + '\@enum_name\@_get_type (void)\n{{\nstatic gsize gtype_id = 0;\nstatic const G\@Type\@Value values[] = {{',
+            '--vprod', '\n    { C_\@TYPE\@(\@VALUENAME\@), "\@VALUENAME\@", "\@valuenick\@" },])',
+            '--vtail', '\n    { 0, NULL, NULL }\nif (g_once_init_enter (&gtype_id)) {\nGType new_type = g_\@type\@_register_static (g_intern_static_string ("\@EnumName\@"), values);\ng_once_init_leave (&gtype_id, new_type);\n}\nreturn (GType) gtype_id;\n}',
+            '@INPUT@',
+        ],
+    )
+
+    h_file = custom_target(
+        name + '.h',
+        capture: true,
+        input: sources,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        output: name + '.h',
+        command: [
+            cmd,
+            '--fhead', '#pragma once\n#include <glib-object.h>\n' + header_prefix +
+            '\nG_BEGIN_DECLS\n',
+            '--fprod', '\n/* enumerations from "\@basename\@" */\n',
+            '--vhead', '\n' + decorator + ' \nGType ' + function_prefix + '\@enum_name\@_get_type (void);\n#define \@ENUMPREFIX\@_TYPE_\@ENUMSHORT\@ (' +
+            function_prefix + '\@enum_name\@_get_type())',
+            '--ftail', '\nG_END_DECLS',
+            '@INPUT@',
+        ],
+    )
+
+    return [c_file, h_file]
+endfunc
+
+# TODO: check glib >2.53.4 for --include-header
+# TODO: check glib >2.53.3 for extra_args and --pragma-once
+# TODO: check glib >2.51.0 for --output
+func genmarshal(
+    name str,
+    depends listify[build_tgt|custom_tgt]: [],
+    depend_files listify[file|str]: [],
+    extra_args listify[str]: ,
+    install_header bool: false,
+    install_dir str: ,
+    internal bool: false,
+    nostdinc bool: false,
+    prefix str: ,
+    skip_source bool: false,
+    sources listify[file|str]: ,
+    stdinc bool: false,
+    valist_marshallers bool: false,
+) -> list[custom_tgt]
+    if is_void(sources)
+        error('sources kwarg required')
+    endif
+
+    cmd = [
+        find_program('glib-genmarshal'),
+        is_void(prefix) ? [] : ['--prefix', prefix],
+        '--output',
+        '@OUTPUT@',
+        extra_args,
+    ]
+
+    known_kwargs = {
+        'internal': internal,
+        'nostdinc': nostdinc,
+        'skip-source': skip_source,
+        'stdinc': stdinc,
+        'valist-marshallers': valist_marshallers,
+    }
+
+    foreach kwarg, value : known_kwargs
+        if not is_void(value)
+            cmd += ['--' + kwarg]
+        endif
+    endforeach
+
+    header_file = name + '.h'
+
+    header = custom_target(
+        name + '_h',
+        input: sources,
+        depends: depends,
+        depend_files: depend_files,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        output: header_file,
+        command: [
+            cmd,
+            '--header', '@INPUT@',
+            '--pragma-once',
+        ],
+    )
+
+    body = custom_target(
+        name + '_c',
+        input: sources,
+        depends: depends + header,
+        depend_files: depend_files,
+        install: install_header,
+        install_dir: is_void(install_dir) ? '' : install_dir,
+        output: name + '.c',
+        command: [
+            cmd,
+            '--body', '@INPUT@',
+            '--include-header', header_file,
+        ],
+    )
+
+    return [body, header]
+endfunc
+
+# TODO: implement generate_vapi
+
+return {
+    'post_install': post_install,
+    'compile_resources': compile_resources,
+    'compile_schemas': compile_schemas,
+    'gdbus_codegen': gdbus_codegen,
+    'mkenums': mkenums,
+    'mkenums_simple': mkenums_simple,
+    'genmarshal': genmarshal,
+}
