@@ -131,3 +131,11 @@ arr_sort(struct arr *arr, void *ctx, sort_func func)
 
 	qsort(arr->e, arr->len, arr->item_size, arr_sort_compare);
 }
+
+void
+arr_pop(struct arr *arr, void *e)
+{
+	assert(arr->len);
+	--arr->len;
+	memcpy(e, arr_point_at(arr, arr->len), arr->item_size);
+}
