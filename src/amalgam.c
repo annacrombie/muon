@@ -76,6 +76,7 @@
 #include "guess.c"
 #include "install.c"
 #include "lang/analyze.c"
+/* #include "lang/compiler.c" */
 #include "lang/eval.c"
 #include "lang/fmt.c"
 #include "lang/interpreter.c"

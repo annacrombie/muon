@@ -6,7 +6,6 @@
 #ifndef MUON_FUNCTIONS_COMMON_H
 #define MUON_FUNCTIONS_COMMON_H
 
-#include "lang/parser.h"
 #include "lang/workspace.h"
 
 typedef bool (*func_impl)(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res);

@@ -56,6 +56,7 @@ src = files(
     'functions/string.c',
     'functions/subproject.c',
     'lang/analyze.c',
+    'lang/compiler.c',
     'lang/eval.c',
     'lang/fmt.c',
     'lang/interpreter.c',

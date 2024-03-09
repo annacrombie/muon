@@ -635,6 +635,42 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
+cmd_compile(uint32_t argc, uint32_t argi, char *const argv[])
+{
+	const char *filename;
+
+	OPTSTART("") {
+	} OPTEND(argv[argi], " <filename> [args]", "",
+		NULL, -1)
+
+	if (argi >= argc) {
+		LOG_E("missing required filename argument");
+		return false;
+	}
+
+	filename = argv[argi];
+
+#include "lang/compiler.h"
+	struct source src;
+	if (!fs_read_entire_file(filename, &src)) {
+		return false;
+	}
+
+	struct workspace wk;
+	workspace_init(&wk);
+	wk.lang_mode = language_internal;
+
+	obj id;
+	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
+
+#ifndef MUON_BOOTSTRAPPED
+	return false;
+#else
+	return compile(&wk, &src, 0);
+#endif
+}
+
+static bool
 cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
@@ -679,6 +715,7 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson language repl" },
 		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
+		{ "compile", cmd_compile, "" },
 		0,
 	};
 

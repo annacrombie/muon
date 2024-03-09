@@ -12,7 +12,6 @@
 #include "datastructures/hash.h"
 #include "lang/eval.h"
 #include "lang/object.h"
-#include "lang/parser.h"
 #include "lang/string.h"
 
 struct project {
@@ -98,8 +97,15 @@ struct workspace {
 	struct bucket_arr chrs;
 	struct bucket_arr objs;
 	struct bucket_arr dict_elems, dict_hashes;
-	/* struct bucket_arr inst; */
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
+
+	struct {
+		struct arr stack;
+		uint8_t *code;
+		struct source_location *locations;
+		uint32_t nargs;
+		uint32_t ip;
+	} vm;
 
 	struct arr projects;
 	struct arr option_overrides;
