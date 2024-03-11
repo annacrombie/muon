@@ -57,6 +57,13 @@ enum {
 	obj_bool_false = 3,
 };
 
+// TODO: move this!
+struct object_stack {
+	struct bucket_arr ba;
+	obj *page;
+	uint32_t i, bucket;
+};
+
 struct workspace {
 	const char *argv0, *source_root, *build_root, *muon_private;
 
@@ -96,11 +103,11 @@ struct workspace {
 
 	struct bucket_arr chrs;
 	struct bucket_arr objs;
-	struct bucket_arr dict_elems, dict_hashes;
+	struct bucket_arr dict_elems, dict_hashes, iterators;
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 
 	struct {
-		struct arr stack;
+		struct object_stack stack;
 		uint8_t *code;
 		struct source_location *locations;
 		uint32_t nargs;

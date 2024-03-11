@@ -470,6 +470,30 @@ struct obj_source_configuration {
 	obj sources, dependencies;
 };
 
+enum obj_iterator_type {
+	obj_iterator_type_array,
+	obj_iterator_type_dict_small,
+	obj_iterator_type_dict_big,
+	obj_iterator_type_range,
+};
+
+struct range_params {
+	uint32_t start, stop, step;
+};
+
+struct obj_iterator {
+	enum obj_iterator_type type;
+	union {
+		struct obj_array *array;
+		struct obj_dict_elem *dict_small;
+		struct {
+			struct obj_dict *d;
+			uint32_t i;
+		} dict_big;
+		struct range_params range;
+	} data;
+};
+
 /* end of object structs */
 
 struct obj_clear_mark {

@@ -30,6 +30,7 @@ enum node_type {
 	node_type_break,
 	node_type_args,
 	node_type_dict,
+	node_type_array,
 	node_type_list,
 	node_type_kw,
 	node_type_or,
@@ -104,6 +105,7 @@ static const struct parse_rule *parse_rules;
 
 static struct node *parse_prec(struct parser *p, enum parse_precedence prec);
 static struct node *parse_expr(struct parser *p);
+static struct node *parse_block(struct parser *p, enum token_type end);
 
 /*******************************************************************************
  * misc api functions
@@ -125,6 +127,7 @@ node_type_to_s(enum node_type t)
 	nt(args);
 	nt(list);
 	nt(dict);
+	nt(array);
 	nt(kw);
 	nt(or);
 	nt(and);
@@ -263,8 +266,8 @@ parse_advance(struct parser *p)
 	p->previous = p->current;
 	lexer_next(&p->lexer, &p->current);
 
-	LL("previous: %s, current: ", token_to_s(p->wk, &p->previous));
-	printf("%s\n", token_to_s(p->wk, &p->current));
+	/* LL("previous: %s, current: ", token_to_s(p->wk, &p->previous)); */
+	/* printf("%s\n", token_to_s(p->wk, &p->current)); */
 }
 
 static bool
@@ -489,6 +492,12 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 }
 
 static struct node *
+parse_array(struct parser *p)
+{
+	return parse_list(p, node_type_array, ']');
+}
+
+static struct node *
 parse_call(struct parser *p, struct node *l)
 {
 	struct node *n;
@@ -538,7 +547,27 @@ parse_stmt(struct parser *p)
 		{ token_type_identifier, token_type_plus_assign },
 	};
 
-	if (parse_match(p, assign_sequences[0], ARRAY_LEN(assign_sequences[0]))
+	if (parse_accept(p, token_type_foreach)) {
+		n = make_node_t(p, node_type_foreach);
+		n->l = make_node_t(p, node_type_foreach_args);
+
+		parse_expect(p, token_type_identifier);
+		n->l->l = make_node_t(p, node_type_list);
+		n->l->l->l = parse_id(p);
+
+		if (parse_accept(p, ',')) {
+			parse_expect(p, token_type_identifier);
+			n->l->l->r = parse_id(p);
+		}
+
+		parse_expect(p, ':');
+		n->l->r = parse_expr(p);
+
+		parse_expect(p, token_type_eol);
+
+		n->r = parse_block(p, token_type_endforeach);
+		parse_expect(p, token_type_endforeach);
+	} else if (parse_match(p, assign_sequences[0], ARRAY_LEN(assign_sequences[0]))
 		|| parse_match(p, assign_sequences[1], ARRAY_LEN(assign_sequences[1]))) {
 		parse_advance(p);
 
@@ -556,6 +585,36 @@ parse_stmt(struct parser *p)
 	return n;
 }
 
+static struct node *
+parse_block(struct parser *p, enum token_type end)
+{
+	struct node *res, *n;
+
+	res = n = make_node_t(p, node_type_stmt);
+
+	while (true) {
+		while (parse_accept(p, token_type_eol)) {
+		}
+
+		if (p->current.type == end || parse_accept(p, token_type_eof)) {
+			break;
+		}
+
+		n->l = parse_stmt(p);
+
+		while (parse_accept(p, token_type_eol)) {
+		}
+
+		if (p->current.type == end || parse_accept(p, token_type_eof)) {
+			break;
+		}
+
+		n = n->r = make_node_t(p, node_type_stmt);
+	}
+
+	return res;
+}
+
 static const struct parse_rule _parse_rules[] = {
 	[token_type_eol]        = { 0,              0,            0 },
 	[token_type_eof]        = { 0,              0,            0 },
@@ -568,7 +627,7 @@ static const struct parse_rule _parse_rules[] = {
 	[token_type_fstring]    = { parse_fstring,  0,            0 },
 	['(']                   = { parse_grouping, parse_call,   parse_precedence_call },
 	[')']                   = { 0,              0,            0 },
-	['[']                   = { 0,              0,            0 },
+	['[']                   = { parse_array,    0,            0 },
 	[']']                   = { 0,              0,            0 },
 	[',']                   = { 0,              0,            0 },
 	['+']                   = { 0,              parse_binary, parse_precedence_term  },
@@ -578,7 +637,6 @@ static const struct parse_rule _parse_rules[] = {
 static struct node *
 parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes)
 {
-	struct node *n, *res;
 	struct parser _p = {
 		.wk = wk,
 		.nodes = nodes,
@@ -593,157 +651,86 @@ parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes)
 
 	parse_advance(p);
 
-	res = n = make_node_t(p, node_type_stmt);
-
-	while (!parse_accept(p, token_type_eof)) {
-		n->l = parse_stmt(p);
-		n = n->r = make_node_t(p, node_type_stmt);
-	}
-
-	return res;
+	return parse_block(p, token_type_eof);
 }
 
 /******************************************************************************
- * stack
+ * obj stack
  ******************************************************************************/
 
-struct stack_tag;
-typedef void (*stack_print_cb)(void *ctx, void *mem, struct stack_tag *tag);
-
-struct stack {
-	char *mem;
-	uint32_t len, cap;
-
-	const char *name;
-	bool log;
-	stack_print_cb cb;
-	void *ctx;
-};
-
-static struct stack
-stack_init(uint32_t cap, const char *name, bool log, stack_print_cb cb, void *ctx)
-{
-	return (struct stack) {
-		.mem = z_malloc(cap),
-		.cap = cap,
-
-		.name = name,
-		.log = log,
-		.cb = cb,
-		.ctx = ctx,
-	};
-}
-
-struct stack_tag {
-	const char *name;
-	uint32_t size;
+enum {
+	object_stack_page_size = 1024 / sizeof(obj)
 };
 
 static void
-stack_push_raw(struct stack *stack, const void *mem, uint32_t size)
+object_stack_alloc_page(struct object_stack *s)
 {
-	assert(stack->len + size < stack->cap);
-	memcpy(stack->mem + stack->len, mem, size);
-	stack->len += size;
+	bucket_arr_pushn(&s->ba, 0, 0, s->ba.bucket_size);
+	++s->bucket;
+	s->page = (obj *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
+	((struct bucket *)s->ba.buckets.e)[s->bucket].len = object_stack_page_size;
+	s->i = 0;
 }
 
 static void
-stack_pop_raw(struct stack *stack, void *mem, uint32_t size)
+object_stack_init(struct object_stack *s)
 {
-	assert(stack->len >= size);
-	stack->len -= size;
-	memcpy(mem, stack->mem + stack->len, size);
+	bucket_arr_init(&s->ba, object_stack_page_size, sizeof(obj));
+	s->page = (obj *)((struct bucket *)s->ba.buckets.e)[0].mem;
+	((struct bucket *)s->ba.buckets.e)[0].len = object_stack_page_size;
 }
 
 static void
-stack_peek_raw(struct stack *stack, void *mem, uint32_t size, uint32_t *off)
+object_stack_push(struct object_stack *s, obj o)
 {
-	assert(*off >= size);
-	*off -= size;
-	memcpy(mem, stack->mem + *off, size);
-}
-
-static void
-stack_print(struct stack *_stack)
-{
-	struct stack_tag tag;
-	struct stack stack = *_stack;
-	while (stack.len) {
-		stack_pop_raw(&stack, &tag, sizeof(tag));
-		printf("  - %04d - %s", tag.size, tag.name);
-
-		assert(stack.len >= tag.size);
-		stack.len -= tag.size;
-		void *mem = stack.mem + stack.len;
-
-		stack.cb(stack.ctx, mem, &tag);
-
-		printf("\n");
+	if (s->i >= object_stack_page_size) {
+		object_stack_alloc_page(s);
 	}
+
+	s->page[s->i] = o;
+	++s->i;
+	++s->ba.len;
 }
 
-static void
-stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name)
+static obj
+object_stack_pop(struct object_stack *s)
 {
-	stack_push_raw(stack, mem, size);
-	stack_push_raw(stack, &(struct stack_tag) { name, size }, sizeof(struct stack_tag));
-
-	if (stack->log) {
-		L("\033[33mstack\033[0m %s pushed:", stack->name);
-		stack_print(stack);
+	if (!s->i) {
+		assert(s->bucket);
+		--s->bucket;
+		s->page = (obj *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
+		s->i = object_stack_page_size;
 	}
+
+	--s->i;
+	--s->ba.len;
+	return s->page[s->i];
+}
+
+static obj
+object_stack_peek(struct object_stack *s, uint32_t off)
+{
+	return *(obj *)bucket_arr_get(&s->ba, s->ba.len - off);
 }
 
 static void
-stack_pop_sized(struct stack *stack, void *mem, uint32_t size)
+object_stack_discard(struct object_stack *s, uint32_t n)
 {
-	struct stack_tag tag;
-	stack_pop_raw(stack, &tag, sizeof(tag));
+	s->ba.len -= n;
+	s->bucket = s->ba.len / s->ba.bucket_size;
+	s->page = (obj *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
+	s->i = s->ba.len % s->ba.bucket_size;
+}
 
-	assert(size == tag.size);
-
-	stack_pop_raw(stack, mem, size);
-
-	if (stack->log) {
-		L("\033[33mstack\033[0m %s popped:", stack->name);
-		stack_print(stack);
+static void
+object_stack_print(struct object_stack *s)
+{
+	for (int32_t i = s->ba.len - 1; i >= 0; --i) {
+		log_plain("%d|", *(obj *)bucket_arr_get(&s->ba, i));
 	}
+	log_plain("\n");
 }
 
-static void
-stack_peek_sized(struct stack *stack, void *mem, uint32_t size)
-{
-	uint32_t off = stack->len;
-	struct stack_tag tag;
-	stack_peek_raw(stack, &tag, sizeof(tag), &off);
-
-	assert(size == tag.size);
-
-	stack_peek_raw(stack, mem, size, &off);
-}
-
-#define STRINGIZE(x) STRINGIZE2(x)
-#define STRINGIZE2(x) #x
-#define LINE_STRING STRINGIZE(__LINE__)
-
-#define stack_push(__stack, __it) stack_push_sized((__stack), &(__it), (sizeof(__it)),  __FILE__":"LINE_STRING" "#__it)
-#define stack_pop(__stack, __it) stack_pop_sized((__stack), &(__it), (sizeof(__it)))
-#define stack_peek(__stack, __it) stack_peek_sized((__stack), &(__it), (sizeof(__it)))
-
-static void
-stack_print_node_cb(void *ctx, void *mem, struct stack_tag *tag)
-{
-	struct workspace *wk = ctx;
-	printf(" %s", node_to_s(wk, *(struct node **)mem));
-}
-
-static void
-arr_stack_print(struct workspace *wk) {
-	uint32_t i;
-	for (i = 0; i < wk->vm.stack.len; ++i) {
-		printf("%04x %8d\n", i, *(obj *)arr_get(&wk->vm.stack, i));
-	}
-}
 
 /******************************************************************************
  * vm errors
@@ -771,9 +758,6 @@ pop_args(struct workspace *wk,
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[])
 {
-	arr_stack_print(wk);
-
-
 	uint32_t i;
 	for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
 		if (i >= wk->vm.nargs) {
@@ -781,9 +765,10 @@ pop_args(struct workspace *wk,
 			return false;
 		}
 
-		positional_args[i].val = *(obj *)arr_get(&wk->vm.stack, wk->vm.stack.len - wk->vm.nargs + i);
+		positional_args[i].val = object_stack_peek(&wk->vm.stack, wk->vm.nargs - i);
 	}
 
+	object_stack_discard(&wk->vm.stack, wk->vm.nargs);
 	return true;
 }
 
@@ -827,20 +812,26 @@ func_lookup2(const struct func_impl2 *impl_tbl, const struct str *s, uint32_t *i
 
 	return false;
 }
-
 /******************************************************************************
  * compiler
  ******************************************************************************/
 
+struct source_location_mapping {
+	struct source_location location;
+	uint32_t inst;
+};
+
 struct compiler_state {
 	struct bucket_arr nodes;
+	struct arr node_stack;
 	struct arr locations;
 	struct arr code;
 	struct workspace *wk;
 };
 
-enum ops {
+enum op {
 	op_constant = 1,
+	op_constant_list,
 	op_add,
 	op_sub,
 	op_mul,
@@ -850,6 +841,11 @@ enum ops {
 	op_return,
 	op_call,
 	op_call_native,
+	op_iterator,
+	op_iterator_next,
+	op_jmp_if_null,
+	op_jmp,
+	op_pop,
 };
 
 static obj
@@ -860,14 +856,21 @@ vm_get_constant(struct workspace *wk, uint8_t *code, uint32_t *ip)
 	return r;
 }
 
-static const char*
-vm_dis(struct workspace *wk, uint8_t *code, uint32_t ip)
+struct vm_dis_result
+{
+	const char *text;
+	uint32_t inst_len;
+};
+
+static struct vm_dis_result
+vm_dis(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 {
 	uint32_t i = 0;
 	static char buf[2048];
 #define buf_push(...) i += snprintf(&buf[i], sizeof(buf) - i, __VA_ARGS__);
-#define op_case(__op) case __op: buf_push(#__op ":");
+#define op_case(__op) case __op: buf_push(#__op);
 
+	uint32_t ip = base_ip;
 	buf_push("%04x ", ip);
 
 	switch (code[ip++]) {
@@ -876,17 +879,36 @@ vm_dis(struct workspace *wk, uint8_t *code, uint32_t ip)
 	op_case(op_return)
 		break;
 	op_case(op_store)
+		buf_push(":%s", get_str(wk, vm_get_constant(wk, code, &ip))->s);
+		break;
+	op_case(op_load)
+		buf_push(":%s", get_str(wk, vm_get_constant(wk, code, &ip))->s);
 		break;
 	op_case(op_constant)
-		buf_push("%d", vm_get_constant(wk, code, &ip));
+		buf_push(":%d", vm_get_constant(wk, code, &ip));
+		break;
+	op_case(op_constant_list)
+		buf_push(":%d", vm_get_constant(wk, code, &ip));
 		break;
 	op_case(op_call)
-		buf_push("%d", vm_get_constant(wk, code, &ip));
+		buf_push(":%d", vm_get_constant(wk, code, &ip));
 		break;
 	op_case(op_call_native)
-		buf_push("%d", vm_get_constant(wk, code, &ip));
+		buf_push(":%d", vm_get_constant(wk, code, &ip));
 		uint32_t id = vm_get_constant(wk, code, &ip);
 		buf_push(",%s", kernel_func_tbl2[language_internal][id].name);
+		break;
+	op_case(op_iterator)
+		break;
+	op_case(op_iterator_next)
+		break;
+	op_case(op_jmp_if_null)
+		buf_push(":%04x", vm_get_constant(wk, code, &ip));
+		break;
+	op_case(op_jmp)
+		buf_push(":%04x", vm_get_constant(wk, code, &ip));
+		break;
+	op_case(op_pop)
 		break;
 	default:
 		buf_push("unknown: %d", code[ip - 1]);
@@ -894,7 +916,7 @@ vm_dis(struct workspace *wk, uint8_t *code, uint32_t ip)
 
 #undef buf_push
 
-	return buf;
+	return (struct vm_dis_result){ buf, ip - base_ip };
 }
 
 static void
@@ -904,27 +926,46 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 	wk->vm.locations = (struct source_location *)locations->e;
 	obj a, b;
 
-	arr_init(&wk->vm.stack, 4096, sizeof(obj));
+	object_stack_init(&wk->vm.stack);
+
+	L("---");
+	for (uint32_t i = 0; i < _code->len;) {
+		struct vm_dis_result dis = vm_dis(wk, wk->vm.code, i);
+		L("%s", dis.text);
+		i += dis.inst_len;
+	}
+	L("---");
 
 	while (wk->vm.ip < _code->len) {
-		L("%s", vm_dis(wk, wk->vm.code, wk->vm.ip));
+		LL("%-50s", vm_dis(wk, wk->vm.code, wk->vm.ip).text);
+		object_stack_print(&wk->vm.stack);
 
 		switch (wk->vm.code[wk->vm.ip++]) {
 		case op_constant:
 			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
-			arr_push(&wk->vm.stack, &a);
+			object_stack_push(&wk->vm.stack, a);
 			break;
+		case op_constant_list: {
+			uint32_t len = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			make_obj(wk, &b, obj_array);
+			for (uint32_t i = 0; i < len; ++i) {
+				obj_array_push(wk, b, object_stack_peek(&wk->vm.stack, len - i));
+			}
+
+			object_stack_discard(&wk->vm.stack, len);
+			object_stack_push(&wk->vm.stack, b);
+			break;
+		}
 		case op_add:
-			arr_pop(&wk->vm.stack, &b);
-			arr_pop(&wk->vm.stack, &a);
-			uint32_t res = get_obj_number(wk, b) + get_obj_number(wk, a);
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
 			make_obj(wk, &a, obj_number);
-			set_obj_number(wk, a, res);
-			arr_push(&wk->vm.stack, &a);
+			set_obj_number(wk, a, get_obj_number(wk, b) + get_obj_number(wk, a));
+			object_stack_push(&wk->vm.stack, a);
 			break;
 		case op_store:
-			arr_pop(&wk->vm.stack, &b);
-			arr_pop(&wk->vm.stack, &a);
+			b = object_stack_peek(&wk->vm.stack, 1);
+			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
 			wk->assign_variable(wk, get_str(wk, a)->s, b, 0, assign_local);
 			/* LO("%o, %o\n", a, b); */
 			break;
@@ -938,21 +979,77 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 				wk->vm.ip = _code->len;
 			}
 
-			arr_push(&wk->vm.stack, &b);
+			object_stack_push(&wk->vm.stack, b);
 			break;
 		case op_call:
 			wk->vm.nargs = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
-			L("%d", a);
 			break;
 		case op_call_native:
 			wk->vm.nargs = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
 			b = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
-			L("%d, %d", a, b);
-			obj id;
-			kernel_func_tbl2[language_internal][b].func(wk, 0, &id);
-			if (id) {
-				arr_push(&wk->vm.stack, &id);
+			kernel_func_tbl2[language_internal][b].func(wk, 0, &a);
+			object_stack_push(&wk->vm.stack, a);
+			break;
+		case op_iterator: {
+			obj iter;
+			struct obj_iterator *iterator;
+
+			a = object_stack_pop(&wk->vm.stack);
+
+			iter = wk->iterators.len;
+			object_stack_push(&wk->vm.stack, iter);
+			iterator = bucket_arr_push(&wk->iterators, &(struct obj_iterator) { 0 });
+
+			switch (get_obj_type(wk, a)) {
+			case obj_array:
+				iterator->type = obj_iterator_type_array;
+				iterator->data.array = get_obj_array(wk, a);
+				if (!iterator->data.array->len) {
+					// TODO: update this when we implement array_elem
+					iterator->data.array = 0;
+				}
+				break;
+			default:
+				vm_error(wk, "bad iterator type");
+				return;
 			}
+			break;
+		}
+		case op_iterator_next: {
+			struct obj_iterator *iterator;
+			a = object_stack_peek(&wk->vm.stack, 1);
+			iterator = bucket_arr_get(&wk->iterators, a);
+
+			switch (iterator->type) {
+			case obj_iterator_type_array:
+				if (!iterator->data.array) {
+					b = 0;
+				} else {
+					b = iterator->data.array->val;
+					iterator->data.array = iterator->data.array->have_next ? get_obj_array(wk, iterator->data.array->next) : 0;
+				}
+
+				object_stack_push(&wk->vm.stack, b);
+				break;
+			default:
+				UNREACHABLE;
+			}
+			break;
+		}
+		case op_pop:
+			a = object_stack_pop(&wk->vm.stack);
+			break;
+		case op_jmp_if_null:
+			a = object_stack_peek(&wk->vm.stack, 1);
+			b = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			if (!a) {
+				object_stack_discard(&wk->vm.stack, 1);
+				wk->vm.ip = b;
+			}
+			break;
+		case op_jmp:
+			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			wk->vm.ip = a;
 			break;
 		case op_return:
 			wk->vm.ip = _code->len;
@@ -974,12 +1071,23 @@ push_code(struct compiler_state *c, struct node *n, uint8_t b)
 }
 
 static void
+push_constant_at(obj v, uint8_t *code)
+{
+	code[0] = (v >> 16) & 0xff;
+	code[1] = (v >> 8) & 0xff;
+	code[2] = v & 0xff;
+}
+
+static void
 push_constant(struct compiler_state *c, struct node *n, obj v)
 {
 	push_code(c, n, (v >> 16) & 0xff);
 	push_code(c, n, (v >> 8) & 0xff);
 	push_code(c, n, v & 0xff);
 }
+
+static void compile_block(struct compiler_state *c, struct node *n);
+static void compile_expr(struct compiler_state *c, struct node *n);
 
 static void
 comp_node(struct compiler_state *c, struct node *n)
@@ -1011,9 +1119,12 @@ comp_node(struct compiler_state *c, struct node *n)
 		break;
 	case node_type_assign:
 		push_code(c, n, op_store);
+		push_constant(c, n, n->l->data.str);
 		break;
-	/* case node_type_args: */
-	/* 	break; */
+	case node_type_array:
+		push_code(c, n, op_constant_list);
+		push_constant(c, n, n->data.num);
+		break;
 	case node_type_call: {
 		bool native = false;
 		uint32_t idx;
@@ -1036,43 +1147,93 @@ comp_node(struct compiler_state *c, struct node *n)
 		}
 		break;
 	}
+	case node_type_foreach: {
+		uint32_t initial_jump, loop_body_start;
+		struct node *ida = n->l->l->l; //, *idb = n->l->l->r;
+
+		compile_expr(c, n->l->r);
+		push_code(c, n, op_iterator);
+
+		loop_body_start = c->code.len;
+
+		push_code(c, n, op_iterator_next);
+		push_code(c, n, op_jmp_if_null);
+		initial_jump = c->code.len;
+		push_constant(c, n, 0);
+
+		push_code(c, n, op_store);
+		push_constant(c, n, ida->data.str);
+		push_code(c, n, op_pop);
+
+		compile_block(c, n->r);
+
+		push_code(c, n, op_jmp);
+		push_constant(c, n, loop_body_start);
+		push_constant_at(c->code.len, arr_get(&c->code, initial_jump));
+		break;
+	}
 	default:
 		L("skipping %s", node_to_s(c->wk, n));
+	}
+}
+
+static void
+compile_expr(struct compiler_state *c, struct node *n)
+{
+	struct node *peek, *prev = 0;
+
+	print_ast(c->wk, n);
+
+	uint32_t stack_base = c->node_stack.len;
+
+	while (c->node_stack.len > stack_base || n) {
+		if (n) {
+			if (n->type == node_type_foreach) {
+				comp_node(c, n);
+				n = 0;
+			} else {
+				arr_push(&c->node_stack, &n);
+				n = n->l;
+			}
+		} else {
+			peek = *(struct node **)arr_get(&c->node_stack, c->node_stack.len - 1);
+			if (peek->r && prev != peek->r) {
+				n = peek->r;
+			} else {
+				comp_node(c, peek);
+				arr_pop(&c->node_stack, &prev);
+			}
+		}
+	}
+}
+
+static void
+compile_block(struct compiler_state *c, struct node *n)
+{
+	while (n) {
+		assert(n->type == node_type_stmt);
+		compile_expr(c, n->l);
+		push_code(c, n, op_pop);
+		n = n->r;
 	}
 }
 
 bool
 compile(struct workspace *wk, struct source *src, uint32_t flags)
 {
-	struct node *n, *prev = 0, *peek;
+	struct node *n;
 	struct compiler_state _c = { .wk = wk, }, *c = &_c;
-	struct stack stack;
 
-	stack = stack_init(4096, "", 0, stack_print_node_cb, wk);
+	arr_init(&c->node_stack, 4096, sizeof(struct node *));
 	bucket_arr_init(&c->nodes, 2048, sizeof(struct node));
-	arr_init(&c->code, 8 + 1024, 1);
-	arr_init(&c->locations, 8 + 1024, sizeof(struct source_location));
+	arr_init(&c->code, 4 * 1024, 1);
+	arr_init(&c->locations, 1024, sizeof(struct source_location_mapping));
 
 	if (!(n = parse(wk, src, &c->nodes))) {
 		return false;
 	}
 
-	print_ast(wk, n);
-
-	while (stack.len || n) {
-		if (n) {
-			stack_push(&stack, n);
-			n = n->l;
-		} else {
-			stack_peek(&stack, peek);
-			if (peek->r && prev != peek->r) {
-				n = peek->r;
-			} else {
-				comp_node(c, peek);
-				stack_pop(&stack, prev);
-			}
-		}
-	}
+	compile_block(c, n);
 	push_code(c, 0, op_return);
 
 	wk->src = src;
