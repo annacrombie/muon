@@ -67,6 +67,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_typeinfo:
 	case obj_source_set:
 	case obj_source_configuration:
+	case obj_iterator:
 	case obj_func:
 		return bucket_arr_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
 
@@ -194,6 +195,7 @@ OBJ_GETTER(obj_typeinfo)
 OBJ_GETTER(obj_func)
 OBJ_GETTER(obj_source_set)
 OBJ_GETTER(obj_source_configuration)
+OBJ_GETTER(obj_iterator)
 
 #undef OBJ_GETTER
 
@@ -239,6 +241,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_both_libs:
 	case obj_source_set:
 	case obj_source_configuration:
+	case obj_iterator:
 	case obj_typeinfo:
 	case obj_func:
 	{
@@ -348,6 +351,7 @@ static struct
 	{ .t = obj_func, .name = "func" },
 	{ .t = obj_source_set, .name = "source_set" },
 	{ .t = obj_source_configuration, .name = "source_configuration" },
+	{ .t = obj_iterator, .name = "iterator" },
 };
 
 const char *

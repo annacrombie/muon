@@ -70,8 +70,9 @@ enum complex_type {
 #define tc_both_libs            (obj_typechecking_type_tag | (((type_tag)1) << 28))
 #define tc_source_set           (obj_typechecking_type_tag | (((type_tag)1) << 29))
 #define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 30))
-#define tc_func                 (obj_typechecking_type_tag | (((type_tag)1) << 31))
-#define tc_type_count         32
+#define tc_iterator             (obj_typechecking_type_tag | (((type_tag)1) << 31))
+#define tc_func                 (obj_typechecking_type_tag | (((type_tag)1) << 32))
+#define tc_type_count         33
 
 #define tc_any                (tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict \
 			       | tc_compiler | tc_build_target | tc_custom_target \
@@ -81,7 +82,9 @@ enum complex_type {
 			       | tc_install_target | tc_environment | tc_include_directory \
 			       | tc_option | tc_generator | tc_generated_list \
 			       | tc_alias_target | tc_both_libs | tc_disabler \
-			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration | tc_func)
+			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration | tc_func \
+			       | tc_iterator \
+			       )
 
 #define tc_exe                (tc_string | tc_file | tc_external_program | tc_python_installation \
 			       | tc_build_target | tc_custom_target | tc_both_libs)

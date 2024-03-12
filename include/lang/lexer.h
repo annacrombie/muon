@@ -63,6 +63,7 @@ enum token_type {
 	token_type_foreach,
 	token_type_endforeach,
 	token_type_in,
+	token_type_not_in,
 	token_type_continue,
 	token_type_break,
 

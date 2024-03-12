@@ -66,6 +66,7 @@ enum obj_type {
 	obj_both_libs,
 	obj_source_set,
 	obj_source_configuration,
+	obj_iterator,
 
 	/* muon-specific objects */
 	obj_func,
@@ -545,6 +546,7 @@ OBJ_GETTER(obj_typeinfo);
 OBJ_GETTER(obj_func);
 OBJ_GETTER(obj_source_set);
 OBJ_GETTER(obj_source_configuration);
+OBJ_GETTER(obj_iterator);
 
 #undef OBJ_GETTER
 

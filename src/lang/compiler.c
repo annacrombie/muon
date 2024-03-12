@@ -35,11 +35,19 @@ enum node_type {
 	node_type_kw,
 	node_type_or,
 	node_type_and,
-	node_type_comparison,
+	node_type_eq,
+	node_type_neq,
+	node_type_lt,
+	node_type_leq,
+	node_type_gt,
+	node_type_geq,
+	node_type_in,
+	node_type_not_in,
 	node_type_add,
 	node_type_sub,
 	node_type_div,
 	node_type_mul,
+	node_type_mod,
 	node_type_not,
 	node_type_index,
 	node_type_method,
@@ -49,7 +57,7 @@ enum node_type {
 	node_type_foreach,
 	node_type_foreach_args,
 	node_type_if,
-	node_type_u_minus,
+	node_type_negate,
 	node_type_ternary,
 	node_type_stringify,
 	node_type_func_def,
@@ -105,7 +113,7 @@ static const struct parse_rule *parse_rules;
 
 static struct node *parse_prec(struct parser *p, enum parse_precedence prec);
 static struct node *parse_expr(struct parser *p);
-static struct node *parse_block(struct parser *p, enum token_type end);
+static struct node *parse_block(struct parser *p, enum token_type types[], uint32_t types_len);
 
 /*******************************************************************************
  * misc api functions
@@ -131,11 +139,19 @@ node_type_to_s(enum node_type t)
 	nt(kw);
 	nt(or);
 	nt(and);
-	nt(comparison);
+	nt(in);
+	nt(not_in);
+	nt(eq);
+	nt(neq);
+	nt(lt);
+	nt(leq);
+	nt(gt);
+	nt(geq);
 	nt(add);
 	nt(sub);
 	nt(div);
 	nt(mul);
+	nt(mod);
 	nt(not);
 	nt(index);
 	nt(method);
@@ -145,7 +161,7 @@ node_type_to_s(enum node_type t)
 	nt(foreach_args);
 	nt(foreach);
 	nt(if);
-	nt(u_minus);
+	nt(negate);
 	nt(ternary);
 	nt(stmt);
 	nt(stringify);
@@ -170,12 +186,12 @@ node_to_s(struct workspace *wk, const void *_n)
 
 	switch (n->type) {
 	case node_type_id:
-		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%s", get_cstr(wk, n->data.str));
-		break;
+	case node_type_id_lit:
 	case node_type_string:
 		i += obj_snprintf(wk, &buf[i], BUF_SIZE_S - i, ":%o", n->data.str);
 		break;
 	case node_type_number:
+	case node_type_bool:
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%" PRId64, n->data.num);
 		break;
 	default:
@@ -265,6 +281,16 @@ parse_advance(struct parser *p)
 {
 	p->previous = p->current;
 	lexer_next(&p->lexer, &p->current);
+
+	if (p->current.type == token_type_not) {
+		struct lexer lexer_peek = p->lexer;
+		struct token next;
+		lexer_next(&lexer_peek, &next);
+		if (next.type == token_type_in) {
+			p->current.type = token_type_not_in;
+			p->lexer = lexer_peek;
+		}
+	}
 
 	/* LL("previous: %s, current: ", token_to_s(p->wk, &p->previous)); */
 	/* printf("%s\n", token_to_s(p->wk, &p->current)); */
@@ -388,6 +414,14 @@ parse_string(struct parser *p)
 }
 
 static struct node *
+parse_bool(struct parser *p)
+{
+	struct node *n = make_node_t(p, node_type_bool);
+	n->data.num = p->previous.type == token_type_true;
+	return n;
+}
+
+static struct node *
 parse_fstring(struct parser *p)
 {
 	uint32_t i, j;
@@ -446,9 +480,21 @@ parse_binary(struct parser *p, struct node *l)
 	r = parse_prec(p, parse_rules[prev].precedence + 1);
 
 	switch (prev) {
-	case '+':
-		t = node_type_add;
-		break;
+	case '+': t = node_type_add; break;
+	case '-': t = node_type_sub; break;
+	case '/': t = node_type_div; break;
+	case '*': t = node_type_mul; break;
+	case '%': t = node_type_mod; break;
+	case '<': t = node_type_lt; break;
+	case '>': t = node_type_gt; break;
+	case token_type_eq: t = node_type_eq; break;
+	case token_type_neq: t = node_type_neq; break;
+	case token_type_leq: t = node_type_leq; break;
+	case token_type_geq: t = node_type_geq; break;
+	case token_type_or: t = node_type_or; break;
+	case token_type_and: t = node_type_and; break;
+	case token_type_in: t = node_type_in; break;
+	case token_type_not_in: t = node_type_not_in; break;
 	default:
 		UNREACHABLE;
 	}
@@ -456,6 +502,15 @@ parse_binary(struct parser *p, struct node *l)
 	n = make_node_t(p, t);
 	n->l = l;
 	n->r = r;
+	return n;
+}
+
+static struct node *
+parse_unary(struct parser *p)
+{
+	struct node *n;
+	n = make_node_t(p, node_type_negate);
+	n->l = parse_prec(p, parse_precedence_unary);
 	return n;
 }
 
@@ -512,6 +567,21 @@ parse_call(struct parser *p, struct node *l)
 }
 
 static struct node *
+parse_method(struct parser *p, struct node *l)
+{
+	struct node *n;
+	n = make_node_t(p, node_type_method);
+	n->l = l;
+
+	parse_expect(p, token_type_identifier);
+	struct node *id = parse_id(p);
+
+	parse_expect(p, '(');
+	n->r = parse_call(p, id);
+	return n;
+}
+
+static struct node *
 parse_expr(struct parser *p)
 {
 	return parse_prec(p, parse_precedence_assignment);
@@ -547,7 +617,25 @@ parse_stmt(struct parser *p)
 		{ token_type_identifier, token_type_plus_assign },
 	};
 
-	if (parse_accept(p, token_type_foreach)) {
+	if (parse_accept(p, token_type_if)) {
+		struct node *parent;
+		parent = n = make_node_t(p, node_type_if);
+		while (true) {
+			n->l = make_node_t(p, node_type_list);
+			n->l->l = p->previous.type == token_type_else ? 0 : parse_expr(p);
+			parse_expect(p, token_type_eol);
+			n->l->r = parse_block(p, (enum token_type[]){token_type_elif, token_type_else, token_type_endif}, 3);
+
+			if (!(parse_accept(p, token_type_elif) || parse_accept(p, token_type_else))) {
+				break;
+			}
+
+			n = n->r = make_node_t(p, node_type_if);
+		}
+
+		parse_expect(p, token_type_endif);
+		n = parent;
+	} else if (parse_accept(p, token_type_foreach)) {
 		n = make_node_t(p, node_type_foreach);
 		n->l = make_node_t(p, node_type_foreach_args);
 
@@ -565,7 +653,7 @@ parse_stmt(struct parser *p)
 
 		parse_expect(p, token_type_eol);
 
-		n->r = parse_block(p, token_type_endforeach);
+		n->r = parse_block(p, (enum token_type[]){token_type_endforeach}, 1);
 		parse_expect(p, token_type_endforeach);
 	} else if (parse_match(p, assign_sequences[0], ARRAY_LEN(assign_sequences[0]))
 		|| parse_match(p, assign_sequences[1], ARRAY_LEN(assign_sequences[1]))) {
@@ -585,27 +673,37 @@ parse_stmt(struct parser *p)
 	return n;
 }
 
+static bool
+parse_block_skip_eol_and_check_terminator(struct parser *p, enum token_type types[], uint32_t types_len)
+{
+	while (parse_accept(p, token_type_eol)) {
+	}
+
+	uint32_t i;
+	for (i = 0; i < types_len; ++i) {
+		if (p->current.type == types[i]) {
+			return true;
+		}
+	}
+
+	return  parse_accept(p, token_type_eof);
+}
+
 static struct node *
-parse_block(struct parser *p, enum token_type end)
+parse_block(struct parser *p, enum token_type types[], uint32_t types_len)
 {
 	struct node *res, *n;
 
 	res = n = make_node_t(p, node_type_stmt);
 
 	while (true) {
-		while (parse_accept(p, token_type_eol)) {
-		}
-
-		if (p->current.type == end || parse_accept(p, token_type_eof)) {
+		if (parse_block_skip_eol_and_check_terminator(p, types, types_len)) {
 			break;
 		}
 
 		n->l = parse_stmt(p);
 
-		while (parse_accept(p, token_type_eol)) {
-		}
-
-		if (p->current.type == end || parse_accept(p, token_type_eof)) {
+		if (parse_block_skip_eol_and_check_terminator(p, types, types_len)) {
 			break;
 		}
 
@@ -616,22 +714,28 @@ parse_block(struct parser *p, enum token_type end)
 }
 
 static const struct parse_rule _parse_rules[] = {
-	[token_type_eol]        = { 0,              0,            0 },
-	[token_type_eof]        = { 0,              0,            0 },
-	[token_type_if]         = { 0,              0,            0 },
-	[token_type_else]       = { 0,              0,            0 },
-	[token_type_elif]       = { 0,              0,            0 },
-	[token_type_number]     = { parse_number,   0,            0 },
-	[token_type_identifier] = { parse_id,       0,            0 },
-	[token_type_string]     = { parse_string,   0,            0 },
-	[token_type_fstring]    = { parse_fstring,  0,            0 },
-	['(']                   = { parse_grouping, parse_call,   parse_precedence_call },
-	[')']                   = { 0,              0,            0 },
-	['[']                   = { parse_array,    0,            0 },
-	[']']                   = { 0,              0,            0 },
-	[',']                   = { 0,              0,            0 },
-	['+']                   = { 0,              parse_binary, parse_precedence_term  },
-	['=']                   = { 0,              0,            0 },
+	[token_type_number]     = { parse_number,   0,            0                           },
+	[token_type_identifier] = { parse_id,       0,            0                           },
+	[token_type_string]     = { parse_string,   0,            0                           },
+	[token_type_fstring]    = { parse_fstring,  0,            0                           },
+	[token_type_true]       = { parse_bool,     0,            0                           },
+	[token_type_false]      = { parse_bool,     0,            0                           },
+	['(']                   = { parse_grouping, parse_call,   parse_precedence_call       },
+	['[']                   = { parse_array,    0,            0                           },
+	['+']                   = { 0,              parse_binary, parse_precedence_term       },
+	['-']                   = { parse_unary,    parse_binary, parse_precedence_term       },
+	['*']                   = { 0,              parse_binary, parse_precedence_factor     },
+	['/']                   = { 0,              parse_binary, parse_precedence_factor     },
+	['<']                   = { 0,              parse_binary, parse_precedence_comparison },
+	['>']                   = { 0,              parse_binary, parse_precedence_comparison },
+	[token_type_leq]        = { 0,              parse_binary, parse_precedence_comparison },
+	[token_type_geq]        = { 0,              parse_binary, parse_precedence_comparison },
+	[token_type_or]         = { 0,              parse_binary, parse_precedence_or         },
+	[token_type_and]        = { 0,              parse_binary, parse_precedence_and        },
+	[token_type_eq]         = { 0,              parse_binary, parse_precedence_equality   },
+	[token_type_neq]        = { 0,              parse_binary, parse_precedence_equality   },
+	[token_type_in]         = { 0,              parse_binary, parse_precedence_equality   },
+	['.']                   = { 0,              parse_method, parse_precedence_call       },
 };
 
 static struct node *
@@ -651,7 +755,7 @@ parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes)
 
 	parse_advance(p);
 
-	return parse_block(p, token_type_eof);
+	return parse_block(p, (enum token_type[]){token_type_eof}, 1);
 }
 
 /******************************************************************************
@@ -780,9 +884,69 @@ func_p2(struct workspace *wk, obj rcvr, obj *res)
 		return false;
 	}
 
-	LO("p: %o\n", an[0].val);
+	obj_fprintf(wk, log_file(), "%o\n", an[0].val);
+	*res = an[0].val;
 	return true;
 }
+
+bool
+vm_rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_t n)
+{
+	if (n < min || n > max) {
+		vm_error(wk, "number %" PRId64 " out of bounds (%" PRId64 ", %" PRId64 ")", n, min, max);
+		return false;
+	}
+
+	return true;
+}
+
+
+static bool
+func_range(struct workspace *wk, obj _, obj *res)
+{
+	struct range_params params;
+	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
+	struct args_norm ao[] = { { obj_number }, { obj_number }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, ao, 0)) {
+		return false;
+	}
+
+	int64_t n = get_obj_number(wk, an[0].val);
+	if (!vm_rangecheck(wk, an[0].node, 0, UINT32_MAX, n)) {
+		return false;
+	}
+	params.start = n;
+
+	if (ao[0].set) {
+		int64_t n = get_obj_number(wk, ao[0].val);
+		if (!vm_rangecheck(wk, ao[0].node, params.start, UINT32_MAX, n)) {
+			return false;
+		}
+
+		params.stop = n;
+	} else {
+		params.stop = params.start;
+		params.start = 0;
+	}
+
+	if (ao[1].set) {
+		int64_t n = get_obj_number(wk, ao[1].val);
+		if (!vm_rangecheck(wk, ao[1].node, 1, UINT32_MAX, n)) {
+			return false;
+		}
+		params.step = n;
+	} else {
+		params.step = 1;
+	}
+
+	make_obj(wk, res, obj_iterator);
+	struct obj_iterator *iter = get_obj_iterator(wk, *res);
+	iter->type = obj_iterator_type_range;
+	iter->data.range = params;
+
+	return true;
+}
+
 
 typedef bool (*func_impl2)(struct workspace *wk, obj rcvr, obj *res);
 
@@ -793,6 +957,7 @@ struct func_impl2 {
 
 const struct func_impl2 kernel_func_tbl2[][language_mode_count] = { [language_internal] = {
 	{ "p", func_p2 },
+	{ "range", func_range },
 }};
 
 static bool
@@ -816,14 +981,10 @@ func_lookup2(const struct func_impl2 *impl_tbl, const struct str *s, uint32_t *i
  * compiler
  ******************************************************************************/
 
-struct source_location_mapping {
-	struct source_location location;
-	uint32_t inst;
-};
-
 struct compiler_state {
 	struct bucket_arr nodes;
 	struct arr node_stack;
+	struct arr jmp_stack;
 	struct arr locations;
 	struct arr code;
 	struct workspace *wk;
@@ -836,6 +997,15 @@ enum op {
 	op_sub,
 	op_mul,
 	op_div,
+	op_eq,
+	op_neq,
+	op_in,
+	op_not_in,
+	op_gt,
+	op_lt,
+	op_leq,
+	op_geq,
+	op_negate,
 	op_store,
 	op_load,
 	op_return,
@@ -844,6 +1014,7 @@ enum op {
 	op_iterator,
 	op_iterator_next,
 	op_jmp_if_null,
+	op_jmp_if_false,
 	op_jmp,
 	op_pop,
 };
@@ -905,10 +1076,15 @@ vm_dis(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_jmp_if_null)
 		buf_push(":%04x", vm_get_constant(wk, code, &ip));
 		break;
+	op_case(op_jmp_if_false)
+		buf_push(":%04x", vm_get_constant(wk, code, &ip));
+		break;
 	op_case(op_jmp)
 		buf_push(":%04x", vm_get_constant(wk, code, &ip));
 		break;
 	op_case(op_pop)
+		break;
+	op_case(op_eq)
 		break;
 	default:
 		buf_push("unknown: %d", code[ip - 1]);
@@ -959,15 +1135,48 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 		case op_add:
 			b = object_stack_pop(&wk->vm.stack);
 			a = object_stack_pop(&wk->vm.stack);
-			make_obj(wk, &a, obj_number);
-			set_obj_number(wk, a, get_obj_number(wk, b) + get_obj_number(wk, a));
+			struct obj_internal *oa = bucket_arr_get(&wk->objs, a),
+					    *ob = bucket_arr_get(&wk->objs, b);
+
+			if (!(oa->t == obj_array || oa->t == ob->t)) {
+				goto op_add_type_err;
+			}
+
+			obj res;
+
+			switch (oa->t) {
+			case obj_number:
+				make_obj(wk, &res, obj_number);
+				int64_t *ia = bucket_arr_get(&wk->obj_aos[obj_number - _obj_aos_start], oa->val),
+					*ib = bucket_arr_get(&wk->obj_aos[obj_number - _obj_aos_start], ob->val);
+				set_obj_number(wk, res, *ia + *ib);
+				break;
+			default:
+op_add_type_err:
+				vm_error(wk, "unable to add!");
+				res = 0;
+				break;
+			}
+
+			object_stack_push(&wk->vm.stack, res);
+			break;
+		case op_sub:
+			break;
+		case op_mul:
+			break;
+		case op_div:
+			break;
+		case op_eq:
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			a = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
 			object_stack_push(&wk->vm.stack, a);
 			break;
 		case op_store:
 			b = object_stack_peek(&wk->vm.stack, 1);
 			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
 			wk->assign_variable(wk, get_str(wk, a)->s, b, 0, assign_local);
-			/* LO("%o, %o\n", a, b); */
+			LO("%o <= %o\n", a, b);
 			break;
 		case op_load:
 			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
@@ -979,6 +1188,7 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 				wk->vm.ip = _code->len;
 			}
 
+			LO("%o <= %o\n", b, a);
 			object_stack_push(&wk->vm.stack, b);
 			break;
 		case op_call:
@@ -995,10 +1205,17 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 			struct obj_iterator *iterator;
 
 			a = object_stack_pop(&wk->vm.stack);
+			enum obj_type a_type = get_obj_type(wk, a);
 
-			iter = wk->iterators.len;
+			if (a_type == obj_iterator) {
+				// already an iterator!
+				object_stack_push(&wk->vm.stack, a);
+				break;
+			}
+
+			make_obj(wk, &iter, obj_iterator);
 			object_stack_push(&wk->vm.stack, iter);
-			iterator = bucket_arr_push(&wk->iterators, &(struct obj_iterator) { 0 });
+			iterator = get_obj_iterator(wk, iter);
 
 			switch (get_obj_type(wk, a)) {
 			case obj_array:
@@ -1017,8 +1234,7 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 		}
 		case op_iterator_next: {
 			struct obj_iterator *iterator;
-			a = object_stack_peek(&wk->vm.stack, 1);
-			iterator = bucket_arr_get(&wk->iterators, a);
+			iterator = get_obj_iterator(wk, object_stack_peek(&wk->vm.stack, 1));
 
 			switch (iterator->type) {
 			case obj_iterator_type_array:
@@ -1028,12 +1244,21 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 					b = iterator->data.array->val;
 					iterator->data.array = iterator->data.array->have_next ? get_obj_array(wk, iterator->data.array->next) : 0;
 				}
-
-				object_stack_push(&wk->vm.stack, b);
+				break;
+			case obj_iterator_type_range:
+				if (iterator->data.range.start >= iterator->data.range.stop) {
+					b = 0;
+				} else {
+					make_obj(wk, &b, obj_number);
+					set_obj_number(wk, b, iterator->data.range.start);
+					iterator->data.range.start += iterator->data.range.step;
+				}
 				break;
 			default:
 				UNREACHABLE;
 			}
+
+			object_stack_push(&wk->vm.stack, b);
 			break;
 		}
 		case op_pop:
@@ -1044,6 +1269,13 @@ vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
 			b = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
 			if (!a) {
 				object_stack_discard(&wk->vm.stack, 1);
+				wk->vm.ip = b;
+			}
+			break;
+		case op_jmp_if_false:
+			a = object_stack_pop(&wk->vm.stack);
+			b = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			if (!get_obj_bool(wk, a)) {
 				wk->vm.ip = b;
 			}
 			break;
@@ -1092,8 +1324,22 @@ static void compile_expr(struct compiler_state *c, struct node *n);
 static void
 comp_node(struct compiler_state *c, struct node *n)
 {
+	assert(n->type != node_type_stmt);
+
 	/* L("%s", node_to_s(c->wk, n)); */
 	switch (n->type) {
+	case node_type_add: push_code(c, n, op_add); break;
+	case node_type_sub: push_code(c, n, op_sub); break;
+	case node_type_mul: push_code(c, n, op_mul); break;
+	case node_type_div: push_code(c, n, op_div); break;
+	case node_type_eq: push_code(c, n, op_eq); break;
+	case node_type_neq: push_code(c, n, op_neq); break;
+	case node_type_in: push_code(c, n, op_in); break;
+	case node_type_not_in: push_code(c, n, op_not_in); break;
+	case node_type_lt: push_code(c, n, op_lt); break;
+	case node_type_gt: push_code(c, n, op_gt); break;
+	case node_type_leq: push_code(c, n, op_leq); break;
+	case node_type_geq: push_code(c, n, op_geq); break;
 	case node_type_id:
 		push_code(c, n, op_load);
 		push_constant(c, n, n->data.str);
@@ -1105,17 +1351,9 @@ comp_node(struct compiler_state *c, struct node *n)
 		set_obj_number(c->wk, o, n->data.num);
 		push_constant(c, n, o);
 		break;
-	case node_type_add:
-		push_code(c, n, op_add);
-		break;
-	case node_type_sub:
-		push_code(c, n, op_sub);
-		break;
-	case node_type_mul:
-		push_code(c, n, op_mul);
-		break;
-	case node_type_div:
-		push_code(c, n, op_div);
+	case node_type_bool:
+		push_code(c, n, op_constant);
+		push_constant(c, n, n->data.num ? obj_bool_true : obj_bool_false);
 		break;
 	case node_type_assign:
 		push_code(c, n, op_store);
@@ -1128,7 +1366,7 @@ comp_node(struct compiler_state *c, struct node *n)
 	case node_type_call: {
 		bool native = false;
 		uint32_t idx;
-					       //
+
 		if (n->r->type == node_type_id_lit) {
 			native = func_lookup2(kernel_func_tbl2[language_internal], get_str(c->wk, n->r->data.str), &idx);
 			if (!native) {
@@ -1148,7 +1386,7 @@ comp_node(struct compiler_state *c, struct node *n)
 		break;
 	}
 	case node_type_foreach: {
-		uint32_t initial_jump, loop_body_start;
+		uint32_t break_jmp_patch_tgt, loop_body_start;
 		struct node *ida = n->l->l->l; //, *idb = n->l->l->r;
 
 		compile_expr(c, n->l->r);
@@ -1158,7 +1396,7 @@ comp_node(struct compiler_state *c, struct node *n)
 
 		push_code(c, n, op_iterator_next);
 		push_code(c, n, op_jmp_if_null);
-		initial_jump = c->code.len;
+		break_jmp_patch_tgt = c->code.len;
 		push_constant(c, n, 0);
 
 		push_code(c, n, op_store);
@@ -1169,11 +1407,46 @@ comp_node(struct compiler_state *c, struct node *n)
 
 		push_code(c, n, op_jmp);
 		push_constant(c, n, loop_body_start);
-		push_constant_at(c->code.len, arr_get(&c->code, initial_jump));
+		push_constant_at(c->code.len, arr_get(&c->code, break_jmp_patch_tgt));
+		break;
+	}
+	case node_type_if: {
+		uint32_t else_jmp = 0, end_jmp;
+		uint32_t patch_tgts = 0;
+
+		while (n) {
+			if (n->l->l) {
+				compile_expr(c, n->l->l);
+				push_code(c, n, op_jmp_if_false);
+				else_jmp = c->code.len;
+				push_constant(c, n, 0);
+			}
+
+			compile_block(c, n->l->r);
+
+			push_code(c, n, op_jmp);
+
+			end_jmp = c->code.len;
+			arr_push(&c->jmp_stack, &end_jmp);
+			++patch_tgts;
+			push_constant(c, n, 0);
+
+			if (n->l->l) {
+				push_constant_at(c->code.len, arr_get(&c->code, else_jmp));
+			}
+
+			n = n->r;
+		}
+
+		for (uint32_t i = 0; i < patch_tgts; ++i) {
+			arr_pop(&c->jmp_stack, &end_jmp);
+			push_constant_at(c->code.len, arr_get(&c->code, end_jmp));
+		}
 		break;
 	}
 	default:
 		L("skipping %s", node_to_s(c->wk, n));
+		break;
 	}
 }
 
@@ -1182,13 +1455,11 @@ compile_expr(struct compiler_state *c, struct node *n)
 {
 	struct node *peek, *prev = 0;
 
-	print_ast(c->wk, n);
-
 	uint32_t stack_base = c->node_stack.len;
 
 	while (c->node_stack.len > stack_base || n) {
 		if (n) {
-			if (n->type == node_type_foreach) {
+			if (n->type == node_type_foreach || n->type == node_type_if) {
 				comp_node(c, n);
 				n = 0;
 			} else {
@@ -1210,10 +1481,12 @@ compile_expr(struct compiler_state *c, struct node *n)
 static void
 compile_block(struct compiler_state *c, struct node *n)
 {
-	while (n) {
+	while (n && n->l) {
 		assert(n->type == node_type_stmt);
 		compile_expr(c, n->l);
-		push_code(c, n, op_pop);
+		if (n->l->type != node_type_if) {
+			push_code(c, n, op_pop);
+		}
 		n = n->r;
 	}
 }
@@ -1225,16 +1498,18 @@ compile(struct workspace *wk, struct source *src, uint32_t flags)
 	struct compiler_state _c = { .wk = wk, }, *c = &_c;
 
 	arr_init(&c->node_stack, 4096, sizeof(struct node *));
+	arr_init(&c->jmp_stack, 1024, sizeof(uint32_t));
 	bucket_arr_init(&c->nodes, 2048, sizeof(struct node));
 	arr_init(&c->code, 4 * 1024, 1);
-	arr_init(&c->locations, 1024, sizeof(struct source_location_mapping));
+	arr_init(&c->locations, 1024, sizeof(struct source_location));
 
 	if (!(n = parse(wk, src, &c->nodes))) {
 		return false;
 	}
 
+	print_ast(c->wk, n);
+
 	compile_block(c, n);
-	push_code(c, 0, op_return);
 
 	wk->src = src;
 	vm_execute(wk, &c->code, &c->locations);

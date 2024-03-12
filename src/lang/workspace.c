@@ -88,7 +88,6 @@ workspace_init_bare(struct workspace *wk)
 	bucket_arr_init(&wk->chrs, 4096, 1);
 	bucket_arr_init(&wk->objs, 1024, sizeof(struct obj_internal));
 	bucket_arr_init(&wk->dict_elems, 1024, sizeof(struct obj_dict_elem));
-	bucket_arr_init(&wk->iterators, 64, sizeof(struct obj_iterator));
 	bucket_arr_init(&wk->dict_hashes, 16, sizeof(struct hash));
 
 	const struct {
@@ -122,6 +121,7 @@ workspace_init_bare(struct workspace *wk)
 		[obj_func] = { sizeof(struct obj_func), 4 },
 		[obj_source_set] = { sizeof(struct obj_source_set), 4 },
 		[obj_source_configuration] = { sizeof(struct obj_source_configuration), 4 },
+		[obj_iterator] = { sizeof(struct obj_iterator), 32 },
 	};
 
 	uint32_t i;

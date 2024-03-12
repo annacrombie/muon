@@ -55,6 +55,7 @@ token_type_to_s(enum token_type type)
 	case token_type_and: return "and";
 	case token_type_or: return "or";
 	case token_type_not: return "not";
+	case token_type_not_in: return "not in";
 	case token_type_foreach: return "foreach";
 	case token_type_endforeach: return "endforeach";
 	case token_type_in: return "in";
