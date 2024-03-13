@@ -17,10 +17,6 @@
 #define UNREACHABLE assert(false && "unreachable")
 #define UNREACHABLE_RETURN do { assert(false && "unreachable"); return 0; } while (0)
 
-struct source_location {
-	uint32_t line, col;
-};
-
 enum error_diagnostic_store_replay_opts {
 	error_diagnostic_store_replay_errors_only = 1 << 0,
 	error_diagnostic_store_replay_include_sources = 1 << 1,

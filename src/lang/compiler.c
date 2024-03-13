@@ -13,7 +13,7 @@
 #include "lang/lexer.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
-#include "platform/mem.h"
+#include "platform/path.h"
 
 /******************************************************************************
  * parser
@@ -83,6 +83,7 @@ struct parser {
 		char msg[2048];
 		uint32_t len;
 		uint32_t count;
+		bool unwinding;
 	} err;
 };
 
@@ -229,6 +230,10 @@ print_ast(struct workspace *wk, struct node *root)
 static void
 parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl)
 {
+	if (p->err.unwinding) {
+		return;
+	}
+
 	/* if (p->mode & pm_quiet) { */
 	/* 	return; */
 	/* } */
@@ -238,6 +243,11 @@ parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl
 	}
 
 	error_message(p->src, *l, lvl, p->err.msg);
+
+	if (lvl == log_error) {
+		++p->err.count;
+		p->err.unwinding = true;
+	}
 }
 
 #if 0
@@ -281,6 +291,12 @@ parse_advance(struct parser *p)
 {
 	p->previous = p->current;
 	lexer_next(&p->lexer, &p->current);
+
+	while (p->current.type == token_type_error) {
+		parse_error(p, &p->current.location, "%s", get_cstr(p->wk, p->current.data.str));
+		p->err.unwinding = false;
+		lexer_next(&p->lexer, &p->current);
+	}
 
 	if (p->current.type == token_type_not) {
 		struct lexer lexer_peek = p->lexer;
@@ -509,7 +525,17 @@ static struct node *
 parse_unary(struct parser *p)
 {
 	struct node *n;
-	n = make_node_t(p, node_type_negate);
+	switch (p->previous.type) {
+	case '-':
+		n = make_node_t(p, node_type_negate);
+		break;
+	case token_type_not:
+		n = make_node_t(p, node_type_not);
+		break;
+	default:
+		UNREACHABLE;
+	}
+
 	n->l = parse_prec(p, parse_precedence_unary);
 	return n;
 }
@@ -669,7 +695,34 @@ parse_stmt(struct parser *p)
 		n = parse_expr(p);
 	}
 
-	parse_expect(p, token_type_eol);
+	if (p->err.unwinding) {
+		while (p->err.unwinding && p->current.type != token_type_eof) {
+			switch (p->current.type) {
+			/* case token_type_func: */
+			/* case token_type_foreach: */
+			/* case token_type_endforeach: */
+			/* case token_type_endif: */
+			/* case token_type_else: */
+			/* case token_type_elif: */
+			/* case token_type_if: */
+			case token_type_eol:
+				L("setting unwindin gto fasle");
+				p->err.unwinding = false;
+				break;
+			default:
+				break;
+			}
+
+			if (p->err.unwinding) {
+				L("skipping %s", token_type_to_s(p->current.type));
+
+				parse_advance(p);
+			}
+		}
+	} else {
+		parse_expect(p, token_type_eol);
+	}
+
 	return n;
 }
 
@@ -736,6 +789,7 @@ static const struct parse_rule _parse_rules[] = {
 	[token_type_neq]        = { 0,              parse_binary, parse_precedence_equality   },
 	[token_type_in]         = { 0,              parse_binary, parse_precedence_equality   },
 	['.']                   = { 0,              parse_method, parse_precedence_call       },
+	[token_type_not]        = { parse_unary,    0,            0                           },
 };
 
 static struct node *
@@ -755,7 +809,8 @@ parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes)
 
 	parse_advance(p);
 
-	return parse_block(p, (enum token_type[]){token_type_eof}, 1);
+	struct node *n = parse_block(p, (enum token_type[]){token_type_eof}, 1);
+	return p->err.count ? 0 : n;
 }
 
 /******************************************************************************
@@ -763,7 +818,7 @@ parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes)
  ******************************************************************************/
 
 enum {
-	object_stack_page_size = 1024 / sizeof(obj)
+	object_stack_page_size = 1024 / sizeof(struct obj_stack_entry)
 };
 
 static void
@@ -771,7 +826,7 @@ object_stack_alloc_page(struct object_stack *s)
 {
 	bucket_arr_pushn(&s->ba, 0, 0, s->ba.bucket_size);
 	++s->bucket;
-	s->page = (obj *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
+	s->page = (struct obj_stack_entry *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
 	((struct bucket *)s->ba.buckets.e)[s->bucket].len = object_stack_page_size;
 	s->i = 0;
 }
@@ -779,21 +834,21 @@ object_stack_alloc_page(struct object_stack *s)
 static void
 object_stack_init(struct object_stack *s)
 {
-	bucket_arr_init(&s->ba, object_stack_page_size, sizeof(obj));
-	s->page = (obj *)((struct bucket *)s->ba.buckets.e)[0].mem;
+	bucket_arr_init(&s->ba, object_stack_page_size, sizeof(struct obj_stack_entry));
+	s->page = (struct obj_stack_entry *)((struct bucket *)s->ba.buckets.e)[0].mem;
 	((struct bucket *)s->ba.buckets.e)[0].len = object_stack_page_size;
 }
 
 static void
-object_stack_push(struct object_stack *s, obj o)
+object_stack_push(struct workspace *wk, obj o)
 {
-	if (s->i >= object_stack_page_size) {
-		object_stack_alloc_page(s);
+	if (wk->vm.stack.i >= object_stack_page_size) {
+		object_stack_alloc_page(&wk->vm.stack);
 	}
 
-	s->page[s->i] = o;
-	++s->i;
-	++s->ba.len;
+	wk->vm.stack.page[wk->vm.stack.i] = (struct obj_stack_entry) { .o = o, .ip = wk->vm.ip - 1 };
+	++wk->vm.stack.i;
+	++wk->vm.stack.ba.len;
 }
 
 static obj
@@ -802,19 +857,25 @@ object_stack_pop(struct object_stack *s)
 	if (!s->i) {
 		assert(s->bucket);
 		--s->bucket;
-		s->page = (obj *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
+		s->page = (struct obj_stack_entry *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
 		s->i = object_stack_page_size;
 	}
 
 	--s->i;
 	--s->ba.len;
-	return s->page[s->i];
+	return s->page[s->i].o;
+}
+
+static struct obj_stack_entry *
+object_stack_peek_entry(struct object_stack *s, uint32_t off)
+{
+	return bucket_arr_get(&s->ba, s->ba.len - off);
 }
 
 static obj
 object_stack_peek(struct object_stack *s, uint32_t off)
 {
-	return *(obj *)bucket_arr_get(&s->ba, s->ba.len - off);
+	return ((struct obj_stack_entry *)bucket_arr_get(&s->ba, s->ba.len - off))->o;
 }
 
 static void
@@ -822,7 +883,7 @@ object_stack_discard(struct object_stack *s, uint32_t n)
 {
 	s->ba.len -= n;
 	s->bucket = s->ba.len / s->ba.bucket_size;
-	s->page = (obj *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
+	s->page = (struct obj_stack_entry *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
 	s->i = s->ba.len % s->ba.bucket_size;
 }
 
@@ -830,7 +891,8 @@ static void
 object_stack_print(struct object_stack *s)
 {
 	for (int32_t i = s->ba.len - 1; i >= 0; --i) {
-		log_plain("%d|", *(obj *)bucket_arr_get(&s->ba, i));
+		struct obj_stack_entry *e = bucket_arr_get(&s->ba, i);
+		log_plain("%d:%04x|", e->o, e->ip);
 	}
 	log_plain("\n");
 }
@@ -840,15 +902,49 @@ object_stack_print(struct object_stack *s)
  * vm errors
  ******************************************************************************/
 
+static const struct source_location *
+vm_lookup_inst_location(struct vm *vm, uint32_t ip)
+{
+	uint32_t i;
+	for (i = 0; i < vm->locations_len; ++i) {
+		if (vm->locations[i].ip >= ip) {
+			return &vm->locations[i].loc;
+		}
+	}
+
+	return &vm->locations[i - 1].loc;
+}
+
 static void
-vm_error(struct workspace *wk, const char *fmt, ...) {
+vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, va_list args)
+{
 	static char buf[1024];
+	vsnprintf(buf, ARRAY_LEN(buf), fmt, args);
+
+	error_message(wk->src, *vm_lookup_inst_location(&wk->vm, wk->vm.ip), lvl, buf);
+
+	if (lvl == log_error) {
+		wk->vm.ip = wk->vm.code_len;
+		wk->vm.error = true;
+	}
+}
+
+MUON_ATTR_FORMAT(printf, 4, 5)
+static void
+vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	vsnprintf(buf, ARRAY_LEN(buf), fmt, args);
+	vm_diagnostic_v(wk, ip, lvl, fmt, args);
 	va_end(args);
+}
 
-	error_message(wk->src, wk->vm.locations[wk->vm.ip - 1], log_error, buf);
+MUON_ATTR_FORMAT(printf, 2, 3)
+static void
+vm_error(struct workspace *wk, const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	vm_diagnostic_v(wk, wk->vm.ip, log_error, fmt, args);
+	va_end(args);
 }
 
 
@@ -862,14 +958,18 @@ pop_args(struct workspace *wk,
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[])
 {
+	struct obj_stack_entry *entry;
 	uint32_t i;
+
 	for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
 		if (i >= wk->vm.nargs) {
 			vm_error(wk, "not enough args");
 			return false;
 		}
 
-		positional_args[i].val = object_stack_peek(&wk->vm.stack, wk->vm.nargs - i);
+		entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - i);
+		positional_args[i].val = entry->o;
+		positional_args[i].ip = entry->ip;
 	}
 
 	object_stack_discard(&wk->vm.stack, wk->vm.nargs);
@@ -890,16 +990,15 @@ func_p2(struct workspace *wk, obj rcvr, obj *res)
 }
 
 bool
-vm_rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_t n)
+vm_rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int64_t n)
 {
 	if (n < min || n > max) {
-		vm_error(wk, "number %" PRId64 " out of bounds (%" PRId64 ", %" PRId64 ")", n, min, max);
+		vm_diagnostic(wk, ip, log_error, "number %" PRId64 " out of bounds (%" PRId64 ", %" PRId64 ")", n, min, max);
 		return false;
 	}
 
 	return true;
 }
-
 
 static bool
 func_range(struct workspace *wk, obj _, obj *res)
@@ -997,16 +1096,18 @@ enum op {
 	op_sub,
 	op_mul,
 	op_div,
+	op_mod,
+	op_and,
+	op_or,
+	op_not,
 	op_eq,
-	op_neq,
 	op_in,
-	op_not_in,
 	op_gt,
 	op_lt,
-	op_leq,
-	op_geq,
 	op_negate,
 	op_store,
+	op_add_store,
+	op_inc,
 	op_load,
 	op_return,
 	op_call,
@@ -1020,7 +1121,7 @@ enum op {
 };
 
 static obj
-vm_get_constant(struct workspace *wk, uint8_t *code, uint32_t *ip)
+vm_get_constant(uint8_t *code, uint32_t *ip)
 {
 	obj r = (code[*ip + 0] << 16) | (code[*ip + 1] << 8) | code[*ip + 2];
 	*ip += 3;
@@ -1050,23 +1151,23 @@ vm_dis(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_return)
 		break;
 	op_case(op_store)
-		buf_push(":%s", get_str(wk, vm_get_constant(wk, code, &ip))->s);
+		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
 		break;
 	op_case(op_load)
-		buf_push(":%s", get_str(wk, vm_get_constant(wk, code, &ip))->s);
+		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
 		break;
 	op_case(op_constant)
-		buf_push(":%d", vm_get_constant(wk, code, &ip));
+		buf_push(":%d", vm_get_constant(code, &ip));
 		break;
 	op_case(op_constant_list)
-		buf_push(":%d", vm_get_constant(wk, code, &ip));
+		buf_push(":%d", vm_get_constant(code, &ip));
 		break;
 	op_case(op_call)
-		buf_push(":%d", vm_get_constant(wk, code, &ip));
+		buf_push(":%d", vm_get_constant(code, &ip));
 		break;
 	op_case(op_call_native)
-		buf_push(":%d", vm_get_constant(wk, code, &ip));
-		uint32_t id = vm_get_constant(wk, code, &ip);
+		buf_push(":%d", vm_get_constant(code, &ip));
+		uint32_t id = vm_get_constant(code, &ip);
 		buf_push(",%s", kernel_func_tbl2[language_internal][id].name);
 		break;
 	op_case(op_iterator)
@@ -1074,13 +1175,13 @@ vm_dis(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_iterator_next)
 		break;
 	op_case(op_jmp_if_null)
-		buf_push(":%04x", vm_get_constant(wk, code, &ip));
+		buf_push(":%04x", vm_get_constant(code, &ip));
 		break;
 	op_case(op_jmp_if_false)
-		buf_push(":%04x", vm_get_constant(wk, code, &ip));
+		buf_push(":%04x", vm_get_constant(code, &ip));
 		break;
 	op_case(op_jmp)
-		buf_push(":%04x", vm_get_constant(wk, code, &ip));
+		buf_push(":%04x", vm_get_constant(code, &ip));
 		break;
 	op_case(op_pop)
 		break;
@@ -1095,110 +1196,317 @@ vm_dis(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	return (struct vm_dis_result){ buf, ip - base_ip };
 }
 
+#define binop_disabler_check(a, b) if (a == disabler_id || b == disabler_id) { object_stack_push(wk, a); break; }
+
 static void
-vm_execute(struct workspace *wk, struct arr *_code, struct arr *locations)
+vm_execute(struct workspace *wk)
 {
-	wk->vm.code = _code->e;
-	wk->vm.locations = (struct source_location *)locations->e;
 	obj a, b;
 
 	object_stack_init(&wk->vm.stack);
 
 	L("---");
-	for (uint32_t i = 0; i < _code->len;) {
+	for (uint32_t i = 0; i < wk->vm.code_len;) {
 		struct vm_dis_result dis = vm_dis(wk, wk->vm.code, i);
-		L("%s", dis.text);
+		const struct source_location *loc = vm_lookup_inst_location(&wk->vm, i);
+		L("%s %d:%d", dis.text, loc->line, loc->col);
 		i += dis.inst_len;
 	}
 	L("---");
 
-	while (wk->vm.ip < _code->len) {
+	while (wk->vm.ip < wk->vm.code_len) {
 		LL("%-50s", vm_dis(wk, wk->vm.code, wk->vm.ip).text);
 		object_stack_print(&wk->vm.stack);
 
 		switch (wk->vm.code[wk->vm.ip++]) {
 		case op_constant:
-			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
-			object_stack_push(&wk->vm.stack, a);
+			a = vm_get_constant(wk->vm.code, &wk->vm.ip);
+			object_stack_push(wk, a);
 			break;
 		case op_constant_list: {
-			uint32_t len = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			uint32_t len = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			make_obj(wk, &b, obj_array);
 			for (uint32_t i = 0; i < len; ++i) {
 				obj_array_push(wk, b, object_stack_peek(&wk->vm.stack, len - i));
 			}
 
 			object_stack_discard(&wk->vm.stack, len);
-			object_stack_push(&wk->vm.stack, b);
+			object_stack_push(wk, b);
 			break;
 		}
-		case op_add:
+		case op_add: {
 			b = object_stack_pop(&wk->vm.stack);
 			a = object_stack_pop(&wk->vm.stack);
-			struct obj_internal *oa = bucket_arr_get(&wk->objs, a),
-					    *ob = bucket_arr_get(&wk->objs, b);
+			binop_disabler_check(a, b);
 
-			if (!(oa->t == obj_array || oa->t == ob->t)) {
+			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+			if (!(a_t == obj_array || a_t == b_t)) {
 				goto op_add_type_err;
 			}
 
-			obj res;
+			obj res = 0;
 
-			switch (oa->t) {
+			switch (a_t) {
 			case obj_number:
 				make_obj(wk, &res, obj_number);
-				int64_t *ia = bucket_arr_get(&wk->obj_aos[obj_number - _obj_aos_start], oa->val),
-					*ib = bucket_arr_get(&wk->obj_aos[obj_number - _obj_aos_start], ob->val);
-				set_obj_number(wk, res, *ia + *ib);
+				set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
+				break;
+			case obj_string:
+				res = str_join(wk, a, b);
+				break;
+			case obj_array:
+				obj_array_dup(wk, a, &res);
+				if (b_t == obj_array) {
+					obj_array_extend(wk, res, b);
+				} else {
+					obj_array_push(wk, res, b);
+				}
+				break;
+			case obj_dict:
+				obj_dict_merge(wk, a, b, &res);
 				break;
 			default:
 op_add_type_err:
-				vm_error(wk, "unable to add!");
-				res = 0;
+				vm_error(wk, "+ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
 				break;
 			}
 
-			object_stack_push(&wk->vm.stack, res);
+			object_stack_push(wk, res);
 			break;
-		case op_sub:
+		}
+		case op_sub: {
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+			if (!(a_t == obj_number && a_t == b_t)) {
+				vm_error(wk, "- not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				break;
+			}
+
+			obj res;
+			make_obj(wk, &res, obj_number);
+			set_obj_number(wk, res, get_obj_number(wk, a) - get_obj_number(wk, b));
+
+			object_stack_push(wk, res);
 			break;
-		case op_mul:
+		}
+		case op_mul: {
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+			if (!(a_t == obj_number && a_t == b_t)) {
+				vm_error(wk, "* not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				break;
+			}
+
+			obj res;
+			make_obj(wk, &res, obj_number);
+			set_obj_number(wk, res, get_obj_number(wk, a) * get_obj_number(wk, b));
+
+			object_stack_push(wk, res);
 			break;
-		case op_div:
+		}
+		case op_div: {
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+			if (!(a_t == b_t)) {
+				goto op_div_type_err;
+			}
+
+			obj res = 0;
+
+			switch (a_t) {
+			case obj_number:
+				make_obj(wk, &res, obj_number);
+				set_obj_number(wk, res, get_obj_number(wk, a) / get_obj_number(wk, b));
+				break;
+			case obj_string: {
+				const struct str *ss1 = get_str(wk, a),
+						 *ss2 = get_str(wk, b);
+
+				if (str_has_null(ss1)) {
+					vm_error(wk, "%o is an invalid path", a);
+					break;
+				} else if (str_has_null(ss2)) {
+					vm_error(wk, "%o is an invalid path", b);
+					break;
+				}
+
+				SBUF(buf);
+				path_join(wk, &buf, ss1->s, ss2->s);
+				res = sbuf_into_str(wk, &buf);
+				break;
+			}
+			default:
+op_div_type_err:
+				vm_error(wk, "/ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				break;
+			}
+
+			object_stack_push(wk, res);
+			break;
+		}
+		case op_mod: {
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+			if (!(a_t == obj_number && a_t == b_t)) {
+				vm_error(wk, "%% not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				break;
+			}
+
+			obj res;
+			make_obj(wk, &res, obj_number);
+			set_obj_number(wk, res, get_obj_number(wk, a) % get_obj_number(wk, b));
+
+			object_stack_push(wk, res);
+			break;
+		}
+		case op_and:
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			break;
+		case op_or:
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			break;
+		case op_lt:
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			break;
+		case op_gt:
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
+			break;
+		case op_in:
+			b = object_stack_pop(&wk->vm.stack);
+			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
 			break;
 		case op_eq:
 			b = object_stack_pop(&wk->vm.stack);
 			a = object_stack_pop(&wk->vm.stack);
+			binop_disabler_check(a, b);
+
 			a = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
-			object_stack_push(&wk->vm.stack, a);
+			object_stack_push(wk, a);
 			break;
-		case op_store:
+		case op_store: {
 			b = object_stack_peek(&wk->vm.stack, 1);
-			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+
+			switch (get_obj_type(wk, b)) {
+			case obj_environment:
+			case obj_configuration_data: {
+				obj cloned;
+				if (!obj_clone(wk, wk, b, &cloned)) {
+					UNREACHABLE;
+				}
+
+				b = cloned;
+				break;
+			}
+			case obj_dict: {
+				obj dup;
+				obj_dict_dup(wk, b, &dup);
+				b = dup;
+				break;
+			}
+			case obj_array: {
+				obj dup;
+				obj_array_dup(wk, b, &dup);
+				b = dup;
+			}
+			default:
+				break;
+			}
+
+			a = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			wk->assign_variable(wk, get_str(wk, a)->s, b, 0, assign_local);
 			LO("%o <= %o\n", a, b);
 			break;
-		case op_load:
-			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
-
-			if (!wk->get_variable(wk, get_str(wk, a)->s, &b, wk->cur_project)) {
-				L("undefined object %s", get_str(wk, a)->s);
-				/* interp_error(wk, 0, "undefined object"); */
-				/* ret = false; */
-				wk->vm.ip = _code->len;
+		}
+		case op_add_store: {
+			b = object_stack_pop(&wk->vm.stack);
+			obj a_id = vm_get_constant(wk->vm.code, &wk->vm.ip);
+			if (!wk->get_variable(wk, get_str(wk, a_id)->s, &a, wk->cur_project)) {
+				vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
+				break;
 			}
 
-			LO("%o <= %o\n", b, a);
-			object_stack_push(&wk->vm.stack, b);
+			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+			if (!(a_t == obj_array || a_t == b_t)) {
+				goto op_add_store_type_err;
+			}
+
+			switch (a_t) {
+			case obj_number: {
+				obj res;
+				make_obj(wk, &res, obj_number);
+				set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
+				a = res;
+				break;
+			}
+			case obj_string:
+				// TODO: could use str_appn, but would have to dup on store
+				a = str_join(wk, a, b);
+				break;
+			case obj_array:
+				if (b_t == obj_array) {
+					obj_array_extend(wk, a, b);
+				} else {
+					obj_array_push(wk, a, b);
+				}
+				break;
+			case obj_dict:
+				obj_dict_merge_nodup(wk, a, b);
+				break;
+			default:
+op_add_store_type_err:
+				vm_error(wk, "+= not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				break;
+			}
+
+			object_stack_push(wk, a);
 			break;
+		}
+		case op_load: {
+			a = vm_get_constant(wk->vm.code, &wk->vm.ip);
+
+			if (!wk->get_variable(wk, get_str(wk, a)->s, &b, wk->cur_project)) {
+				vm_error(wk, "undefined object %s", get_cstr(wk, a));
+				break;
+			}
+
+			/* LO("%o <= %o\n", b, a); */
+			object_stack_push(wk, b);
+			break;
+		}
 		case op_call:
-			wk->vm.nargs = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			wk->vm.nargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			break;
 		case op_call_native:
-			wk->vm.nargs = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
-			b = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			wk->vm.nargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
+			b = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			kernel_func_tbl2[language_internal][b].func(wk, 0, &a);
-			object_stack_push(&wk->vm.stack, a);
+			object_stack_push(wk, a);
 			break;
 		case op_iterator: {
 			obj iter;
@@ -1209,12 +1517,12 @@ op_add_type_err:
 
 			if (a_type == obj_iterator) {
 				// already an iterator!
-				object_stack_push(&wk->vm.stack, a);
+				object_stack_push(wk, a);
 				break;
 			}
 
 			make_obj(wk, &iter, obj_iterator);
-			object_stack_push(&wk->vm.stack, iter);
+			object_stack_push(wk, iter);
 			iterator = get_obj_iterator(wk, iter);
 
 			switch (get_obj_type(wk, a)) {
@@ -1258,7 +1566,7 @@ op_add_type_err:
 				UNREACHABLE;
 			}
 
-			object_stack_push(&wk->vm.stack, b);
+			object_stack_push(wk, b);
 			break;
 		}
 		case op_pop:
@@ -1266,7 +1574,7 @@ op_add_type_err:
 			break;
 		case op_jmp_if_null:
 			a = object_stack_peek(&wk->vm.stack, 1);
-			b = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			b = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			if (!a) {
 				object_stack_discard(&wk->vm.stack, 1);
 				wk->vm.ip = b;
@@ -1274,17 +1582,16 @@ op_add_type_err:
 			break;
 		case op_jmp_if_false:
 			a = object_stack_pop(&wk->vm.stack);
-			b = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			b = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			if (!get_obj_bool(wk, a)) {
 				wk->vm.ip = b;
 			}
 			break;
 		case op_jmp:
-			a = vm_get_constant(wk, wk->vm.code, &wk->vm.ip);
+			a = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			wk->vm.ip = a;
 			break;
 		case op_return:
-			wk->vm.ip = _code->len;
 			break;
 		default:
 			UNREACHABLE;
@@ -1296,10 +1603,18 @@ op_add_type_err:
 }
 
 static void
-push_code(struct compiler_state *c, struct node *n, uint8_t b)
+push_location(struct compiler_state *c, struct node *n)
+{
+	arr_push(&c->locations, &(struct source_location_mapping) {
+		.ip = c->code.len,
+		.loc = n->location,
+	});
+}
+
+static void
+push_code(struct compiler_state *c, uint8_t b)
 {
 	arr_push(&c->code, &b);
-	arr_push(&c->locations, n ? &n->location : &(struct source_location) { 0 });
 }
 
 static void
@@ -1311,11 +1626,11 @@ push_constant_at(obj v, uint8_t *code)
 }
 
 static void
-push_constant(struct compiler_state *c, struct node *n, obj v)
+push_constant(struct compiler_state *c, obj v)
 {
-	push_code(c, n, (v >> 16) & 0xff);
-	push_code(c, n, (v >> 8) & 0xff);
-	push_code(c, n, v & 0xff);
+	push_code(c, (v >> 16) & 0xff);
+	push_code(c, (v >> 8) & 0xff);
+	push_code(c, v & 0xff);
 }
 
 static void compile_block(struct compiler_state *c, struct node *n);
@@ -1326,42 +1641,56 @@ comp_node(struct compiler_state *c, struct node *n)
 {
 	assert(n->type != node_type_stmt);
 
+	push_location(c, n);
+
 	/* L("%s", node_to_s(c->wk, n)); */
 	switch (n->type) {
-	case node_type_add: push_code(c, n, op_add); break;
-	case node_type_sub: push_code(c, n, op_sub); break;
-	case node_type_mul: push_code(c, n, op_mul); break;
-	case node_type_div: push_code(c, n, op_div); break;
-	case node_type_eq: push_code(c, n, op_eq); break;
-	case node_type_neq: push_code(c, n, op_neq); break;
-	case node_type_in: push_code(c, n, op_in); break;
-	case node_type_not_in: push_code(c, n, op_not_in); break;
-	case node_type_lt: push_code(c, n, op_lt); break;
-	case node_type_gt: push_code(c, n, op_gt); break;
-	case node_type_leq: push_code(c, n, op_leq); break;
-	case node_type_geq: push_code(c, n, op_geq); break;
+	case node_type_add: push_code(c, op_add); break;
+	case node_type_sub: push_code(c, op_sub); break;
+	case node_type_mul: push_code(c, op_mul); break;
+	case node_type_div: push_code(c, op_div); break;
+	case node_type_mod: push_code(c, op_mod); break;
+	case node_type_or: push_code(c, op_or); break;
+	case node_type_and: push_code(c, op_and); break;
+	case node_type_not: push_code(c, op_not); break;
+	case node_type_eq: push_code(c, op_eq); break;
+	case node_type_neq: push_code(c, op_eq); push_code(c, op_not); break;
+	case node_type_in: push_code(c, op_in); break;
+	case node_type_not_in: push_code(c, op_in); push_code(c, op_not); break;
+	case node_type_lt: push_code(c, op_lt); break;
+	case node_type_gt: push_code(c, op_gt); break;
+	case node_type_leq: push_code(c, op_gt); push_code(c, op_not); break;
+	case node_type_geq: push_code(c, op_lt); push_code(c, op_not); break;
 	case node_type_id:
-		push_code(c, n, op_load);
-		push_constant(c, n, n->data.str);
+		push_code(c, op_load);
+		push_constant(c, n->data.str);
 		break;
 	case node_type_number:
-		push_code(c, n, op_constant);
+		push_code(c, op_constant);
 		obj o;
 		make_obj(c->wk, &o, obj_number);
 		set_obj_number(c->wk, o, n->data.num);
-		push_constant(c, n, o);
+		push_constant(c, o);
 		break;
 	case node_type_bool:
-		push_code(c, n, op_constant);
-		push_constant(c, n, n->data.num ? obj_bool_true : obj_bool_false);
+		push_code(c, op_constant);
+		push_constant(c, n->data.num ? obj_bool_true : obj_bool_false);
+		break;
+	case node_type_string:
+		push_code(c, op_constant);
+		push_constant(c, n->data.str);
 		break;
 	case node_type_assign:
-		push_code(c, n, op_store);
-		push_constant(c, n, n->l->data.str);
+		push_code(c, op_store);
+		push_constant(c, n->l->data.str);
+		break;
+	case node_type_plusassign:
+		push_code(c, op_add_store);
+		push_constant(c, n->l->data.str);
 		break;
 	case node_type_array:
-		push_code(c, n, op_constant_list);
-		push_constant(c, n, n->data.num);
+		push_code(c, op_constant_list);
+		push_constant(c, n->data.num);
 		break;
 	case node_type_call: {
 		bool native = false;
@@ -1376,12 +1705,12 @@ comp_node(struct compiler_state *c, struct node *n)
 		}
 
 		if (native) {
-			push_code(c, n, op_call_native);
-			push_constant(c, n, n->l->data.num); // nargs
-			push_constant(c, n, idx);
+			push_code(c, op_call_native);
+			push_constant(c, n->l->data.num); // nargs
+			push_constant(c, idx);
 		} else {
-			push_code(c, n, op_call);
-			push_constant(c, n, n->l->data.num); // nargs
+			push_code(c, op_call);
+			push_constant(c, n->l->data.num); // nargs
 		}
 		break;
 	}
@@ -1390,23 +1719,23 @@ comp_node(struct compiler_state *c, struct node *n)
 		struct node *ida = n->l->l->l; //, *idb = n->l->l->r;
 
 		compile_expr(c, n->l->r);
-		push_code(c, n, op_iterator);
+		push_code(c, op_iterator);
 
 		loop_body_start = c->code.len;
 
-		push_code(c, n, op_iterator_next);
-		push_code(c, n, op_jmp_if_null);
+		push_code(c, op_iterator_next);
+		push_code(c, op_jmp_if_null);
 		break_jmp_patch_tgt = c->code.len;
-		push_constant(c, n, 0);
+		push_constant(c, 0);
 
-		push_code(c, n, op_store);
-		push_constant(c, n, ida->data.str);
-		push_code(c, n, op_pop);
+		push_code(c, op_store);
+		push_constant(c, ida->data.str);
+		push_code(c, op_pop);
 
 		compile_block(c, n->r);
 
-		push_code(c, n, op_jmp);
-		push_constant(c, n, loop_body_start);
+		push_code(c, op_jmp);
+		push_constant(c, loop_body_start);
 		push_constant_at(c->code.len, arr_get(&c->code, break_jmp_patch_tgt));
 		break;
 	}
@@ -1417,19 +1746,19 @@ comp_node(struct compiler_state *c, struct node *n)
 		while (n) {
 			if (n->l->l) {
 				compile_expr(c, n->l->l);
-				push_code(c, n, op_jmp_if_false);
+				push_code(c, op_jmp_if_false);
 				else_jmp = c->code.len;
-				push_constant(c, n, 0);
+				push_constant(c, 0);
 			}
 
 			compile_block(c, n->l->r);
 
-			push_code(c, n, op_jmp);
+			push_code(c, op_jmp);
 
 			end_jmp = c->code.len;
 			arr_push(&c->jmp_stack, &end_jmp);
 			++patch_tgts;
-			push_constant(c, n, 0);
+			push_constant(c, 0);
 
 			if (n->l->l) {
 				push_constant_at(c->code.len, arr_get(&c->code, else_jmp));
@@ -1485,7 +1814,7 @@ compile_block(struct compiler_state *c, struct node *n)
 		assert(n->type == node_type_stmt);
 		compile_expr(c, n->l);
 		if (n->l->type != node_type_if) {
-			push_code(c, n, op_pop);
+			push_code(c, op_pop);
 		}
 		n = n->r;
 	}
@@ -1501,7 +1830,7 @@ compile(struct workspace *wk, struct source *src, uint32_t flags)
 	arr_init(&c->jmp_stack, 1024, sizeof(uint32_t));
 	bucket_arr_init(&c->nodes, 2048, sizeof(struct node));
 	arr_init(&c->code, 4 * 1024, 1);
-	arr_init(&c->locations, 1024, sizeof(struct source_location));
+	arr_init(&c->locations, 1024, sizeof(struct source_location_mapping));
 
 	if (!(n = parse(wk, src, &c->nodes))) {
 		return false;
@@ -1512,6 +1841,12 @@ compile(struct workspace *wk, struct source *src, uint32_t flags)
 	compile_block(c, n);
 
 	wk->src = src;
-	vm_execute(wk, &c->code, &c->locations);
-	return true;
+	wk->vm.src = src;
+	wk->vm.code = c->code.e;
+	wk->vm.code_len = c->code.len;
+	wk->vm.locations = (struct source_location_mapping *)c->locations.e;
+	wk->vm.locations_len = c->locations.len;
+
+	vm_execute(wk);
+	return !wk->vm.error;
 }

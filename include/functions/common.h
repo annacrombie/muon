@@ -24,7 +24,8 @@ extern const struct func_impl *func_tbl[obj_type_count][language_mode_count];
 
 struct args_norm {
 	type_tag type;
-	obj val, node;
+	obj val;
+	uint32_t node, ip;
 	bool set;
 };
 

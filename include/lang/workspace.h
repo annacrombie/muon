@@ -12,6 +12,7 @@
 #include "datastructures/hash.h"
 #include "lang/eval.h"
 #include "lang/object.h"
+#include "lang/source.h"
 #include "lang/string.h"
 
 struct project {
@@ -58,10 +59,29 @@ enum {
 };
 
 // TODO: move this!
+struct obj_stack_entry {
+	obj o;
+	uint32_t ip;
+};
+
 struct object_stack {
 	struct bucket_arr ba;
-	obj *page;
+	struct obj_stack_entry *page;
 	uint32_t i, bucket;
+};
+
+struct source_location_mapping {
+	struct source_location loc;
+	uint32_t ip;
+};
+
+struct vm {
+	struct object_stack stack;
+	uint8_t *code;
+	struct source *src;
+	struct source_location_mapping *locations;
+	uint32_t ip, nargs, code_len, locations_len;
+	bool error;
 };
 
 struct workspace {
@@ -106,13 +126,7 @@ struct workspace {
 	struct bucket_arr dict_elems, dict_hashes;
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 
-	struct {
-		struct object_stack stack;
-		uint8_t *code;
-		struct source_location *locations;
-		uint32_t nargs;
-		uint32_t ip;
-	} vm;
+	struct vm vm;
 
 	struct arr projects;
 	struct arr option_overrides;
