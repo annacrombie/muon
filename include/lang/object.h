@@ -70,6 +70,7 @@ enum obj_type {
 
 	/* muon-specific objects */
 	obj_func,
+	obj_capture,
 	obj_typeinfo,
 
 	obj_type_count,
@@ -88,6 +89,18 @@ struct obj_func {
 	uint32_t args_id, block_id, nargs, nkwargs;
 	obj kwarg_defaults, src, scope_stack;
 	type_tag return_type;
+
+	/*--------*/
+
+	uint32_t entry;
+	struct args_norm an[32];
+	struct args_kw akw[64];
+
+};
+
+struct obj_capture {
+	struct obj_func *func;
+	obj scope_stack;
 };
 
 enum tgt_type {
@@ -544,6 +557,7 @@ OBJ_GETTER(obj_alias_target);
 OBJ_GETTER(obj_both_libs);
 OBJ_GETTER(obj_typeinfo);
 OBJ_GETTER(obj_func);
+OBJ_GETTER(obj_capture);
 OBJ_GETTER(obj_source_set);
 OBJ_GETTER(obj_source_configuration);
 OBJ_GETTER(obj_iterator);

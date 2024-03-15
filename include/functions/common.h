@@ -22,21 +22,6 @@ struct func_impl {
 extern const struct func_impl *kernel_func_tbl[language_mode_count];
 extern const struct func_impl *func_tbl[obj_type_count][language_mode_count];
 
-struct args_norm {
-	type_tag type;
-	obj val;
-	uint32_t node, ip;
-	bool set;
-};
-
-struct args_kw {
-	const char *key;
-	type_tag type;
-	obj val, node;
-	bool set;
-	bool required;
-};
-
 extern bool disabler_among_args_immunity, disable_fuzz_unsafe_functions;
 
 void build_func_impl_tables(void);

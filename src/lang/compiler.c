@@ -15,6 +15,8 @@
 #include "lang/workspace.h"
 #include "platform/path.h"
 
+#define COMP_DEBUG 1
+
 /******************************************************************************
  * parser
  ******************************************************************************/
@@ -29,6 +31,7 @@ enum node_type {
 	node_type_continue,
 	node_type_break,
 	node_type_args,
+	node_type_def_args,
 	node_type_dict,
 	node_type_array,
 	node_type_list,
@@ -134,6 +137,7 @@ node_type_to_s(enum node_type t)
 	nt(continue);
 	nt(break);
 	nt(args);
+	nt(def_args);
 	nt(list);
 	nt(dict);
 	nt(array);
@@ -239,7 +243,7 @@ parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl
 	/* } */
 
 	if (!l) {
-		l = &p->current.location;
+		l = &p->previous.location;
 	}
 
 	error_message(p->src, *l, lvl, p->err.msg);
@@ -382,7 +386,7 @@ static bool
 parse_expect(struct parser *p, enum token_type type)
 {
 	if (p->current.type != type) {
-		parse_error(p, 0, "expected <%s> got <%s>", token_type_to_s(type), token_type_to_s(p->current.type));
+		parse_error(p, &p->current.location, "expected <%s> got <%s>", token_type_to_s(type), token_type_to_s(p->current.type));
 		return false;
 	}
 
@@ -548,15 +552,150 @@ parse_grouping(struct parser *p)
 	return n;
 }
 
+static bool
+parse_type(struct parser *p, type_tag *type, bool top_level)
+{
+	*type = 0;
+
+	const char *typestr = 0;
+	if (parse_accept(p, token_type_identifier)) {
+		typestr = get_cstr(p->wk, p->previous.data.str);
+		type_tag t;
+		if (s_to_type_tag(typestr, &t)) {
+			*type = t;
+		} else {
+			parse_error(p, NULL, "unknown type %s", typestr);
+			return false;
+		}
+	} else if (parse_accept(p, token_type_func)) {
+		*type = tc_func;
+	} else {
+		return true;
+	}
+
+	if (!top_level) {
+		const char *err_type = 0;
+		if ((*type & TYPE_TAG_LISTIFY)) {
+			err_type = "listify";
+		} else if ((*type & TYPE_TAG_GLOB)) {
+			err_type = "glob";
+		}
+
+		if (err_type) {
+			parse_error(p, &p->previous.location, "%s can only be specified as the top level type", err_type);
+			return false;
+		}
+	}
+
+	bool has_sub_type = *type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB
+			    || *type == tc_dict || *type == tc_array;
+
+	if (has_sub_type) {
+		if (!parse_accept(p, token_type_lbrack)) {
+			parse_error(p, &p->previous.location, "the type %s requires a sub type (e.g. %s[any])", typestr, typestr);
+			return false;
+		}
+
+		type_tag sub_type;
+		if (!parse_type(p, &sub_type, false)) {
+			return false;
+		}
+
+		if (!sub_type) {
+			parse_error(p, &p->previous.location, "expected type");
+		}
+
+		if (!parse_expect(p, token_type_rbrack)) {
+			return false;
+		}
+
+		if (*type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB) {
+			*type |= sub_type;
+		} else if (*type == tc_dict || *type == tc_array) {
+			*type = make_complex_type(p->wk, complex_type_nested, *type, sub_type);
+		} else {
+			UNREACHABLE;
+		}
+	}
+
+	if (parse_accept(p, token_type_bitor)) {
+		type_tag ord_type;
+		if (!parse_type(p, &ord_type, false)) {
+			return false;
+		}
+
+		if ((ord_type & TYPE_TAG_COMPLEX) || (*type & TYPE_TAG_COMPLEX)) {
+			*type = make_complex_type(p->wk, complex_type_or, *type, ord_type);
+		} else {
+			*type |= ord_type;
+		}
+	}
+
+	return true;
+}
+
 static struct node *
 parse_list(struct parser *p, enum node_type t, enum token_type end)
 {
+	bool got_kw = false;
 	uint32_t len = 0;
-	struct node *n, *res;
+	struct node *n, *res, *val, *key;
 
 	res = n = make_node_t(p, t);
 	while (p->current.type != end) {
-		n->l = parse_expr(p);
+		key = 0;
+
+		switch (t) {
+		case node_type_array:
+			val = parse_expr(p);
+			break;
+		case node_type_dict:
+			key = parse_expr(p);
+			parse_expect(p, ':');
+			val = parse_expr(p);
+			break;
+		case node_type_args:
+			if (parse_match(p, (enum token_type[]){token_type_identifier, ':' }, 2)) {
+				parse_expect(p, token_type_identifier);
+				key = parse_id(p);
+				parse_expect(p, ':');
+			}
+			val = parse_expr(p);
+			break;
+		case node_type_def_args:
+			parse_expect(p, token_type_identifier);
+			val = parse_id(p);
+			parse_type(p, &n->data.type, true);
+
+			if (!n->data.type) {
+				parse_error(p, 0, "expected type");
+			}
+
+			if (parse_accept(p, ':')) {
+				key = val;
+				if (!(p->current.type == ',' || p->current.type == end)) {
+					val = parse_expr(p);
+				}
+			}
+			break;
+		default:
+			UNREACHABLE;
+			break;
+		}
+
+		if (got_kw && !key) {
+			parse_error(p, 0, "non kwarg not allowed after kwarg");
+		}
+
+		if (key) {
+			got_kw = true;
+			n->l = make_node_t(p, node_type_kw);
+			n->l->l = key;
+			n->l->r = val;
+		} else {
+			n->l = val;
+		}
+
 		++len;
 
 		if (!parse_accept(p, ',') || p->current.type == end) {
@@ -576,6 +715,12 @@ static struct node *
 parse_array(struct parser *p)
 {
 	return parse_list(p, node_type_array, ']');
+}
+
+static struct node *
+parse_dict(struct parser *p)
+{
+	return parse_list(p, node_type_dict, '}');
 }
 
 static struct node *
@@ -619,7 +764,7 @@ parse_prec(struct parser *p, enum parse_precedence prec)
 	parse_advance(p);
 
 	if (!parse_rules[p->previous.type].prefix) {
-		parse_error(p, 0, "expected expression");
+		parse_error(p, 0, "expected expression, got %s", token_type_to_s(p->previous.type));
 		return 0;
 	}
 
@@ -681,6 +826,31 @@ parse_stmt(struct parser *p)
 
 		n->r = parse_block(p, (enum token_type[]){token_type_endforeach}, 1);
 		parse_expect(p, token_type_endforeach);
+	} else if (parse_accept(p, token_type_func)) {
+		n = make_node_t(p, node_type_func_def);
+
+		parse_expect(p, token_type_identifier);
+		n->l = make_node_t(p, node_type_list);
+		n->l->l = parse_id(p);
+		parse_expect(p, '(');
+		n->l->r = parse_list(p, node_type_def_args, ')');
+
+		parse_expect(p, token_type_returntype);
+		parse_type(p, &n->data.type, true);
+		if (!n->data.type) {
+			parse_error(p, 0, "expected type");
+		}
+
+		parse_expect(p, token_type_eol);
+
+		n->r = parse_block(p, (enum token_type[]){token_type_endfunc}, 1);
+		parse_expect(p, token_type_endfunc);
+	} else if (parse_accept(p, token_type_return)) {
+		n = make_node_t(p, node_type_return);
+
+		if (p->current.type != token_type_eol) {
+			n->l = parse_expr(p);
+		}
 	} else if (parse_match(p, assign_sequences[0], ARRAY_LEN(assign_sequences[0]))
 		|| parse_match(p, assign_sequences[1], ARRAY_LEN(assign_sequences[1]))) {
 		parse_advance(p);
@@ -775,6 +945,7 @@ static const struct parse_rule _parse_rules[] = {
 	[token_type_false]      = { parse_bool,     0,            0                           },
 	['(']                   = { parse_grouping, parse_call,   parse_precedence_call       },
 	['[']                   = { parse_array,    0,            0                           },
+	['{']                   = { parse_dict,     0,            0                           },
 	['+']                   = { 0,              parse_binary, parse_precedence_term       },
 	['-']                   = { parse_unary,    parse_binary, parse_precedence_term       },
 	['*']                   = { 0,              parse_binary, parse_precedence_factor     },
@@ -969,7 +1140,7 @@ pop_args(struct workspace *wk,
 
 		entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - i);
 		positional_args[i].val = entry->o;
-		positional_args[i].ip = entry->ip;
+		positional_args[i].node = entry->ip;
 	}
 
 	object_stack_discard(&wk->vm.stack, wk->vm.nargs);
@@ -1092,6 +1263,8 @@ struct compiler_state {
 enum op {
 	op_constant = 1,
 	op_constant_list,
+	op_constant_dict,
+	op_constant_func,
 	op_add,
 	op_sub,
 	op_mul,
@@ -1204,7 +1377,9 @@ vm_execute(struct workspace *wk)
 	obj a, b;
 
 	object_stack_init(&wk->vm.stack);
+	arr_init(&wk->vm.call_stack, 64, sizeof(struct call_frame));
 
+#ifdef COMP_DEBUG
 	L("---");
 	for (uint32_t i = 0; i < wk->vm.code_len;) {
 		struct vm_dis_result dis = vm_dis(wk, wk->vm.code, i);
@@ -1213,10 +1388,13 @@ vm_execute(struct workspace *wk)
 		i += dis.inst_len;
 	}
 	L("---");
+#endif
 
 	while (wk->vm.ip < wk->vm.code_len) {
+#ifdef COMP_DEBUG
 		LL("%-50s", vm_dis(wk, wk->vm.code, wk->vm.ip).text);
 		object_stack_print(&wk->vm.stack);
+#endif
 
 		switch (wk->vm.code[wk->vm.ip++]) {
 		case op_constant:
@@ -1224,14 +1402,45 @@ vm_execute(struct workspace *wk)
 			object_stack_push(wk, a);
 			break;
 		case op_constant_list: {
-			uint32_t len = vm_get_constant(wk->vm.code, &wk->vm.ip);
+			uint32_t i, len = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			make_obj(wk, &b, obj_array);
-			for (uint32_t i = 0; i < len; ++i) {
+			for (i = 0; i < len; ++i) {
 				obj_array_push(wk, b, object_stack_peek(&wk->vm.stack, len - i));
 			}
 
 			object_stack_discard(&wk->vm.stack, len);
 			object_stack_push(wk, b);
+			break;
+		}
+		case op_constant_dict: {
+			uint32_t i, len = vm_get_constant(wk->vm.code, &wk->vm.ip);
+			make_obj(wk, &b, obj_dict);
+			for (i = 0; i < len; ++i) {
+				obj_dict_set(
+					wk,
+					b,
+					object_stack_peek(&wk->vm.stack, (len - i) * 2),
+					object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1)
+				);
+			}
+
+			object_stack_discard(&wk->vm.stack, len * 2);
+			object_stack_push(wk, b);
+			break;
+		}
+		case op_constant_func: {
+			obj c;
+			struct obj_capture *capture;
+
+			a = vm_get_constant(wk->vm.code, &wk->vm.ip);
+
+			make_obj(wk, &c, obj_capture);
+			capture = get_obj_capture(wk, c);
+
+			capture->func = get_obj_func(wk, a);
+			capture->scope_stack = wk->scope_stack_dup(wk, current_project(wk)->scope_stack);
+
+			object_stack_push(wk, c);
 			break;
 		}
 		case op_add: {
@@ -1440,13 +1649,14 @@ op_div_type_err:
 
 			a = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			wk->assign_variable(wk, get_str(wk, a)->s, b, 0, assign_local);
-			LO("%o <= %o\n", a, b);
+			/* LO("%o <= %o\n", a, b); */
 			break;
 		}
 		case op_add_store: {
 			b = object_stack_pop(&wk->vm.stack);
 			obj a_id = vm_get_constant(wk->vm.code, &wk->vm.ip);
-			if (!wk->get_variable(wk, get_str(wk, a_id)->s, &a, wk->cur_project)) {
+			const struct str *id = get_str(wk, a_id);
+			if (!wk->get_variable(wk, id->s, &a, wk->cur_project)) {
 				vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
 				break;
 			}
@@ -1462,11 +1672,13 @@ op_div_type_err:
 				make_obj(wk, &res, obj_number);
 				set_obj_number(wk, res, get_obj_number(wk, a) + get_obj_number(wk, b));
 				a = res;
+				wk->assign_variable(wk, id->s, a, 0, assign_reassign);
 				break;
 			}
 			case obj_string:
 				// TODO: could use str_appn, but would have to dup on store
 				a = str_join(wk, a, b);
+				wk->assign_variable(wk, id->s, a, 0, assign_reassign);
 				break;
 			case obj_array:
 				if (b_t == obj_array) {
@@ -1499,9 +1711,37 @@ op_add_store_type_err:
 			object_stack_push(wk, b);
 			break;
 		}
-		case op_call:
+		case op_call: {
+			uint32_t i;
+			struct obj_capture *capture;
+
+			a = object_stack_pop(&wk->vm.stack);
 			wk->vm.nargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
+
+			capture = get_obj_capture(wk, a);
+
+			if (!pop_args(wk, capture->func->an, 0, capture->func->akw)) {
+				break;
+			}
+
+			struct project *proj = current_project(wk);
+
+			arr_push(&wk->vm.call_stack, &(struct call_frame) {
+					.return_ip = wk->vm.ip,
+					.scope_stack = proj->scope_stack,
+			});
+
+			proj->scope_stack = capture->scope_stack;
+
+			wk->push_local_scope(wk);
+
+			for (i = 0; capture->func->an[i].type != ARG_TYPE_NULL; ++i) {
+				wk->assign_variable(wk, capture->func->an[i].name, capture->func->an[i].val, 0, assign_local);
+			}
+
+			wk->vm.ip = capture->func->entry;
 			break;
+		}
 		case op_call_native:
 			wk->vm.nargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			b = vm_get_constant(wk->vm.code, &wk->vm.ip);
@@ -1591,8 +1831,15 @@ op_add_store_type_err:
 			a = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			wk->vm.ip = a;
 			break;
-		case op_return:
+		case op_return: {
+			struct call_frame frame;
+			arr_pop(&wk->vm.call_stack, &frame);
+			wk->vm.ip = frame.return_ip;
+
+			wk->pop_local_scope(wk);
+			current_project(wk)->scope_stack = frame.scope_stack;
 			break;
+		}
 		default:
 			UNREACHABLE;
 		}
@@ -1680,6 +1927,14 @@ comp_node(struct compiler_state *c, struct node *n)
 		push_code(c, op_constant);
 		push_constant(c, n->data.str);
 		break;
+	case node_type_array:
+		push_code(c, op_constant_list);
+		push_constant(c, n->data.num);
+		break;
+	case node_type_dict:
+		push_code(c, op_constant_dict);
+		push_constant(c, n->data.num);
+		break;
 	case node_type_assign:
 		push_code(c, op_store);
 		push_constant(c, n->l->data.str);
@@ -1687,10 +1942,6 @@ comp_node(struct compiler_state *c, struct node *n)
 	case node_type_plusassign:
 		push_code(c, op_add_store);
 		push_constant(c, n->l->data.str);
-		break;
-	case node_type_array:
-		push_code(c, op_constant_list);
-		push_constant(c, n->data.num);
 		break;
 	case node_type_call: {
 		bool native = false;
@@ -1712,6 +1963,14 @@ comp_node(struct compiler_state *c, struct node *n)
 			push_code(c, op_call);
 			push_constant(c, n->l->data.num); // nargs
 		}
+		break;
+	}
+	case node_type_return: {
+		if (!n->l) {
+			push_code(c, op_constant);
+			push_constant(c, 0);
+		}
+		push_code(c, op_return);
 		break;
 	}
 	case node_type_foreach: {
@@ -1773,6 +2032,75 @@ comp_node(struct compiler_state *c, struct node *n)
 		}
 		break;
 	}
+	case node_type_func_def: {
+		obj f;
+		uint32_t func_jump_over_patch_tgt;
+		struct obj_func *func;
+		struct node *arg;
+
+		make_obj(c->wk, &f, obj_func);
+		func = get_obj_func(c->wk, f);
+
+		push_code(c, op_jmp);
+		func_jump_over_patch_tgt = c->code.len;
+		push_constant(c, 0);
+
+		/* function body start */
+
+		func->entry = c->code.len;
+
+		for (arg = n->l->r; arg; arg = arg->r) {
+			/* if (arg->subtype == arg_normal) { */
+			/* 	if (f->nkwargs) { */
+			/* 		interp_error(wk, arg_id, "non-kwarg after kwargs"); */
+			/* 	} */
+			if (arg->l) {
+				func->an[func->nargs] = (struct args_norm) {
+					.name = get_cstr(c->wk, arg->l->data.str),
+					.type = tc_any,
+				};
+				++func->nargs;
+			}
+			/* } else if (arg->subtype == arg_kwarg) { */
+			/* 	if (!f->nkwargs) { */
+			/* 		make_obj(wk, &f->kwarg_defaults, obj_array); */
+			/* 	} */
+			/* 	++f->nkwargs; */
+
+			/* 	obj r; */
+			/* 	if (!wk->interp_node(wk, arg->r, &r)) { */
+			/* 		return false; */
+			/* 	} */
+
+			/* 	obj_array_push(wk, f->kwarg_defaults, r); */
+			/* } */
+
+			/* if (!(arg->chflg & node_child_c)) { */
+			/* 	break; */
+			/* } */
+			/* arg_id = arg->c; */
+		}
+		func->an[func->nargs].type = ARG_TYPE_NULL;
+
+		compile_block(c, n->r);
+		if (c->code.e[c->code.len - 1] != op_return) {
+			push_code(c, op_constant);
+			push_constant(c, 0);
+			push_code(c, op_return);
+		}
+
+		/* function body end */
+
+		push_constant_at(c->code.len, arr_get(&c->code, func_jump_over_patch_tgt));
+
+		push_code(c, op_constant_func);
+		push_constant(c, f);
+
+		push_code(c, op_store);
+		push_constant(c, n->l->l->data.str);
+
+		break;
+	}
 	default:
 		L("skipping %s", node_to_s(c->wk, n));
 		break;
@@ -1788,7 +2116,7 @@ compile_expr(struct compiler_state *c, struct node *n)
 
 	while (c->node_stack.len > stack_base || n) {
 		if (n) {
-			if (n->type == node_type_foreach || n->type == node_type_if) {
+			if (n->type == node_type_foreach || n->type == node_type_if || n->type == node_type_func_def) {
 				comp_node(c, n);
 				n = 0;
 			} else {
@@ -1836,7 +2164,9 @@ compile(struct workspace *wk, struct source *src, uint32_t flags)
 		return false;
 	}
 
+#ifdef COMP_DEBUG
 	print_ast(c->wk, n);
+#endif
 
 	compile_block(c, n);
 

@@ -75,8 +75,14 @@ struct source_location_mapping {
 	uint32_t ip;
 };
 
+struct call_frame {
+	obj scope_stack;
+	uint32_t return_ip;
+};
+
 struct vm {
 	struct object_stack stack;
+	struct arr call_stack;
 	uint8_t *code;
 	struct source *src;
 	struct source_location_mapping *locations;
