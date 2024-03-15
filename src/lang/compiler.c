@@ -638,7 +638,7 @@ static struct node *
 parse_list(struct parser *p, enum node_type t, enum token_type end)
 {
 	bool got_kw = false;
-	uint32_t len = 0;
+	uint32_t len = 0, kwlen = 0;
 	struct node *n, *res, *val, *key;
 
 	res = n = make_node_t(p, t);
@@ -658,6 +658,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 			if (parse_match(p, (enum token_type[]){token_type_identifier, ':' }, 2)) {
 				parse_expect(p, token_type_identifier);
 				key = parse_id(p);
+				key->type = node_type_string;
 				parse_expect(p, ':');
 			}
 			val = parse_expr(p);
@@ -673,6 +674,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 
 			if (parse_accept(p, ':')) {
 				key = val;
+				key->type = node_type_string;
 				if (!(p->current.type == ',' || p->current.type == end)) {
 					val = parse_expr(p);
 				}
@@ -690,13 +692,13 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 		if (key) {
 			got_kw = true;
 			n->l = make_node_t(p, node_type_kw);
-			n->l->l = key;
-			n->l->r = val;
+			n->l->r = key;
+			n->l->l = val;
+			++kwlen;
 		} else {
 			n->l = val;
+			++len;
 		}
-
-		++len;
 
 		if (!parse_accept(p, ',') || p->current.type == end) {
 			break;
@@ -707,7 +709,8 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 
 	parse_expect(p, end);
 
-	res->data.num = len;
+	res->data.len.args = len;
+	res->data.len.kwargs = kwlen;
 	return res;
 }
 
@@ -876,7 +879,6 @@ parse_stmt(struct parser *p)
 			/* case token_type_elif: */
 			/* case token_type_if: */
 			case token_type_eol:
-				L("setting unwindin gto fasle");
 				p->err.unwinding = false;
 				break;
 			default:
@@ -884,8 +886,6 @@ parse_stmt(struct parser *p)
 			}
 
 			if (p->err.unwinding) {
-				L("skipping %s", token_type_to_s(p->current.type));
-
 				parse_advance(p);
 			}
 		}
@@ -1022,8 +1022,8 @@ object_stack_push(struct workspace *wk, obj o)
 	++wk->vm.stack.ba.len;
 }
 
-static obj
-object_stack_pop(struct object_stack *s)
+static struct obj_stack_entry *
+object_stack_pop_entry(struct object_stack *s)
 {
 	if (!s->i) {
 		assert(s->bucket);
@@ -1034,7 +1034,13 @@ object_stack_pop(struct object_stack *s)
 
 	--s->i;
 	--s->ba.len;
-	return s->page[s->i].o;
+	return &s->page[s->i];
+}
+
+static obj
+object_stack_pop(struct object_stack *s)
+{
+	return object_stack_pop_entry(s)->o;
 }
 
 static struct obj_stack_entry *
@@ -1042,6 +1048,7 @@ object_stack_peek_entry(struct object_stack *s, uint32_t off)
 {
 	return bucket_arr_get(&s->ba, s->ba.len - off);
 }
+
 
 static obj
 object_stack_peek(struct object_stack *s, uint32_t off)
@@ -1059,11 +1066,11 @@ object_stack_discard(struct object_stack *s, uint32_t n)
 }
 
 static void
-object_stack_print(struct object_stack *s)
+object_stack_print(struct workspace *wk, struct object_stack *s)
 {
 	for (int32_t i = s->ba.len - 1; i >= 0; --i) {
 		struct obj_stack_entry *e = bucket_arr_get(&s->ba, i);
-		log_plain("%d:%04x|", e->o, e->ip);
+		obj_fprintf(wk, log_file(), "%o%s", e->o, i > 0 ? ", " : "");
 	}
 	log_plain("\n");
 }
@@ -1129,8 +1136,29 @@ pop_args(struct workspace *wk,
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[])
 {
+	const char *kw;
 	struct obj_stack_entry *entry;
-	uint32_t i;
+	uint32_t i, j;
+
+	for (i = 0; i < wk->vm.nkwargs; ++i) {
+		entry = object_stack_pop_entry(&wk->vm.stack);
+		kw = get_str(wk, entry->o)->s;
+
+		for (j = 0; keyword_args[j].key; ++j) {
+			if (strcmp(kw, keyword_args[j].key) == 0) {
+				break;
+			}
+		}
+
+		if (!keyword_args[j].key) {
+			vm_diagnostic(wk, entry->ip, log_error, "unknown kwarg %s", kw);
+			return false;
+		}
+
+		entry = object_stack_pop_entry(&wk->vm.stack);
+		keyword_args[j].val = entry->o;
+		keyword_args[j].node = entry->ip;
+	}
 
 	for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
 		if (i >= wk->vm.nargs) {
@@ -1151,11 +1179,23 @@ static bool
 func_p2(struct workspace *wk, obj rcvr, obj *res)
 {
 	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_VOID }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, 0, 0)) {
+	enum kwargs {
+		kw_pretty,
+	};
+	struct args_kw akw[] = {
+		[kw_pretty] = { "pretty", tc_bool },
+		0,
+	};
+
+	if (!pop_args(wk, an, 0, akw)) {
 		return false;
 	}
 
-	obj_fprintf(wk, log_file(), "%o\n", an[0].val);
+	if (get_obj_bool(wk, akw[kw_pretty].val)) {
+		obj_fprintf(wk, log_file(), "%#o\n", an[0].val);
+	} else {
+		obj_fprintf(wk, log_file(), "%o\n", an[0].val);
+	}
 	*res = an[0].val;
 	return true;
 }
@@ -1335,11 +1375,14 @@ vm_dis(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_constant_list)
 		buf_push(":%d", vm_get_constant(code, &ip));
 		break;
-	op_case(op_call)
+	op_case(op_constant_dict)
 		buf_push(":%d", vm_get_constant(code, &ip));
 		break;
+	op_case(op_call)
+		buf_push(":%d,%d", vm_get_constant(code, &ip), vm_get_constant(code, &ip));
+		break;
 	op_case(op_call_native)
-		buf_push(":%d", vm_get_constant(code, &ip));
+		buf_push(":%d,%d", vm_get_constant(code, &ip), vm_get_constant(code, &ip));
 		uint32_t id = vm_get_constant(code, &ip);
 		buf_push(",%s", kernel_func_tbl2[language_internal][id].name);
 		break;
@@ -1393,7 +1436,7 @@ vm_execute(struct workspace *wk)
 	while (wk->vm.ip < wk->vm.code_len) {
 #ifdef COMP_DEBUG
 		LL("%-50s", vm_dis(wk, wk->vm.code, wk->vm.ip).text);
-		object_stack_print(&wk->vm.stack);
+		object_stack_print(wk, &wk->vm.stack);
 #endif
 
 		switch (wk->vm.code[wk->vm.ip++]) {
@@ -1419,8 +1462,8 @@ vm_execute(struct workspace *wk)
 				obj_dict_set(
 					wk,
 					b,
-					object_stack_peek(&wk->vm.stack, (len - i) * 2),
-					object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1)
+					object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1),
+					object_stack_peek(&wk->vm.stack, (len - i) * 2)
 				);
 			}
 
@@ -1717,6 +1760,7 @@ op_add_store_type_err:
 
 			a = object_stack_pop(&wk->vm.stack);
 			wk->vm.nargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
+			wk->vm.nkwargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
 
 			capture = get_obj_capture(wk, a);
 
@@ -1739,11 +1783,17 @@ op_add_store_type_err:
 				wk->assign_variable(wk, capture->func->an[i].name, capture->func->an[i].val, 0, assign_local);
 			}
 
+			for (i = 0; capture->func->akw[i].key; ++i) {
+				wk->assign_variable(wk, capture->func->akw[i].key, capture->func->akw[i].val, 0, assign_local);
+			}
+
 			wk->vm.ip = capture->func->entry;
 			break;
 		}
 		case op_call_native:
 			wk->vm.nargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
+			wk->vm.nkwargs = vm_get_constant(wk->vm.code, &wk->vm.ip);
+
 			b = vm_get_constant(wk->vm.code, &wk->vm.ip);
 			kernel_func_tbl2[language_internal][b].func(wk, 0, &a);
 			object_stack_push(wk, a);
@@ -1929,11 +1979,11 @@ comp_node(struct compiler_state *c, struct node *n)
 		break;
 	case node_type_array:
 		push_code(c, op_constant_list);
-		push_constant(c, n->data.num);
+		push_constant(c, n->data.len.args);
 		break;
 	case node_type_dict:
 		push_code(c, op_constant_dict);
-		push_constant(c, n->data.num);
+		push_constant(c, n->data.len.kwargs);
 		break;
 	case node_type_assign:
 		push_code(c, op_store);
@@ -1957,11 +2007,13 @@ comp_node(struct compiler_state *c, struct node *n)
 
 		if (native) {
 			push_code(c, op_call_native);
-			push_constant(c, n->l->data.num); // nargs
+			push_constant(c, n->l->data.len.args);
+			push_constant(c, n->l->data.len.kwargs);
 			push_constant(c, idx);
 		} else {
 			push_code(c, op_call);
-			push_constant(c, n->l->data.num); // nargs
+			push_constant(c, n->l->data.len.args);
+			push_constant(c, n->l->data.len.kwargs);
 		}
 		break;
 	}

@@ -91,6 +91,7 @@ union literal_data {
 	obj str;
 	int64_t num;
 	uint64_t type;
+	struct { uint32_t args, kwargs; } len;
 };
 
 struct token {

@@ -472,7 +472,7 @@ lex_string(struct lexer *lexer, struct token *token)
 	for (; lexer->i < lexer->source->len && lexer->src[lexer->i] != '\''; lex_advance(lexer)) {
 		switch (lexer->src[lexer->i]) {
 		case 0: case '\n':
-			goto untermniated_string;
+			goto unterminated_string;
 		case '\\': {
 			if (!lex_string_escape(lexer, token, &buf)) {
 				return;
@@ -486,7 +486,7 @@ lex_string(struct lexer *lexer, struct token *token)
 	}
 
 	if (lexer->src[lexer->i] != '\'') {
-untermniated_string:
+unterminated_string:
 		lex_error_token(lexer, token, "unterminated string");
 		return;
 	}

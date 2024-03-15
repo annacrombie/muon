@@ -86,7 +86,7 @@ struct vm {
 	uint8_t *code;
 	struct source *src;
 	struct source_location_mapping *locations;
-	uint32_t ip, nargs, code_len, locations_len;
+	uint32_t ip, code_len, locations_len, nargs, nkwargs;
 	bool error;
 };
 
