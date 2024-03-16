@@ -60,38 +60,6 @@ interp_warning(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 	va_end(args);
 }
 
-bool
-bounds_adjust(struct workspace *wk, uint32_t len, int64_t *i)
-{
-	if (*i < 0) {
-		*i += len;
-	}
-
-	return *i < len;
-}
-
-bool
-boundscheck(struct workspace *wk, uint32_t n_id, uint32_t len, int64_t *i)
-{
-	if (!bounds_adjust(wk, len, i)) {
-		interp_error(wk, n_id, "index %" PRId64 " out of bounds", *i);
-		return false;
-	}
-
-	return true;
-}
-
-bool
-rangecheck(struct workspace *wk, uint32_t n_id, int64_t min, int64_t max, int64_t n)
-{
-	if (n < min || n > max) {
-		interp_error(wk, n_id, "number %" PRId64 " out of bounds (%" PRId64 ", %" PRId64 ")", n, min, max);
-		return false;
-	}
-
-	return true;
-}
-
 struct check_scope_ctx {
 	const char *name;
 	obj res, scope;
@@ -169,29 +137,6 @@ void
 pop_local_scope(struct workspace *wk)
 {
 	obj_array_pop(wk, current_project(wk)->scope_stack);
-}
-
-void
-assign_variable(struct workspace *wk, const char *name, obj o, uint32_t _n_id, enum variable_assignment_mode mode)
-{
-	struct project *proj = current_project(wk);
-	obj scope = 0;
-	if (mode == assign_reassign) {
-		obj _;
-		if (!get_local_variable(wk, name, current_project(wk), &_, &scope)) {
-			UNREACHABLE;
-		}
-	} else {
-		uint32_t len = get_obj_array(wk, proj->scope_stack)->len;
-		obj_array_index(wk, proj->scope_stack, len - 1, &scope);
-	}
-
-	obj_dict_set(wk, scope, make_str(wk, name), o);
-
-	if (wk->dbg.watched && obj_array_in(wk, wk->dbg.watched, make_str(wk, name))) {
-		LOG_I("watched variable \"%s\" changed", name);
-		repl(wk, true);
-	}
 }
 
 void

@@ -13,7 +13,6 @@
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/generator.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"

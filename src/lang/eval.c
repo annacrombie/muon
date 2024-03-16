@@ -12,7 +12,6 @@
 #include "external/bestline.h"
 #include "lang/analyze.h"
 #include "lang/eval.h"
-#include "lang/interpreter.h"
 #include "lang/parser.h"
 #include "log.h"
 #include "options.h"

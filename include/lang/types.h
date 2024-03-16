@@ -27,4 +27,22 @@ struct args_kw {
 	bool set;
 	bool required;
 };
+
+enum language_mode {
+	language_external,
+	language_internal,
+	language_opts,
+	language_mode_count,
+
+	language_extended,
+};
+
+enum log_level {
+	log_quiet,
+	log_error,
+	log_warn,
+	log_info,
+	log_debug,
+	log_level_count,
+};
 #endif

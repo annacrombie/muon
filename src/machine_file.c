@@ -128,7 +128,7 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 	struct workspace wk;
 	workspace_init(&wk);
 
-	wk.lang_mode = language_internal;
+	wk.vm.lang_mode = language_internal;
 
 	uint32_t proj_id;
 	make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);

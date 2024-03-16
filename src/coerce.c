@@ -11,7 +11,6 @@
 
 #include "coerce.h"
 #include "functions/environment.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -50,13 +49,13 @@ coerce_environment_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const struct str *ss = get_str(wk, val);
 	if (str_has_null(ss)) {
-		interp_error(wk, ctx->err_node, "environment string %o must not contain NUL", val);
+		vm_error_at(wk, ctx->err_node, "environment string %o must not contain NUL", val);
 		return ir_err;
 	}
 
 	const char *eql;
 	if (!(eql = strchr(ss->s, '='))) {
-		interp_error(wk, ctx->err_node, "invalid env element %o; env elements must be of the format key=value", val);
+		vm_error_at(wk, ctx->err_node, "invalid env element %o; env elements must be of the format key=value", val);
 		return ir_err;
 	}
 
@@ -76,16 +75,16 @@ typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj v
 			 *v = get_str(wk, val);
 
 	if (!k->len) {
-		interp_error(wk, err_node, "environment key may not be an empty string (value is '%s')", v->s);
+		vm_error_at(wk, err_node, "environment key may not be an empty string (value is '%s')", v->s);
 		return ir_err;
 	} else if (str_has_null(k)) {
-		interp_error(wk, err_node, "environment key may not contain NUL");
+		vm_error_at(wk, err_node, "environment key may not contain NUL");
 		return ir_err;
 	} else if (str_has_null(v)) {
-		interp_error(wk, err_node, "environment value may not contain NUL");
+		vm_error_at(wk, err_node, "environment value may not contain NUL");
 		return ir_err;
 	} else if (strchr(k->s, '=')) {
-		interp_error(wk, err_node, "environment key '%s' contains '='", k->s);
+		vm_error_at(wk, err_node, "environment key '%s' contains '='", k->s);
 		return ir_err;
 	}
 
@@ -116,7 +115,7 @@ coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res
 		*res = val;
 		break;
 	default:
-		interp_error(wk, err_node, "unable to coerce type '%s' into key=value dict", obj_type_to_s(t));
+		vm_error_at(wk, err_node, "unable to coerce type '%s' into key=value dict", obj_type_to_s(t));
 		return false;
 	}
 
@@ -145,7 +144,7 @@ coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_no
 		}
 	}
 
-	interp_error(wk, err_node, "invalid value for include_type: %s", str->s);
+	vm_error_at(wk, err_node, "invalid value for include_type: %s", str->s);
 	return false;
 }
 
@@ -162,7 +161,7 @@ coerce_num_to_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		break;
 	}
 	default:
-		interp_error(wk, node, "unable to coerce %o to string", val);
+		vm_error_at(wk, node, "unable to coerce %o to string", val);
 		return false;
 	}
 
@@ -192,7 +191,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		break;
 	}
 	default:
-		interp_error(wk, node, "unable to coerce %o to string", val);
+		vm_error_at(wk, node, "unable to coerce %o to string", val);
 		return false;
 	}
 
@@ -260,7 +259,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 	case obj_external_program: {
 		struct obj_external_program *o = get_obj_external_program(wk, val);
 		if (!o->found) {
-			interp_error(wk, node, "a not found external_program cannot be used here");
+			vm_error_at(wk, node, "a not found external_program cannot be used here");
 			return ir_err;
 		}
 
@@ -271,7 +270,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		break;
 	}
 	default:
-		interp_error(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(t));
+		vm_error_at(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(t));
 		return false;
 	}
 
@@ -304,7 +303,7 @@ coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requi
 				break;
 			}
 		} else {
-			interp_error(wk, kw_required->node, "expected type %s or %s, got %s",
+			vm_error_at(wk, kw_required->node, "expected type %s or %s, got %s",
 				obj_type_to_s(obj_bool),
 				obj_type_to_s(obj_feature_opt),
 				obj_type_to_s(t)
@@ -378,13 +377,13 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 			}
 
 			if (!ctx->exists(get_file_path(wk, *file))) {
-				interp_error(wk, ctx->node, "%s %o does not exist", ctx->type, val);
+				vm_error_at(wk, ctx->node, "%s %o does not exist", ctx->type, val);
 				return ir_err;
 			}
 			break;
 		case mode_output:
 			if (!path_is_basename(get_cstr(wk, val))) {
-				interp_error(wk, ctx->node, "output file '%s' contains path separators", get_cstr(wk, val));
+				vm_error_at(wk, ctx->node, "output file '%s' contains path separators", get_cstr(wk, val));
 				return ir_err;
 			}
 
@@ -423,7 +422,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 		break;
 	default:
 type_error:
-		interp_error(wk, ctx->node, "unable to coerce object with type %s into %s",
+		vm_error_at(wk, ctx->node, "unable to coerce object with type %s into %s",
 			obj_type_to_s(t), ctx->type);
 		return false;
 	}
@@ -463,7 +462,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	default:
 type_error:
-		interp_error(wk, ctx->node, "unable to coerce object with type %s into %s",
+		vm_error_at(wk, ctx->node, "unable to coerce object with type %s into %s",
 			obj_type_to_s(t), ctx->type);
 		return ir_err;
 	}
@@ -548,7 +547,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 		obj_array_push(wk, ctx->res, v);
 		return ir_cont;
 	} else if (t != obj_string) {
-		interp_error(wk, ctx->node, "unable to coerce %o to include_directory", v);
+		vm_error_at(wk, ctx->node, "unable to coerce %o to include_directory", v);
 		return ir_err;
 	}
 
@@ -566,7 +565,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	p = get_cstr(wk, path);
 
 	if (!fs_dir_exists(p)) {
-		interp_error(wk, ctx->node, "directory '%s' does not exist", get_cstr(wk, path));
+		vm_error_at(wk, ctx->node, "directory '%s' does not exist", get_cstr(wk, path));
 		return ir_err;
 	}
 

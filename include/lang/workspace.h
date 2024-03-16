@@ -14,6 +14,7 @@
 #include "lang/object.h"
 #include "lang/source.h"
 #include "lang/string.h"
+#include "lang/vm.h"
 
 struct project {
 	/* array of dicts */
@@ -39,55 +40,6 @@ struct project {
 
 	bool not_ok; // set by failed subprojects
 	bool initialized;
-};
-
-enum loop_ctl {
-	loop_norm,
-	loop_breaking,
-	loop_continuing,
-};
-
-enum variable_assignment_mode {
-	assign_local,
-	assign_reassign,
-};
-
-enum {
-	disabler_id = 1,
-	obj_bool_true = 2,
-	obj_bool_false = 3,
-};
-
-// TODO: move this!
-struct obj_stack_entry {
-	obj o;
-	uint32_t ip;
-};
-
-struct object_stack {
-	struct bucket_arr ba;
-	struct obj_stack_entry *page;
-	uint32_t i, bucket;
-};
-
-struct source_location_mapping {
-	struct source_location loc;
-	uint32_t ip;
-};
-
-struct call_frame {
-	obj scope_stack;
-	uint32_t return_ip;
-};
-
-struct vm {
-	struct object_stack stack;
-	struct arr call_stack;
-	uint8_t *code;
-	struct source *src;
-	struct source_location_mapping *locations;
-	uint32_t ip, code_len, locations_len, nargs, nkwargs;
-	bool error;
 };
 
 struct workspace {
@@ -127,49 +79,12 @@ struct workspace {
 	obj default_scope;
 	/* ----------------- */
 
-	struct bucket_arr chrs;
-	struct bucket_arr objs;
-	struct bucket_arr dict_elems, dict_hashes;
-	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
-
 	struct vm vm;
 
 	struct arr projects;
 	struct arr option_overrides;
-	struct bucket_arr asts;
-
-	struct hash obj_hash, str_hash;
-
-	uint32_t loop_depth, func_depth, return_node;
-	enum loop_ctl loop_ctl;
-	bool subdir_done, returning, obj_clear_mark_set;
-	obj returned;
 
 	uint32_t cur_project;
-
-	/* ast of current file */
-	struct ast *ast;
-	/* source of current file */
-	struct source *src;
-	/* interpreter base functions */
-	bool ((*interp_node)(struct workspace *wk, uint32_t node, obj *res));
-	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode));
-	void ((*unassign_variable)(struct workspace *wk, const char *name));
-	void ((*push_local_scope)(struct workspace *wk));
-	void ((*pop_local_scope)(struct workspace *wk));
-	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
-	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
-	bool ((*eval_project_file)(struct workspace *wk, const char *path, bool first));
-	bool in_analyzer;
-
-	enum language_mode lang_mode;
-	struct {
-		uint32_t node, last_line;
-		bool stepping, break_on_err;
-		obj watched;
-		obj eval_trace;
-		bool eval_trace_subdir;
-	} dbg;
 
 #ifdef TRACY_ENABLE
 	struct {

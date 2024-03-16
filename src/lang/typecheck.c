@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include <inttypes.h>
+
 #include "error.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -23,7 +24,7 @@ obj_type_to_tc_type(enum obj_type t)
 type_tag
 make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type_tag subtype)
 {
-	struct bucket_arr *typeinfo_arr = &wk->obj_aos[obj_typeinfo - _obj_aos_start];
+	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	uint32_t idx = typeinfo_arr->len;
 	bucket_arr_push(typeinfo_arr, &(struct obj_typeinfo) { .type = type, .subtype = subtype });
 	return COMPLEX_TYPE(idx, t);
@@ -85,7 +86,7 @@ typechecking_type_to_arr(struct workspace *wk, type_tag t)
 	uint32_t idx = COMPLEX_TYPE_INDEX(t);
 	enum complex_type ct = COMPLEX_TYPE_TYPE(t);
 
-	struct bucket_arr *typeinfo_arr = &wk->obj_aos[obj_typeinfo - _obj_aos_start];
+	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
 
 	obj typestr = typechecking_type_to_str(wk, ti->type);
@@ -277,7 +278,7 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 	uint32_t idx = COMPLEX_TYPE_INDEX(type);
 	enum complex_type ct = COMPLEX_TYPE_TYPE(type);
 
-	struct bucket_arr *typeinfo_arr = &wk->obj_aos[obj_typeinfo - _obj_aos_start];
+	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
 
 	switch (ct) {
@@ -312,7 +313,7 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 }
 
 bool
-typecheck_custom(struct workspace *wk, uint32_t n_id, obj got_obj, type_tag type, const char *fmt)
+typecheck_custom(struct workspace *wk, uint32_t ip, obj got_obj, type_tag type, const char *fmt)
 {
 	type_tag got_type;
 
@@ -331,7 +332,7 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj got_obj, type_tag type
 
 	if (!typecheck_complex_type(wk, got_obj, got_type, type)) {
 		if (fmt) {
-			interp_error(wk, n_id, fmt,
+			vm_error_at(wk, ip, fmt,
 				typechecking_type_to_s(wk, type),
 				get_cstr(wk, obj_type_to_typestr(wk, got_obj)));
 		}
@@ -342,9 +343,9 @@ typecheck_custom(struct workspace *wk, uint32_t n_id, obj got_obj, type_tag type
 }
 
 bool
-typecheck(struct workspace *wk, uint32_t n_id, obj obj_id, type_tag type)
+typecheck(struct workspace *wk, uint32_t ip, obj obj_id, type_tag type)
 {
-	return typecheck_custom(wk, n_id, obj_id, type, "expected type %s, got %s");
+	return typecheck_custom(wk, ip, obj_id, type, "expected type %s, got %s");
 }
 
 bool
@@ -359,3 +360,37 @@ typecheck_simple_err(struct workspace *wk, obj o, type_tag type)
 
 	return true;
 }
+
+bool
+bounds_adjust(uint32_t len, int64_t *i)
+{
+	if (*i < 0) {
+		*i += len;
+	}
+
+	return *i < len;
+}
+
+
+bool
+boundscheck(struct workspace *wk, uint32_t ip, uint32_t len, int64_t *i)
+{
+	if (!bounds_adjust(len, i)) {
+		vm_error_at(wk, ip, "index %" PRId64 " out of bounds", *i);
+		return false;
+	}
+
+	return true;
+}
+
+bool
+rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int64_t n)
+{
+	if (n < min || n > max) {
+		vm_error_at(wk, ip, "number %" PRId64 " out of bounds (%" PRId64 ", %" PRId64 ")", n, min, max);
+		return false;
+	}
+
+	return true;
+}
+

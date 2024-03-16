@@ -14,7 +14,6 @@
 
 #include "buf_size.h"
 #include "error.h"
-#include "lang/interpreter.h"
 #include "lang/object.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
@@ -26,7 +25,7 @@
 static void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {
-	struct obj_internal *o = bucket_arr_get(&wk->objs, id);
+	struct obj_internal *o = bucket_arr_get(&wk->vm.objects.objs, id);
 	if (o->t != type) {
 		LOG_E("internal type error, expected %s but got %s",
 			obj_type_to_s(type), obj_type_to_s(o->t));
@@ -70,7 +69,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_iterator:
 	case obj_func:
 	case obj_capture:
-		return bucket_arr_get(&wk->obj_aos[o->t - _obj_aos_start], o->val);
+		return bucket_arr_get(&wk->vm.objects.obj_aos[o->t - _obj_aos_start], o->val);
 
 	case obj_null:
 	case obj_meson:
@@ -89,7 +88,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 enum obj_type
 get_obj_type(struct workspace *wk, obj id)
 {
-	struct obj_internal *o = bucket_arr_get(&wk->objs, id);
+	struct obj_internal *o = bucket_arr_get(&wk->vm.objects.objs, id);
 	return o->t;
 }
 
@@ -205,7 +204,7 @@ void
 make_obj(struct workspace *wk, obj *id, enum obj_type type)
 {
 	uint32_t val;
-	*id = wk->objs.len;
+	*id = wk->vm.objects.objs.len;
 
 	switch (type) {
 	case obj_bool:
@@ -248,7 +247,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 	case obj_func:
 	case obj_capture:
 	{
-		struct bucket_arr *ba = &wk->obj_aos[type - _obj_aos_start];
+		struct bucket_arr *ba = &wk->vm.objects.obj_aos[type - _obj_aos_start];
 		val = ba->len;
 		bucket_arr_pushn(ba, NULL, 0, 1);
 		break;
@@ -257,7 +256,7 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 		assert(false && "tried to make invalid object type");
 	}
 
-	bucket_arr_push(&wk->objs, &(struct obj_internal){ .t = type, .val = val });
+	bucket_arr_push(&wk->vm.objects.objs, &(struct obj_internal){ .t = type, .val = val });
 #ifdef TRACY_ENABLE
 	if (wk->tracy.is_master_workspace) {
 		uint64_t mem = 0;
@@ -278,14 +277,14 @@ make_obj(struct workspace *wk, obj *id, enum obj_type type)
 void
 obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk)
 {
-	wk->obj_clear_mark_set = true;
-	mk->obji = wk->objs.len;
+	wk->vm.objects.obj_clear_mark_set = true;
+	mk->obji = wk->vm.objects.objs.len;
 
-	bucket_arr_save(&wk->chrs, &mk->chrs);
-	bucket_arr_save(&wk->objs, &mk->objs);
+	bucket_arr_save(&wk->vm.objects.chrs, &mk->chrs);
+	bucket_arr_save(&wk->vm.objects.objs, &mk->objs);
 	uint32_t i;
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
-		bucket_arr_save(&wk->obj_aos[i], &mk->obj_aos[i]);
+		bucket_arr_save(&wk->vm.objects.obj_aos[i], &mk->obj_aos[i]);
 	}
 }
 
@@ -295,11 +294,11 @@ obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 	struct obj_internal *o;
 	struct str *ss;
 	uint32_t i;
-	for (i = mk->obji; i < wk->objs.len; ++i) {
-		o = bucket_arr_get(&wk->objs, i);
+	for (i = mk->obji; i < wk->vm.objects.objs.len; ++i) {
+		o = bucket_arr_get(&wk->vm.objects.objs, i);
 		if (o->t == obj_string) {
 			ss = bucket_arr_get(
-				&wk->obj_aos[obj_string - _obj_aos_start], o->val);
+				&wk->vm.objects.obj_aos[obj_string - _obj_aos_start], o->val);
 
 			if (ss->flags & str_flag_big) {
 				z_free((void *)ss->s);
@@ -307,11 +306,11 @@ obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 		}
 	}
 
-	bucket_arr_restore(&wk->objs, &mk->objs);
-	bucket_arr_restore(&wk->chrs, &mk->chrs);
+	bucket_arr_restore(&wk->vm.objects.objs, &mk->objs);
+	bucket_arr_restore(&wk->vm.objects.chrs, &mk->chrs);
 
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
-		bucket_arr_restore(&wk->obj_aos[i], &mk->obj_aos[i]);
+		bucket_arr_restore(&wk->vm.objects.obj_aos[i], &mk->obj_aos[i]);
 	}
 }
 
@@ -890,10 +889,10 @@ obj_array_pop(struct workspace *wk, obj arr)
 static enum iteration_result
 obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
 {
-	if (hash_get(&wk->obj_hash, &val)) {
+	if (hash_get(&wk->vm.objects.obj_hash, &val)) {
 		return ir_cont;
 	}
-	hash_set(&wk->obj_hash, &val, true);
+	hash_set(&wk->vm.objects.obj_hash, &val, true);
 
 	obj *res = _ctx;
 	if (!obj_array_in(wk, *res, val)) {
@@ -906,7 +905,7 @@ obj_array_dedup_iter(struct workspace *wk, void *_ctx, obj val)
 void
 obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 {
-	hash_clear(&wk->obj_hash);
+	hash_clear(&wk->vm.objects.obj_hash);
 
 	make_obj(wk, res, obj_array);
 	obj_array_foreach(wk, arr, res, obj_array_dedup_iter);
@@ -1032,7 +1031,7 @@ obj
 obj_array_slice(struct workspace *wk, obj a, int64_t i0, int64_t i1)
 {
 	struct obj_array *arr = get_obj_array(wk, a);
-	if (!(bounds_adjust(wk, arr->len, &i0) && bounds_adjust(wk, arr->len, &i1))) {
+	if (!(bounds_adjust(arr->len, &i0) && bounds_adjust(arr->len, &i1))) {
 		assert(false && "index out of bounds");
 	}
 
@@ -1062,7 +1061,7 @@ obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb
 
 	if (d->flags & obj_dict_flag_big) {
 		uint32_t i;
-		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
 		for (i = 0; i < h->keys.len; ++i) {
 			void *_key = arr_get(&h->keys, i);
 			uint64_t *_val = hash_get(h, _key);
@@ -1079,7 +1078,7 @@ obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb
 			}
 		}
 	} else {
-		struct obj_dict_elem *e = bucket_arr_get(&wk->dict_elems, d->data);
+		struct obj_dict_elem *e = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
 
 		while (true) {
 			switch (cb(wk, ctx, e->key, e->val)) {
@@ -1094,7 +1093,7 @@ obj_dict_foreach(struct workspace *wk, obj dict, void *ctx, obj_dict_iterator cb
 			if (!e->next) {
 				break;
 			}
-			e = bucket_arr_get(&wk->dict_elems, e->next);
+			e = bucket_arr_get(&wk->vm.objects.dict_elems, e->next);
 		}
 	}
 
@@ -1178,7 +1177,7 @@ _obj_dict_index(struct workspace *wk, obj dict,
 	}
 
 	if (d->flags & obj_dict_flag_big) {
-		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
 		if (d->flags & obj_dict_flag_int_key) {
 			*ures = hash_get(h, &key->num);
 		} else {
@@ -1190,7 +1189,7 @@ _obj_dict_index(struct workspace *wk, obj dict,
 			return true;
 		}
 	} else {
-		struct obj_dict_elem *e = bucket_arr_get(&wk->dict_elems, d->data);
+		struct obj_dict_elem *e = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
 
 		while (true) {
 			if (comp(wk, key, e->key)) {
@@ -1202,7 +1201,7 @@ _obj_dict_index(struct workspace *wk, obj dict,
 			if (!e->next) {
 				break;
 			}
-			e = bucket_arr_get(&wk->dict_elems, e->next);
+			e = bucket_arr_get(&wk->vm.objects.dict_elems, e->next);
 		}
 	}
 
@@ -1262,8 +1261,8 @@ _obj_dict_set(struct workspace *wk, obj dict,
 
 	/* empty dict */
 	if (!d->len) {
-		uint32_t e_idx = wk->dict_elems.len;
-		bucket_arr_push(&wk->dict_elems, &(struct obj_dict_elem) { .key = key, .val = val });
+		uint32_t e_idx = wk->vm.objects.dict_elems.len;
+		bucket_arr_push(&wk->vm.objects.dict_elems, &(struct obj_dict_elem) { .key = key, .val = val });
 		d->data = e_idx;
 		d->tail = e_idx;
 		++d->len;
@@ -1271,9 +1270,9 @@ _obj_dict_set(struct workspace *wk, obj dict,
 	}
 
 	if (!(d->flags & obj_dict_flag_dont_expand) && !(d->flags & obj_dict_flag_big) && d->len >= 15) {
-		struct obj_dict_elem *e = bucket_arr_get(&wk->dict_elems, d->data);
-		uint32_t h_idx = wk->dict_hashes.len;
-		struct hash *h = bucket_arr_push(&wk->dict_hashes, &(struct hash) { 0 });
+		struct obj_dict_elem *e = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
+		uint32_t h_idx = wk->vm.objects.dict_hashes.len;
+		struct hash *h = bucket_arr_push(&wk->vm.objects.dict_hashes, &(struct hash) { 0 });
 		if (d->flags & obj_dict_flag_int_key) {
 			hash_init(h, 16, sizeof(obj));
 		} else {
@@ -1296,7 +1295,7 @@ _obj_dict_set(struct workspace *wk, obj dict,
 			if (!e->next) {
 				break;
 			}
-			e = bucket_arr_get(&wk->dict_elems, e->next);
+			e = bucket_arr_get(&wk->vm.objects.dict_elems, e->next);
 		}
 		d->flags |= obj_dict_flag_big;
 	}
@@ -1314,7 +1313,7 @@ _obj_dict_set(struct workspace *wk, obj dict,
 
 	/* set new value */
 	if ((d->flags & obj_dict_flag_big)) {
-		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
 		if (d->flags & obj_dict_flag_int_key) {
 			hash_set(h, &key, val);
 		} else {
@@ -1323,10 +1322,10 @@ _obj_dict_set(struct workspace *wk, obj dict,
 		}
 		d->len = h->len;
 	} else {
-		uint32_t e_idx = wk->dict_elems.len;
-		bucket_arr_push(&wk->dict_elems, &(struct obj_dict_elem) { .key = key, .val = val, });
+		uint32_t e_idx = wk->vm.objects.dict_elems.len;
+		bucket_arr_push(&wk->vm.objects.dict_elems, &(struct obj_dict_elem) { .key = key, .val = val, });
 
-		struct obj_dict_elem *tail = bucket_arr_get(&wk->dict_elems, d->tail);
+		struct obj_dict_elem *tail = bucket_arr_get(&wk->vm.objects.dict_elems, d->tail);
 		tail->next = e_idx;
 
 		d->tail = e_idx;
@@ -1354,7 +1353,7 @@ _obj_dict_del(struct workspace *wk, obj dict,
 	}
 
 	if (d->flags & obj_dict_flag_big) {
-		struct hash *h = bucket_arr_get(&wk->dict_hashes, d->data);
+		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
 
 		if (d->flags & obj_dict_flag_int_key) {
 			hash_unset(h, &key->num);
@@ -1367,7 +1366,7 @@ _obj_dict_del(struct workspace *wk, obj dict,
 
 	uint32_t cur_id = d->data, prev_id = 0;
 	bool found = false;
-	struct obj_dict_elem *prev, *e = bucket_arr_get(&wk->dict_elems, d->data);
+	struct obj_dict_elem *prev, *e = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
 
 	while (true) {
 		if (comp(wk, key, e->key)) {
@@ -1380,7 +1379,7 @@ _obj_dict_del(struct workspace *wk, obj dict,
 			break;
 		}
 		cur_id = e->next;
-		e = bucket_arr_get(&wk->dict_elems, e->next);
+		e = bucket_arr_get(&wk->vm.objects.dict_elems, e->next);
 	}
 
 	if (!found) {
@@ -1391,7 +1390,7 @@ _obj_dict_del(struct workspace *wk, obj dict,
 	if (cur_id == d->data) {
 		d->data = e->next;
 	} else {
-		prev = bucket_arr_get(&wk->dict_elems, prev_id);
+		prev = bucket_arr_get(&wk->vm.objects.dict_elems, prev_id);
 		if (e->next) {
 			prev->next = e->next;
 		} else {
@@ -1519,7 +1518,7 @@ obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, obj key, obj val)
 bool
 obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
-	if (val >= wk_src->objs.len) {
+	if (val >= wk_src->vm.objects.objs.len) {
 		LOG_E("invalid object");
 		return false;
 	}

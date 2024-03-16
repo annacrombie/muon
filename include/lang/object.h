@@ -18,15 +18,6 @@
 #include "datastructures/iterator.h"
 #include "lang/types.h"
 
-enum language_mode {
-	language_external,
-	language_internal,
-	language_opts,
-	language_mode_count,
-
-	language_extended,
-};
-
 enum obj_type {
 	/* singleton object types */
 	obj_null,

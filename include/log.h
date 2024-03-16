@@ -14,14 +14,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-enum log_level {
-	log_quiet,
-	log_error,
-	log_warn,
-	log_info,
-	log_debug,
-	log_level_count,
-};
+#include "lang/types.h"
 
 extern const char *log_level_clr[log_level_count];
 extern const char *log_level_name[log_level_count];

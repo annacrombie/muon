@@ -9,7 +9,6 @@
 
 #include "backend/output.h"
 #include "error.h"
-#include "lang/interpreter.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "options.h"
@@ -23,7 +22,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	*id = arr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
-	proj->scope_stack = wk->scope_stack_dup(wk, wk->default_scope);
+	proj->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->default_scope);
 
 	make_obj(wk, &proj->args, obj_dict);
 	make_obj(wk, &proj->compilers, obj_dict);
@@ -62,82 +61,17 @@ current_project(struct workspace *wk)
 void
 workspace_init_bare(struct workspace *wk)
 {
-	*wk = (struct workspace){
-		.interp_node = interp_node,
-		.assign_variable = assign_variable,
-		.unassign_variable = unassign_variable,
-		.push_local_scope = push_local_scope,
-		.pop_local_scope = pop_local_scope,
-		.scope_stack_dup = scope_stack_dup,
-		.get_variable = get_variable,
-		.eval_project_file = eval_project_file,
-	};
+	vm_init(wk);
 
-#ifdef TRACY_ENABLE
 	{
+#ifdef TRACY_ENABLE
 		static bool first = true;
-
 		if (first) {
 			wk->tracy.is_master_workspace = true;
 		}
-
 		first = false;
-	}
 #endif
-
-	bucket_arr_init(&wk->chrs, 4096, 1);
-	bucket_arr_init(&wk->objs, 1024, sizeof(struct obj_internal));
-	bucket_arr_init(&wk->dict_elems, 1024, sizeof(struct obj_dict_elem));
-	bucket_arr_init(&wk->dict_hashes, 16, sizeof(struct hash));
-
-	const struct {
-		uint32_t item_size;
-		uint32_t bucket_size;
-	} sizes[] = {
-		[obj_number] = { sizeof(int64_t), 1024 },
-		[obj_string] = { sizeof(struct str), 1024 },
-		[obj_compiler] = { sizeof(struct obj_compiler), 4 },
-		[obj_array] = { sizeof(struct obj_array), 2048 },
-		[obj_dict] = { sizeof(struct obj_dict), 512 },
-		[obj_build_target] = { sizeof(struct obj_build_target), 16 },
-		[obj_custom_target] = { sizeof(struct obj_custom_target), 16 },
-		[obj_subproject] = { sizeof(struct obj_subproject), 16 },
-		[obj_dependency] = { sizeof(struct obj_dependency), 16 },
-		[obj_external_program] = { sizeof(struct obj_external_program), 32 },
-		[obj_python_installation] = { sizeof(struct obj_python_installation), 32 },
-		[obj_run_result] = { sizeof(struct obj_run_result), 32 },
-		[obj_configuration_data] = { sizeof(struct obj_configuration_data), 16 },
-		[obj_test] = { sizeof(struct obj_test), 64 },
-		[obj_module] = { sizeof(struct obj_module), 16 },
-		[obj_install_target] = { sizeof(struct obj_install_target), 128 },
-		[obj_environment] = { sizeof(struct obj_environment), 4 },
-		[obj_include_directory] = { sizeof(struct obj_include_directory), 16 },
-		[obj_option] = { sizeof(struct obj_option), 32 },
-		[obj_generator] = { sizeof(struct obj_generator), 16 },
-		[obj_generated_list] = { sizeof(struct obj_generated_list), 16 },
-		[obj_alias_target] = { sizeof(struct obj_alias_target), 4 },
-		[obj_both_libs] = { sizeof(struct obj_both_libs), 4 },
-		[obj_typeinfo] = { sizeof(struct obj_typeinfo), 32 },
-		[obj_func] = { sizeof(struct obj_func), 32 },
-		[obj_capture] = { sizeof(struct obj_func), 64 },
-		[obj_source_set] = { sizeof(struct obj_source_set), 4 },
-		[obj_source_configuration] = { sizeof(struct obj_source_configuration), 4 },
-		[obj_iterator] = { sizeof(struct obj_iterator), 32 },
-	};
-
-	uint32_t i;
-	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_arr_init(&wk->obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
 	}
-
-	obj id;
-	make_obj(wk, &id, obj_null);
-	assert(id == 0);
-
-	bucket_arr_pushn(&wk->dict_elems, 0, 0, 1); // reserve dict_elem 0 as a null element
-
-	hash_init(&wk->obj_hash, 128, sizeof(obj));
-	hash_init_str(&wk->str_hash, 128);
 }
 
 void
@@ -148,30 +82,19 @@ workspace_init(struct workspace *wk)
 	wk->argv0 = "dummy";
 	wk->build_root = "dummy";
 
-	obj id;
-	make_obj(wk, &id, obj_disabler);
-	assert(id == disabler_id);
-
-	make_obj(wk, &id, obj_bool);
-	assert(id == obj_bool_true);
-	set_obj_bool(wk, id, true);
-	make_obj(wk, &id, obj_bool);
-	assert(id == obj_bool_false);
-	set_obj_bool(wk, id, false);
-
 	SBUF(source_root);
 	path_cwd(wk, &source_root);
 	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root));
 
 	arr_init(&wk->projects, 16, sizeof(struct project));
 	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
-	bucket_arr_init(&wk->asts, 4, sizeof(struct ast));
 
 	make_obj(wk, &wk->default_scope, obj_array);
 	obj scope;
 	make_obj(wk, &scope, obj_dict);
 	obj_array_push(wk, wk->default_scope, scope);
 
+	obj id;
 	make_obj(wk, &id, obj_meson);
 	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
 
@@ -203,46 +126,14 @@ workspace_init(struct workspace *wk)
 void
 workspace_destroy_bare(struct workspace *wk)
 {
-	uint32_t i;
-	struct bucket_arr *ba = &wk->obj_aos[obj_string - _obj_aos_start];
-	for (i = 0; i < ba->len; ++i) {
-		struct str *s = bucket_arr_get(ba, i);
-		if (s->flags & str_flag_big) {
-			z_free((void *)s->s);
-		}
-	}
-
-	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_arr_destroy(&wk->obj_aos[i - _obj_aos_start]);
-	}
-
-	for (i = 0; i < wk->dict_hashes.len; ++i) {
-		struct hash *h = bucket_arr_get(&wk->dict_hashes, i);
-		hash_destroy(h);
-	}
-
-	bucket_arr_destroy(&wk->chrs);
-	bucket_arr_destroy(&wk->objs);
-	bucket_arr_destroy(&wk->dict_elems);
-	bucket_arr_destroy(&wk->dict_hashes);
-
-	hash_destroy(&wk->obj_hash);
-	hash_destroy(&wk->str_hash);
+	vm_destroy(wk);
 }
 
 void
 workspace_destroy(struct workspace *wk)
 {
-	uint32_t i;
-	for (i = 0; i < wk->asts.len; ++i) {
-		struct ast *ast = bucket_arr_get(&wk->asts, i);
-		ast_destroy(ast);
-	}
-
 	arr_destroy(&wk->projects);
 	arr_destroy(&wk->option_overrides);
-	bucket_arr_destroy(&wk->asts);
-
 	workspace_destroy_bare(wk);
 }
 

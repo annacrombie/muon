@@ -20,13 +20,14 @@
 #include "functions/modules.h"
 #include "lang/analyze.h"
 #include "lang/eval.h"
-#include "lang/interpreter.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"
 #include "tracy.h"
+
+#if 0
 
 static struct {
 	bool error;
@@ -2128,4 +2129,12 @@ do_analyze(struct analyze_opts *opts)
 	arr_destroy(&analyze_entrypoint_stacks);
 	workspace_destroy(&wk);
 	return res;
+}
+
+#endif
+
+bool
+do_analyze(struct analyze_opts *opts)
+{
+	return false;
 }

@@ -10,7 +10,6 @@
 #include "functions/both_libs.h"
 #include "functions/build_target.h"
 #include "functions/common.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 

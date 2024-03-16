@@ -15,12 +15,13 @@
 #include "formats/editorconfig.h"
 #include "formats/ini.h"
 #include "lang/fmt.h"
-#include "lang/interpreter.h"
 #include "lang/string.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/mem.h"
 #include "platform/path.h"
+
+#if 0
 
 struct arg_elem {
 	uint32_t kw, val, next;
@@ -1167,4 +1168,11 @@ ret:
 	fs_source_destroy(&cfg_src);
 	ast_destroy(&ast);
 	return ret;
+}
+#endif
+
+bool
+fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
+{
+	return false;
 }

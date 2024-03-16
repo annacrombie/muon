@@ -15,7 +15,6 @@
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -82,16 +81,14 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		src.len = strlen(src.src);
 
 		bool ret = false;
-		enum language_mode old_language_mode = wk->lang_mode;
-		wk->lang_mode = language_extended;
+		enum language_mode old_language_mode = wk->vm.lang_mode;
+		wk->vm.lang_mode = language_extended;
 
 		obj old_scope_stack;
 		if (encapsulate) {
 			old_scope_stack = current_project(wk)->scope_stack;
-			current_project(wk)->scope_stack = wk->scope_stack_dup(wk, wk->default_scope);
+			current_project(wk)->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->default_scope);
 		}
-
-		wk->returned = 0;
 
 		obj res;
 		if (!eval(wk, &src, eval_mode_default, &res)) {
@@ -99,18 +96,18 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		}
 
 		if (encapsulate) {
-			if (!wk->returned) {
-				interp_error(wk, 0, "%s did not return anything", name);
-				goto ret;
-			} else if (!typecheck(wk, 0, wk->returned, make_complex_type(wk, complex_type_nested, tc_dict, tc_func))) {
-				goto ret;
-			}
+			/* if (!wk->returned) { */
+			/* 	interp_error(wk, 0, "%s did not return anything", name); */
+			/* 	goto ret; */
+			/* } else if (!typecheck(wk, 0, wk->returned, make_complex_type(wk, complex_type_nested, tc_dict, tc_func))) { */
+			/* 	goto ret; */
+			/* } */
 
-			m->found = true;
-			m->has_impl = true;
-			m->exports = wk->returned;
+			/* m->found = true; */
+			/* m->has_impl = true; */
+			/* m->exports = wk->returned; */
 
-			wk->returning = false;
+			/* wk->returning = false; */
 		}
 
 		ret = true;
@@ -118,14 +115,14 @@ ret:
 		if (encapsulate) {
 			current_project(wk)->scope_stack = old_scope_stack;
 		}
-		wk->lang_mode = old_language_mode;
+		wk->vm.lang_mode = old_language_mode;
 		return ret;
 	} else {
 		enum module mod_type;
 		bool has_impl = false;
 		if (module_lookup_builtin(name, &mod_type, &has_impl)) {
 			if (!encapsulate) {
-				interp_error(wk, 0, "builtin modules cannot be imported into the current scope");
+				vm_error(wk, 0, "builtin modules cannot be imported into the current scope");
 				return false;
 			}
 
@@ -151,13 +148,13 @@ func_module_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
-const struct func_impl *module_func_tbl[module_count][language_mode_count] = {
-	[module_fs] = { impl_tbl_module_fs, impl_tbl_module_fs_internal },
-	[module_keyval] = { impl_tbl_module_keyval },
-	[module_pkgconfig] = { impl_tbl_module_pkgconfig },
-	[module_python3] = { impl_tbl_module_python3 },
-	[module_python] = { impl_tbl_module_python },
-	[module_sourceset] = { impl_tbl_module_sourceset },
+struct func_impl_group module_func_impl_groups[module_count][language_mode_count] = {
+	[module_fs]        = { { impl_tbl_module_fs },        { impl_tbl_module_fs_internal } },
+	[module_keyval]    = { { impl_tbl_module_keyval },    { 0 }                           },
+	[module_pkgconfig] = { { impl_tbl_module_pkgconfig }, { 0 }                           },
+	[module_python3]   = { { impl_tbl_module_python3 },   { 0 }                           },
+	[module_python]    = { { impl_tbl_module_python },    { 0 }                           },
+	[module_sourceset] = { { impl_tbl_module_sourceset }, { 0 }                           },
 };
 
 const struct func_impl impl_tbl_module[] = {
@@ -165,17 +162,16 @@ const struct func_impl impl_tbl_module[] = {
 	{ NULL, NULL },
 };
 
-const struct func_impl *
-module_func_lookup(struct workspace *wk, const char *name, enum module mod)
+bool
+module_func_lookup(struct workspace *wk, const char *name, enum module mod, uint32_t *idx)
 {
 	if (strcmp(name, "found") == 0) {
 		return &impl_tbl_module[0];
 	}
 
-	const struct func_impl *fi;
-	if (!(fi = func_lookup(module_func_tbl[mod], wk->lang_mode, name))) {
-		return NULL;
+	if (!func_lookup(module_func_impl_groups[mod], wk->vm.lang_mode, name, idx)) {
+		return false;
 	}
 
-	return fi;
+	return true;
 }

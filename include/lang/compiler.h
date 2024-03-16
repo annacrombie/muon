@@ -12,5 +12,4 @@
 #include "lang/workspace.h"
 
 bool compile(struct workspace *wk, struct source *src, uint32_t flags);
-
 #endif

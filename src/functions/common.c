@@ -35,10 +35,10 @@
 #include "functions/source_set.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
+#include "platform/mem.h"
 #include "tracy.h"
 
 // When true, disable functions with the .fuzz_unsafe attribute set to true.
@@ -52,21 +52,22 @@ bool disable_fuzz_unsafe_functions = false;
 // interp_args sees a disabler, it sets this flag, and "fails".  In the
 // function error handler we check this flag and don't raise an error if it is
 // set but instead return disabler.
-static bool disabler_among_args = false;
+/* static bool disabler_among_args = false; */
 // HACK: we also need this for the is_disabler() function :(
 bool disabler_among_args_immunity = false;
 
 // HACK: This works like disabler_among_args kind of.  These opts should only
 // ever be set by analyze_function().
-static struct analyze_function_opts {
-	bool do_analyze;
-	bool pure_function;
-	bool encountered_error;
-	bool allow_impure_args, allow_impure_args_except_first; // set to true for set_variable and subdir
+/* static struct analyze_function_opts { */
+/* 	bool do_analyze; */
+/* 	bool pure_function; */
+/* 	bool encountered_error; */
+/* 	bool allow_impure_args, allow_impure_args_except_first; // set to true for set_variable and subdir */
 
-	bool dump_signature; // used when dumping funciton signatures
-} analyze_function_opts;
+/* 	bool dump_signature; // used when dumping funciton signatures */
+/* } analyze_function_opts; */
 
+#if 0
 static bool
 interp_args_interp_node(struct workspace *wk, uint32_t arg_node, obj *res)
 {
@@ -705,7 +706,9 @@ end:
 
 	return true;
 }
+#endif
 
+#if 0
 bool
 func_obj_call(struct workspace *wk, struct obj_func *f, obj args, obj *res)
 {
@@ -864,88 +867,115 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 
 	return func_obj_call(wk, f, args, res);
 }
+#endif
 
-const struct func_impl *kernel_func_tbl[language_mode_count] = {
-	impl_tbl_kernel,
-	impl_tbl_kernel_internal,
-	impl_tbl_kernel_opts,
+struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
+	[0]                        = { { impl_tbl_kernel },               { impl_tbl_kernel_internal },
+				       { impl_tbl_kernel_opts }                                            },
+	[obj_meson]                = { { impl_tbl_meson },                { impl_tbl_meson_internal }      },
+	[obj_subproject]           = { { impl_tbl_subproject },           { 0 }                            },
+	[obj_number]               = { { impl_tbl_number },               { impl_tbl_number, }             },
+	[obj_dependency]           = { { impl_tbl_dependency },           { 0 }                            },
+	[obj_machine]              = { { impl_tbl_machine },              { impl_tbl_machine }             },
+	[obj_compiler]             = { { impl_tbl_compiler },             { 0 }                            },
+	[obj_feature_opt]          = { { impl_tbl_feature_opt },          { 0 }                            },
+	[obj_run_result]           = { { impl_tbl_run_result },           { impl_tbl_run_result }          },
+	[obj_string]               = { { impl_tbl_string },               { impl_tbl_string }              },
+	[obj_dict]                 = { { impl_tbl_dict },                 { impl_tbl_dict_internal }       },
+	[obj_external_program]     = { { impl_tbl_external_program },     { impl_tbl_external_program }    },
+	[obj_python_installation]  = { { impl_tbl_python_installation },  { impl_tbl_python_installation } },
+	[obj_configuration_data]   = { { impl_tbl_configuration_data },   { impl_tbl_configuration_data }  },
+	[obj_custom_target]        = { { impl_tbl_custom_target },        { 0 }                            },
+	[obj_file]                 = { { impl_tbl_file },                 { impl_tbl_file }                },
+	[obj_bool]                 = { { impl_tbl_boolean },              { impl_tbl_boolean }             },
+	[obj_array]                = { { impl_tbl_array },                { impl_tbl_array_internal }      },
+	[obj_build_target]         = { { impl_tbl_build_target },         { 0 }                            },
+	[obj_environment]          = { { impl_tbl_environment },          { impl_tbl_environment }         },
+	[obj_disabler]             = { { impl_tbl_disabler },             { impl_tbl_disabler }            },
+	[obj_generator]            = { { impl_tbl_generator },            { 0 }                            },
+	[obj_both_libs]            = { { impl_tbl_both_libs },            { 0 }                            },
+	[obj_source_set]           = { { impl_tbl_source_set },           { 0 }                            },
+	[obj_source_configuration] = { { impl_tbl_source_configuration }, { 0 }                            },
+	[obj_module]               = { { impl_tbl_module },               { 0 }                            },
 };
 
-const struct func_impl *func_tbl[obj_type_count][language_mode_count] = {
-	[obj_meson] = { impl_tbl_meson, impl_tbl_meson_internal, },
-	[obj_subproject] = { impl_tbl_subproject },
-	[obj_number] = { impl_tbl_number, impl_tbl_number, },
-	[obj_dependency] = { impl_tbl_dependency },
-	[obj_machine] = { impl_tbl_machine, impl_tbl_machine },
-	[obj_compiler] = { impl_tbl_compiler },
-	[obj_feature_opt] = { impl_tbl_feature_opt },
-	[obj_run_result] = { impl_tbl_run_result, impl_tbl_run_result },
-	[obj_string] = { impl_tbl_string, impl_tbl_string },
-	[obj_dict] = { impl_tbl_dict, impl_tbl_dict_internal  },
-	[obj_external_program] = { impl_tbl_external_program, impl_tbl_external_program },
-	[obj_python_installation] = { impl_tbl_python_installation, impl_tbl_python_installation },
-	[obj_configuration_data] = { impl_tbl_configuration_data, impl_tbl_configuration_data },
-	[obj_custom_target] = { impl_tbl_custom_target },
-	[obj_file] = { impl_tbl_file, impl_tbl_file },
-	[obj_bool] = { impl_tbl_boolean, impl_tbl_boolean },
-	[obj_array] = { impl_tbl_array, impl_tbl_array_internal },
-	[obj_build_target] = { impl_tbl_build_target },
-	[obj_environment] = { impl_tbl_environment, impl_tbl_environment },
-	[obj_disabler] = { impl_tbl_disabler, impl_tbl_disabler },
-	[obj_generator] = { impl_tbl_generator, },
-	[obj_both_libs] = { impl_tbl_both_libs, },
-	[obj_source_set] = { impl_tbl_source_set, },
-	[obj_source_configuration] = { impl_tbl_source_configuration, },
-	[obj_module] = { impl_tbl_module, }
-};
+struct func_impl native_funcs[10];
+
+static void
+copy_func_impl_group(struct func_impl_group *group, uint32_t *off)
+{
+	group->off = *off;
+	for (group->len = 0; group->impls[group->len].name; ++group->len) {
+		assert(group->off + group->len < ARRAY_LEN(native_funcs) && "bump native_funcs size");
+		native_funcs[group->off + group->len] = group->impls[group->len];
+	}
+	*off += group->len;
+}
 
 void
 build_func_impl_tables(void)
 {
+	uint32_t off = 0;
+	enum module m;
+	enum obj_type t;
+	enum language_mode lang_mode;
+
 	both_libs_build_impl_tbl();
 	python_build_impl_tbl();
+
+	for (t = 0; t < obj_type_count; ++t) {
+		for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
+			copy_func_impl_group(&func_impl_groups[t][lang_mode], &off);
+		}
+	}
+
+	for (m = 0; m < module_count; ++m) {
+		for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
+			copy_func_impl_group(&module_func_impl_groups[m][lang_mode], &off);
+		}
+	}
 }
 
-static const struct func_impl *
-func_lookup_for_mode(const struct func_impl *impl_tbl, const char *name)
+static bool
+func_lookup_for_mode(const struct func_impl_group *impl_group, const char *name, uint32_t *idx)
 {
-	if (!impl_tbl) {
-		return NULL;
+	if (!impl_group->impls) {
+		return false;
 	}
 
 	uint32_t i;
-	for (i = 0; impl_tbl[i].name; ++i) {
-		if (strcmp(impl_tbl[i].name, name) == 0) {
-			return &impl_tbl[i];
+	for (i = 0; impl_group->impls[i].name; ++i) {
+		if (strcmp(impl_group->impls[i].name, name) == 0) {
+			*idx = impl_group->off + i;
+			return true;
 		}
 	}
 
-	return NULL;
+	return true;
 }
 
-const struct func_impl *
-func_lookup(const struct func_impl **impl_tbl, enum language_mode mode, const char *name)
+static bool
+func_lookup_for_group(const struct func_impl_group impl_group[], enum language_mode mode, const char *name, uint32_t *idx)
 {
 	if (mode == language_extended) {
-		const struct func_impl *r;
-		if ((r = func_lookup_for_mode(impl_tbl[language_internal], name))) {
-			return r;
+		if (func_lookup_for_mode(&impl_group[language_internal], name, idx)) {
+			return true;
 		}
 
-		return func_lookup_for_mode(impl_tbl[language_external], name);
+		return func_lookup_for_mode(&impl_group[language_external], name, idx);
 	} else {
-		return func_lookup_for_mode(impl_tbl[mode], name);
+		return func_lookup_for_mode(&impl_group[mode], name, idx);
 	}
 
-	return NULL;
+	return false;
 }
 
 const char *
-func_name_str(bool have_rcvr, enum obj_type rcvr_type, const char *name)
+func_name_str(enum obj_type t, const char *name)
 {
 	static char buf[256];
-	if (have_rcvr && rcvr_type != obj_func) {
-		snprintf(buf, ARRAY_LEN(buf), "method %s.%s()", obj_type_to_s(rcvr_type), name);
+	if (t) {
+		snprintf(buf, ARRAY_LEN(buf), "method %s.%s()", obj_type_to_s(t), name);
 	} else {
 		snprintf(buf, ARRAY_LEN(buf), "function %s()", name);
 	}
@@ -954,136 +984,96 @@ func_name_str(bool have_rcvr, enum obj_type rcvr_type, const char *name)
 }
 
 bool
-builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id, obj *res)
+func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj *func)
 {
-	const char *name;
+	enum obj_type t;
+	struct func_impl_group *impl_group;
+	struct obj_module *m;
 
-	enum obj_type rcvr_type = 0;
-	uint32_t args_node, name_node = 0;
-	struct node *n = get_node(wk->ast, node_id);
-	const struct func_impl **impl_tbl = 0;
-
-	if (have_rcvr && !rcvr_id) {
-		interp_error(wk, n->r, "tried to call function on null");
-		return false;
-	}
-
-	if (have_rcvr) {
-		rcvr_type = get_obj_type(wk, rcvr_id);
-		if (rcvr_type == obj_func) {
-			args_node = n->r;
-		} else {
-			name_node = n->r;
-			args_node = n->c;
-			impl_tbl = func_tbl[rcvr_type];
-		}
-	} else {
-		assert(n->chflg & node_child_l);
-		name_node = n->l;
-		args_node = n->r;
-		impl_tbl = kernel_func_tbl;
-	}
-
-	const struct func_impl *fi = 0;
-	obj func_obj = 0, func_module = 0;
-	if (rcvr_type == obj_func) {
-		name = get_obj_func(wk, rcvr_id)->name;
-	} else {
-		name = get_cstr(wk, get_node(wk->ast, name_node)->data.str);
-	}
-
-	if (have_rcvr && rcvr_type == obj_module) {
-		struct obj_module *m = get_obj_module(wk, rcvr_id);
-		enum module mod = m->module;
+	t = get_obj_type(wk, rcvr);
+	if (t == obj_module) {
+		m = get_obj_module(wk, rcvr);
 
 		if (!m->found && strcmp(name, "found") != 0) {
-			interp_error(wk, name_node, "invalid attempt to use not-found module");
+			vm_error(wk, "module %s was not found", module_names[m->module]);
 			return false;
 		}
 
 		if (m->exports) {
-			if (!obj_dict_index_str(wk, m->exports, name, &func_obj)) {
-				interp_error(wk, name_node, "%s not found in module", name);
+			if (!obj_dict_index_str(wk, m->exports, name, func)) {
+				vm_error(wk, "%s not found in module", name);
 				return false;
 			}
-			func_module = rcvr_id;
-		} else if (!(fi = module_func_lookup(wk, name, mod))) {
+			return true;
+		}
+
+		if (!module_func_lookup(wk, name, m->module, idx)) {
 			if (!m->has_impl) {
-				interp_error(wk, name_node, "module '%s' is unimplemented,\n"
+				vm_error(wk, "module '%s' is unimplemented,\n"
 					"  If you would like to make your build files portable to muon, use"
 					" `import('%s', required: false)`, and then check"
 					" the .found() method before use."
-					, module_names[mod]
-					, module_names[mod]
+					, module_names[m->module]
+					, module_names[m->module]
 					);
 				return false;
 			} else {
-				interp_error(wk, name_node, "%s not found in module %s", func_name_str(false, 0, name), module_names[mod]);
+				vm_error(wk, "%s not found in module %s", func_name_str(0, name), module_names[m->module]);
 				return false;
 			}
 		}
-	} else if (have_rcvr && rcvr_type == obj_func) {
-		func_obj = rcvr_id;
-	} else {
-		if (!impl_tbl) {
-			interp_error(wk, name_node, "%s not found", func_name_str(true, rcvr_type, name));
-			return false;
-		}
-
-		fi = func_lookup(impl_tbl, wk->lang_mode, name);
-
-		if (!fi) {
-			if (rcvr_type == obj_disabler) {
-				*res = disabler_id;
-				return true;
-			}
-
-			interp_error(wk, name_node, "%s not found", func_name_str(have_rcvr, rcvr_type, name));
-			return false;
-		}
+		return true;
 	}
 
-	if (fi && fi->fuzz_unsafe && disable_fuzz_unsafe_functions) {
-		interp_error(wk, name_node, "%s is disabled", func_name_str(have_rcvr, rcvr_type, name));
+	impl_group = func_impl_groups[t];
+
+	if (!func_lookup_for_group(impl_group, wk->vm.lang_mode, name, idx)) {
+		vm_error(wk, "%s not found", func_name_str(t, name));
 		return false;
 	}
 
-	if (have_rcvr && fi && fi->rcvr_transform) {
-		rcvr_id = fi->rcvr_transform(wk, rcvr_id);
-	}
+	/* if (fi && fi->fuzz_unsafe && disable_fuzz_unsafe_functions) { */
+	/* 	interp_error(wk, name_node, "%s is disabled", func_name_str(have_rcvr, rcvr_type, name)); */
+	/* 	return false; */
+	/* } */
 
-	TracyCZoneC(tctx_func, 0xff5000, true);
-#ifdef TRACY_ENABLE
-	const char *func_name = func_name_str(have_rcvr, rcvr_type, name);
-	TracyCZoneName(tctx_func, func_name, strlen(func_name));
-#endif
+	/* if (have_rcvr && fi && fi->rcvr_transform) { */
+	/* 	rcvr_id = fi->rcvr_transform(wk, rcvr_id); */
+	/* } */
 
-	bool func_res;
+	/* TracyCZoneC(tctx_func, 0xff5000, true); */
+/* #ifdef TRACY_ENABLE */
+	/* const char *func_name = func_name_str(have_rcvr, rcvr_type, name); */
+	/* TracyCZoneName(tctx_func, func_name, strlen(func_name)); */
+/* #endif */
 
-	if (fi) {
-		func_res = fi->func(wk, rcvr_id, args_node, res);
-	} else {
-		func_res = func_obj_eval(wk, func_obj, func_module, args_node, res);
-	}
+	/* bool func_res; */
 
-	TracyCZoneEnd(tctx_func);
+	/* if (fi) { */
+	/* 	func_res = fi->func(wk, rcvr_id, args_node, res); */
+	/* } else { */
+	/* 	func_res = func_obj_eval(wk, func_obj, func_module, args_node, res); */
+	/* } */
 
-	if (!func_res) {
-		if (disabler_among_args) {
-			*res = disabler_id;
-			disabler_among_args = false;
-			return true;
-		} else {
-			interp_error(wk, name_node, "in %s", func_name_str(have_rcvr, rcvr_type, name));
-			return false;
-		}
-	}
+	/* TracyCZoneEnd(tctx_func); */
+
+	/* if (!func_res) { */
+	/* 	if (disabler_among_args) { */
+	/* 		*res = disabler_id; */
+	/* 		disabler_among_args = false; */
+	/* 		return true; */
+	/* 	} else { */
+	/* 		interp_error(wk, name_node, "in %s", func_name_str(have_rcvr, rcvr_type, name)); */
+	/* 		return false; */
+	/* 	} */
+	/* } */
 	return true;
 }
 
 bool
 analyze_function(struct workspace *wk, const struct func_impl *fi, uint32_t args_node, obj rcvr, obj *res, bool *was_pure)
 {
+#if 0
 	struct analyze_function_opts old_opts = analyze_function_opts;
 	*res = 0;
 
@@ -1122,25 +1112,28 @@ analyze_function(struct workspace *wk, const struct func_impl *fi, uint32_t args
 	} else {
 		return ok;
 	}
+#endif
+	return false;
 }
 
-static int32_t
-function_sig_sort(const void *a, const void *b, void *_ctx)
-{
-	const struct function_signature *sa = a, *sb = b;
+/* static int32_t */
+/* function_sig_sort(const void *a, const void *b, void *_ctx) */
+/* { */
+/* 	const struct function_signature *sa = a, *sb = b; */
 
-	if ((sa->is_method && sb->is_method) || (!sa->is_method && !sb->is_method)) {
-		return strcmp(sa->name, sb->name);
-	} else if (sa->is_method) {
-		return 1;
-	} else {
-		return -1;
-	}
-}
+/* 	if ((sa->is_method && sb->is_method) || (!sa->is_method && !sb->is_method)) { */
+/* 		return strcmp(sa->name, sb->name); */
+/* 	} else if (sa->is_method) { */
+/* 		return 1; */
+/* 	} else { */
+/* 		return -1; */
+/* 	} */
+/* } */
 
 void
 dump_function_signatures(struct workspace *wk)
 {
+#if 0
 	analyze_function_opts.dump_signature = true;
 
 	arr_init(&function_sig_dump.sigs, 64, sizeof(struct function_signature));
@@ -1216,4 +1209,5 @@ dump_function_signatures(struct workspace *wk)
 	}
 
 	arr_destroy(&function_sig_dump.sigs);
+#endif
 }

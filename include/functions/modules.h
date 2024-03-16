@@ -10,8 +10,8 @@
 
 extern const char *module_names[module_count];
 extern const struct func_impl impl_tbl_module[];
-extern const struct func_impl *module_func_tbl[module_count][language_mode_count];
+extern struct func_impl_group module_func_impl_groups[module_count][language_mode_count];
 
 bool module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res);
-const struct func_impl *module_func_lookup(struct workspace *wk, const char *name, enum module mod);
+bool module_func_lookup(struct workspace *wk, const char *name, enum module mod, uint32_t *idx);
 #endif

@@ -18,7 +18,6 @@
 #include "functions/machine.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
