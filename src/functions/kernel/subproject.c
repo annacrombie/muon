@@ -7,7 +7,6 @@
 
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -143,7 +142,7 @@ subproject(struct workspace *wk, obj name, enum requirement_type req, struct arg
 
 		if (!compare_result) {
 			if (req == requirement_required) {
-				interp_error(wk, versions->node,
+				vm_error_at(wk, versions->node,
 					"subproject version mismatch; wanted %o, got %o",
 					versions->val, subp->cfg.version);
 				goto not_found;

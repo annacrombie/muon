@@ -14,7 +14,6 @@
 #include "compilers.h"
 #include "functions/build_target.h"
 #include "functions/environment.h"
-#include "lang/interpreter.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/path.h"

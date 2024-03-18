@@ -22,7 +22,6 @@
 #include "functions/compiler.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/kernel/dependency.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -348,7 +347,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	}
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, NULL, 0)) {
-		interp_error(wk, err_node, "error: %s", cmd_ctx.err_msg);
+		vm_error_at(wk, err_node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
@@ -391,7 +390,7 @@ ret:
 	run_cmd_ctx_destroy(&cmd_ctx);
 	if (!*res && req == requirement_required) {
 		assert(opts->required);
-		interp_error(wk, opts->required->node, "a required compiler check failed");
+		vm_error_at(wk, opts->required->node, "a required compiler check failed");
 		return false;
 	}
 	return ret;
@@ -495,7 +494,7 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 			if ((args_mask & (1 << i))) {
 				continue;
 			} else if (akw[i].set) {
-				interp_error(wk, akw[i].node, "invalid keyword '%s'", akw[i].key);
+				vm_error_at(wk, akw[i].node, "invalid keyword '%s'", akw[i].key);
 				return false;
 			}
 		}
@@ -827,7 +826,7 @@ compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_
 
 	const char *src;
 	if (!get_has_function_attribute_test(get_str(wk, arg), &src)) {
-		interp_error(wk, err_node, "unknown attribute '%s'", get_cstr(wk, arg));
+		vm_error_at(wk, err_node, "unknown attribute '%s'", get_cstr(wk, arg));
 		return false;
 	}
 
@@ -1237,7 +1236,7 @@ done:
 	return true;
 failed:
 	fs_source_destroy(&output);
-	interp_error(wk, err_node, "failed to get define: '%s'", def);
+	vm_error_at(wk, err_node, "failed to get define: '%s'", def);
 	return false;
 }
 
@@ -1308,7 +1307,7 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		break;
 	}
 	default:
-		interp_error(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
+		vm_error_at(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
 		return false;
 	}
 
@@ -1574,7 +1573,7 @@ func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 	}
 
 	if (!get_obj_array(wk, an[1].val)->len) {
-		interp_error(wk, an[1].node, "missing member arguments");
+		vm_error_at(wk, an[1].node, "missing member arguments");
 		return false;
 	}
 
@@ -1612,7 +1611,7 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	obj o;
 	if (!obj_array_flatten_one(wk, an[0].val, &o)) {
-		interp_error(wk, an[0].node, "could not flatten argument");
+		vm_error_at(wk, an[0].node, "could not flatten argument");
 	}
 
 	enum obj_type t = get_obj_type(wk, an[0].val);
@@ -1629,7 +1628,7 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		break;
 	}
 	default:
-		interp_error(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
+		vm_error_at(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
 		return false;
 	}
 
@@ -2005,7 +2004,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		uint32_t i;
 		for (i = kw_header_required; i <= kw_header_prefix; ++i) {
 			if (akw[i].set) {
-				interp_error(wk, akw[i].node,
+				vm_error_at(wk, akw[i].node,
 					"header_ keywords are invalid without "
 					"also specifying the has_headers keyword");
 				return false;
@@ -2080,7 +2079,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 
 	if (!ctx.found) {
 		if (requirement == requirement_required) {
-			interp_error(wk, an[0].node, "library not found");
+			vm_error_at(wk, an[0].node, "library not found");
 			return false;
 		}
 

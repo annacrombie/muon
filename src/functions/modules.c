@@ -87,7 +87,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		obj old_scope_stack;
 		if (encapsulate) {
 			old_scope_stack = current_project(wk)->scope_stack;
-			current_project(wk)->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->default_scope);
+			/* current_project(wk)->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->default_scope); */
 		}
 
 		obj res;
@@ -97,7 +97,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 
 		if (encapsulate) {
 			/* if (!wk->returned) { */
-			/* 	interp_error(wk, 0, "%s did not return anything", name); */
+			/* 	vm_error_at(wk, 0, "%s did not return anything", name); */
 			/* 	goto ret; */
 			/* } else if (!typecheck(wk, 0, wk->returned, make_complex_type(wk, complex_type_nested, tc_dict, tc_func))) { */
 			/* 	goto ret; */
@@ -122,7 +122,7 @@ ret:
 		bool has_impl = false;
 		if (module_lookup_builtin(name, &mod_type, &has_impl)) {
 			if (!encapsulate) {
-				vm_error(wk, 0, "builtin modules cannot be imported into the current scope");
+				vm_error(wk, "builtin modules cannot be imported into the current scope");
 				return false;
 			}
 
@@ -166,10 +166,10 @@ bool
 module_func_lookup(struct workspace *wk, const char *name, enum module mod, uint32_t *idx)
 {
 	if (strcmp(name, "found") == 0) {
-		return &impl_tbl_module[0];
+		return true;
 	}
 
-	if (!func_lookup(module_func_impl_groups[mod], wk->vm.lang_mode, name, idx)) {
+	if (!func_lookup_for_group(module_func_impl_groups[mod], wk->vm.lang_mode, name, idx)) {
 		return false;
 	}
 

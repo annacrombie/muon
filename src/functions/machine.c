@@ -10,7 +10,6 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/machine.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/uname.h"

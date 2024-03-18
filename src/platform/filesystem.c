@@ -170,7 +170,7 @@ fs_read_entire_file(const char *path, struct source *src)
 	size_t read;
 	char *buf = NULL;
 
-	*src = (struct source) { .label = path };
+	*src = (struct source) { .label = path, .reopen_type = source_reopen_type_file };
 
 	if (strcmp(path, "-") == 0) {
 		f = stdin;

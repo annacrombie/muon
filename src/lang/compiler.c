@@ -16,8 +16,6 @@
 #include "lang/workspace.h"
 #include "platform/path.h"
 
-#define COMP_DEBUG 1
-
 /******************************************************************************
  * compiler
  ******************************************************************************/
@@ -118,23 +116,24 @@ comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->l->data.str);
 		break;
 	case node_type_call: {
-		bool native = false;
-		/* uint32_t idx; */
+		bool known = false;
+		uint32_t idx;
 
 		if (n->r->type == node_type_id_lit) {
-			/* native = func_lookup2(kernel_func_tbl2[language_internal], get_str(c->wk, n->r->data.str), &idx); */
-			if (!native) {
+			known = func_lookup(wk, 0, get_str(wk, n->r->data.str)->s, &idx, 0);
+			L("got known func %s %d", get_str(wk, n->r->data.str)->s, idx);
+			L("%s", native_funcs[idx].name);
+			if (!known) {
 				n->r->type = node_type_id;
 				comp_node(wk, n->r);
 			}
 		}
 
-		if (native) {
+		if (known) {
 			push_code(wk, op_call_native);
 			push_constant(wk, n->l->data.len.args);
 			push_constant(wk, n->l->data.len.kwargs);
-			assert(false && "not done!");
-			/* push_constant(wk, idx); */
+			push_constant(wk, idx);
 		} else {
 			push_code(wk, op_call);
 			push_constant(wk, n->l->data.len.args);
@@ -229,7 +228,7 @@ comp_node(struct workspace *wk, struct node *n)
 		for (arg = n->l->r; arg; arg = arg->r) {
 			/* if (arg->subtype == arg_normal) { */
 			/* 	if (f->nkwargs) { */
-			/* 		interp_error(wk, arg_id, "non-kwarg after kwargs"); */
+			/* 		vm_error_at(wk, arg_id, "non-kwarg after kwargs"); */
 			/* 	} */
 			if (arg->l) {
 				func->an[func->nargs] = (struct args_norm) {
@@ -325,8 +324,20 @@ compile_block(struct workspace *wk, struct node *n)
 	}
 }
 
+void
+compiler_write_initial_code_segment(struct workspace *wk)
+{
+	arr_push(&wk->vm.locations, &(struct source_location_mapping) {
+		.ip = 0,
+		.loc = { 0 },
+		.src_idx = UINT32_MAX,
+	});
+
+	push_code(wk, op_return);
+}
+
 bool
-compile(struct workspace *wk, struct source *src, uint32_t flags)
+compile(struct workspace *wk, struct source *src, uint32_t flags, uint32_t *entry)
 {
 	struct node *n;
 
@@ -334,10 +345,8 @@ compile(struct workspace *wk, struct source *src, uint32_t flags)
 		return false;
 	}
 
-#ifdef COMP_DEBUG
-	print_ast(wk, n);
-#endif
-
+	*entry = wk->vm.code.len;
 	compile_block(wk, n);
+	push_code(wk, op_return);
 	return true;
 }

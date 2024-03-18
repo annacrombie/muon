@@ -383,14 +383,14 @@ process_kwarg(struct workspace *wk, uint32_t kwarg_node, uint32_t arg_node, stru
 	}
 
 	if (!keyword_args[i].key) {
-		interp_error(wk, kwarg_node, "invalid kwarg: '%s'", kw);
+		vm_error_at(wk, kwarg_node, "invalid kwarg: '%s'", kw);
 		return false;
 	}
 
 	if (!typecheck_function_arg(wk, arg_node, &val, keyword_args[i].type)) {
 		return false;
 	} else if (keyword_args[i].set) {
-		interp_error(wk, arg_node, "keyword argument '%s' set twice", keyword_args[i].key);
+		vm_error_at(wk, arg_node, "keyword argument '%s' set twice", keyword_args[i].key);
 		return false;
 	}
 
@@ -555,7 +555,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 
 			if (!next_arg(wk, &arg_node, &kwarg_node, &kw, &args)) {
 				if (stage == 0) { // required
-					interp_error(wk, args_node, "missing arguments %s", ARITY);
+					vm_error_at(wk, args_node, "missing arguments %s", ARITY);
 					return false;
 				} else if (stage == 1) { // optional
 					goto end;
@@ -564,7 +564,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 
 			if (kw) {
 				if (stage == 0) {
-					interp_error(wk, kwarg_node, "unexpected kwarg before required arguments %s", ARITY);
+					vm_error_at(wk, kwarg_node, "unexpected kwarg before required arguments %s", ARITY);
 					return false;
 				}
 
@@ -589,12 +589,12 @@ interp_args(struct workspace *wk, uint32_t args_node,
 			goto process_kwarg;
 kwargs:
 			if (!keyword_args) {
-				interp_error(wk, args_node, "this function does not accept kwargs %s", ARITY);
+				vm_error_at(wk, args_node, "this function does not accept kwargs %s", ARITY);
 				return false;
 			}
 process_kwarg:
 			if (!kw) {
-				interp_error(wk, arg_node, "non-kwarg after kwargs %s", ARITY);
+				vm_error_at(wk, arg_node, "non-kwarg after kwargs %s", ARITY);
 				return false;
 			}
 
@@ -629,9 +629,9 @@ process_kwarg:
 		}
 	} else if (next_arg(wk, &arg_node, &kwarg_node, &kw, &args)) {
 		if (kw) {
-			interp_error(wk, kwarg_node, "this function does not accept kwargs %s", ARITY);
+			vm_error_at(wk, kwarg_node, "this function does not accept kwargs %s", ARITY);
 		} else {
-			interp_error(wk, arg_node, "too many arguments %s", ARITY);
+			vm_error_at(wk, arg_node, "too many arguments %s", ARITY);
 		}
 
 		return false;
@@ -641,7 +641,7 @@ end:
 	if (keyword_args && !got_dynamic_kwargs_typeinfo) {
 		for (i = 0; keyword_args[i].key; ++i) {
 			if (keyword_args[i].required && !keyword_args[i].set) {
-				interp_error(wk, args_node, "missing required kwarg: %s", keyword_args[i].key);
+				vm_error_at(wk, args_node, "missing required kwarg: %s", keyword_args[i].key);
 				return false;
 			}
 		}
@@ -899,11 +899,15 @@ struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 	[obj_module]               = { { impl_tbl_module },               { 0 }                            },
 };
 
-struct func_impl native_funcs[10];
+struct func_impl native_funcs[512];
 
 static void
 copy_func_impl_group(struct func_impl_group *group, uint32_t *off)
 {
+	if (!group->impls) {
+		return;
+	}
+
 	group->off = *off;
 	for (group->len = 0; group->impls[group->len].name; ++group->len) {
 		assert(group->off + group->len < ARRAY_LEN(native_funcs) && "bump native_funcs size");
@@ -954,7 +958,7 @@ func_lookup_for_mode(const struct func_impl_group *impl_group, const char *name,
 	return true;
 }
 
-static bool
+bool
 func_lookup_for_group(const struct func_impl_group impl_group[], enum language_mode mode, const char *name, uint32_t *idx)
 {
 	if (mode == language_extended) {
@@ -1033,7 +1037,7 @@ func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj
 	}
 
 	/* if (fi && fi->fuzz_unsafe && disable_fuzz_unsafe_functions) { */
-	/* 	interp_error(wk, name_node, "%s is disabled", func_name_str(have_rcvr, rcvr_type, name)); */
+	/* 	vm_error_at(wk, name_node, "%s is disabled", func_name_str(have_rcvr, rcvr_type, name)); */
 	/* 	return false; */
 	/* } */
 
@@ -1063,7 +1067,7 @@ func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj
 	/* 		disabler_among_args = false; */
 	/* 		return true; */
 	/* 	} else { */
-	/* 		interp_error(wk, name_node, "in %s", func_name_str(have_rcvr, rcvr_type, name)); */
+	/* 		vm_error_at(wk, name_node, "in %s", func_name_str(have_rcvr, rcvr_type, name)); */
 	/* 		return false; */
 	/* 	} */
 	/* } */

@@ -153,7 +153,7 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 		obj_array_index(wk, ctx->fallback, 0, &subproj_name);
 		break;
 	default:
-		interp_error(wk, ctx->err_node, "expected array of length 1-2 for fallback");
+		vm_error_at(wk, ctx->err_node, "expected array of length 1-2 for fallback");
 		return false;
 	}
 
@@ -190,18 +190,18 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 
 	if (subproj_dep) {
 		if (!subproject_get_variable(wk, ctx->fallback_node, subproj_dep, 0, subproj, ctx->res)) {
-			interp_warning(wk, ctx->fallback_node, "subproject dependency variable %o is not defined", subproj_dep);
+			vm_warning_at(wk, ctx->fallback_node, "subproject dependency variable %o is not defined", subproj_dep);
 			goto not_found;
 		}
 	} else {
 		if (!check_dependency_override(wk, ctx)) {
-			interp_warning(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
+			vm_warning_at(wk, ctx->fallback_node, "subproject does not override dependency %o", ctx->name);
 			goto not_found;
 		}
 	}
 
 	if (get_obj_type(wk, *ctx->res) != obj_dependency) {
-		interp_warning(wk, ctx->fallback_node, "overridden dependency is not a dependency object");
+		vm_warning_at(wk, ctx->fallback_node, "overridden dependency is not a dependency object");
 		goto not_found;
 	}
 
@@ -370,7 +370,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
 		*handled = true;
 		if (!ctx->modules) {
-			interp_error(wk, ctx->err_node, "'appleframeworks' dependency requires the modules keyword");
+			vm_error_at(wk, ctx->err_node, "'appleframeworks' dependency requires the modules keyword");
 			return false;
 		}
 
@@ -386,7 +386,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
 		if (ctx->requirement == requirement_required) {
-			interp_error(wk, ctx->err_node, "dependency '' cannot be required");
+			vm_error_at(wk, ctx->err_node, "dependency '' cannot be required");
 			return false;
 		}
 		make_obj(wk, ctx->res, obj_dependency);
@@ -484,7 +484,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	if (!get_obj_array(wk, an[0].val)->len) {
-		interp_error(wk, an[0].node, "no dependency names specified");
+		vm_error_at(wk, an[0].node, "no dependency names specified");
 		return false;
 	}
 
@@ -529,7 +529,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		}
 
 		if (i == ARRAY_LEN(lookup_method_names)) {
-			interp_error(wk, akw[kw_method].node, "invalid dependency method %o", akw[kw_method].val);
+			vm_error_at(wk, akw[kw_method].node, "invalid dependency method %o", akw[kw_method].val);
 			return false;
 		}
 
@@ -538,7 +538,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		      || lookup_method == dependency_lookup_method_builtin
 		      || lookup_method == dependency_lookup_method_system
 		      )) {
-			interp_warning(wk, akw[kw_method].node, "unsupported dependency method %o, falling back to 'auto'", akw[kw_method].val);
+			vm_warning_at(wk, akw[kw_method].node, "unsupported dependency method %o, falling back to 'auto'", akw[kw_method].val);
 			lookup_method = dependency_lookup_method_auto;
 		}
 	}
@@ -629,7 +629,7 @@ func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		log_plain("\n");
 
 		if (ctx.requirement == requirement_required) {
-			interp_error(wk, ctx.err_node, "required dependency not found");
+			vm_error_at(wk, ctx.err_node, "required dependency not found");
 			return false;
 		} else {
 			if (ctx.disabler) {
@@ -767,10 +767,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 
 	build_dep_init(wk, &dep->dep);
 
-	dep->name = make_strf(wk, "%s:declared_dep@%s:%d",
-		get_cstr(wk, current_project(wk)->cfg.name),
-		wk->src->label,
-		get_node(wk->ast, args_node)->location.line);
+	dep->name = make_strf(wk, "%s:declared_dep", get_cstr(wk, current_project(wk)->cfg.name)),
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_declared;
 
@@ -834,11 +831,11 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 static bool
 skip_if_present(struct workspace *wk, obj arr, obj val)
 {
-	if (hash_get(&wk->obj_hash, &val)) {
+	if (hash_get(&wk->vm.objects.obj_hash, &val)) {
 		return true;
 	}
 
-	hash_set(&wk->obj_hash, &val, true);
+	hash_set(&wk->vm.objects.obj_hash, &val, true);
 
 	return false;
 }
@@ -1069,7 +1066,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		const char *path = get_cstr(wk, tgt->build_path);
 
 		if (ctx->link_whole && tgt->type != tgt_static_library) {
-			interp_error(wk, ctx->err_node, "link whole only accepts static libraries");
+			vm_error_at(wk, ctx->err_node, "link whole only accepts static libraries");
 			return ir_err;
 		}
 
@@ -1115,7 +1112,7 @@ dep_process_link_with_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, dest_link_with, val);
 		break;
 	default:
-		interp_error(wk, ctx->err_node, "invalid type for link_with: '%s'", obj_type_to_s(t));
+		vm_error_at(wk, ctx->err_node, "invalid type for link_with: '%s'", obj_type_to_s(t));
 		return ir_err;
 	}
 
@@ -1128,7 +1125,7 @@ dep_process_link_with(struct workspace *wk, uint32_t err_node, obj arr, struct b
 	build_dep_init(wk, dest);
 	dest->raw.link_with = arr;
 
-	hash_clear(&wk->obj_hash);
+	hash_clear(&wk->vm.objects.obj_hash);
 
 	if (!obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
 		.dest = dest,
@@ -1147,7 +1144,7 @@ dep_process_link_whole(struct workspace *wk, uint32_t err_node, obj arr, struct 
 	build_dep_init(wk, dest);
 	dest->raw.link_whole = arr;
 
-	hash_clear(&wk->obj_hash);
+	hash_clear(&wk->vm.objects.obj_hash);
 
 	if (!obj_array_foreach_flat(wk, arr, &(struct dep_process_link_with_ctx) {
 		.dest = dest,
@@ -1188,7 +1185,7 @@ dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest)
 	build_dep_init(wk, dest);
 	dest->raw.deps = deps;
 
-	hash_clear(&wk->obj_hash);
+	hash_clear(&wk->vm.objects.obj_hash);
 
 	obj_array_foreach(wk, deps, dest, dep_process_deps_iter);
 

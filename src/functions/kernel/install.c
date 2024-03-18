@@ -12,7 +12,6 @@
 #include "error.h"
 #include "functions/kernel/install.h"
 #include "install.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "options.h"
 #include "platform/path.h"
@@ -103,7 +102,7 @@ install_man_iter(struct workspace *wk, void *_ctx, obj val)
 	--len;
 
 	if (len <= 1 || man.buf[len - 1] != '.' || man.buf[len] < '0' || man.buf[len] > '9') {
-		interp_error(wk, ctx->err_node, "invalid path to man page");
+		vm_error_at(wk, ctx->err_node, "invalid path to man page");
 		return ir_err;
 	}
 
@@ -314,7 +313,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_rename].set && akw[kw_preserve_path].set) {
-		interp_error(wk, akw[kw_preserve_path].node, "rename keyword conflicts with preserve_path");
+		vm_error_at(wk, akw[kw_preserve_path].node, "rename keyword conflicts with preserve_path");
 		return false;
 	}
 
@@ -343,7 +342,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	if (akw[kw_rename].set) {
 		if (get_obj_array(wk, akw[kw_rename].val)->len !=
 		    get_obj_array(wk, sources)->len) {
-			interp_error(wk, akw[kw_rename].node, "number of elements in rename != number of sources");
+			vm_error_at(wk, akw[kw_rename].node, "number of elements in rename != number of sources");
 			return false;
 		}
 
@@ -392,7 +391,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	}
 
 	if (akw[kw_install_dir].set && akw[kw_subdir].set) {
-		interp_error(wk, akw[kw_subdir].node, "subdir may not be set if install_dir is set");
+		vm_error_at(wk, akw[kw_subdir].node, "subdir may not be set if install_dir is set");
 		return false;
 	}
 

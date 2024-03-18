@@ -11,8 +11,8 @@
 #include "error.h"
 #include "external/bestline.h"
 #include "lang/analyze.h"
+#include "lang/compiler.h"
 #include "lang/eval.h"
-#include "lang/parser.h"
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
@@ -34,7 +34,7 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
-	obj parent_eval_trace = wk->dbg.eval_trace;
+	obj parent_eval_trace = wk->vm.dbg_state.eval_trace;
 
 	const char *parent_prefix = log_get_prefix();
 	char log_prefix[256] = { 0 };
@@ -55,11 +55,11 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 		goto cleanup;
 	}
 
-	if (wk->dbg.eval_trace) {
-		wk->dbg.eval_trace_subdir = true;
+	if (wk->vm.dbg_state.eval_trace) {
+		wk->vm.dbg_state.eval_trace_subdir = true;
 	}
 
-	if (!wk->eval_project_file(wk, src.buf, true)) {
+	if (!wk->vm.behavior.eval_project_file(wk, src.buf, true)) {
 		goto cleanup;
 	}
 
@@ -69,13 +69,14 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 
 	ret = true;
 cleanup:
-	wk->dbg.eval_trace = parent_eval_trace;
+	wk->vm.dbg_state.eval_trace = parent_eval_trace;
 	wk->cur_project = parent_project;
 
 	log_set_prefix(parent_prefix);
 	return ret;
 }
 
+#if 0
 static bool
 ensure_project_is_first_statement(struct workspace *wk, struct ast *ast, bool check_only)
 {
@@ -105,71 +106,88 @@ ensure_project_is_first_statement(struct workspace *wk, struct ast *ast, bool ch
 err:
 	if (!first_statement_is_a_call_to_project) {
 		if (!check_only) {
-			interp_error(wk, err_node, "first statement is not a call to project()");
+			vm_error_at(wk, err_node, "first statement is not a call to project()");
 		}
 		return false;
 	}
 	return true;
 }
+#endif
 
 bool
 eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 {
 	TracyCZoneAutoS;
-	/* L("evaluating '%s'", src->label); */
-	interpreter_init();
+	L("evaluating '%s'", src->label);
+	/* interpreter_init(); */
 
-	bool ret = false;
-	struct ast *ast = bucket_arr_push(&wk->asts, &(struct ast) { 0 });
-	if (wk->in_analyzer) {
-		ast->src_id = error_diagnostic_store_push_src(src);
-		if (wk->dbg.eval_trace) {
-			obj_array_push(wk, wk->dbg.eval_trace, make_str(wk, src->label));
-			if ((wk->dbg.eval_trace_subdir)) {
-				obj subdir_eval_trace;
-				make_obj(wk, &subdir_eval_trace, obj_array);
-				obj_array_push(wk, wk->dbg.eval_trace, subdir_eval_trace);
-				wk->dbg.eval_trace = subdir_eval_trace;
-				wk->dbg.eval_trace_subdir = false;
-			}
-		}
+	arr_push(&wk->vm.src, src);
+
+	uint32_t entry;
+	if (!compile(wk, src, mode, &entry)) {
+		return false;
 	}
 
-	enum parse_mode parse_mode = 0;
-	if (mode == eval_mode_repl) {
-		parse_mode |= pm_ignore_statement_with_no_effect;
-	}
-	if (wk->lang_mode == language_internal || wk->lang_mode == language_extended) {
-		parse_mode |= pm_functions;
-	}
+	arr_push(&wk->vm.call_stack, &(struct call_frame) {
+		.return_ip = wk->vm.ip,
+		.scope_stack = 0,
+	});
 
-	if (!parser_parse(wk, ast, src, parse_mode)) {
-		goto ret;
-	}
+	wk->vm.ip = entry;
 
-	struct source *old_src = wk->src;
-	struct ast *old_ast = wk->ast;
+	vm_execute(wk);
 
-	wk->src = src;
-	wk->ast = ast;
+	/* if (wk->in_analyzer) { */
+	/* 	ast->src_id = error_diagnostic_store_push_src(src); */
+	/* 	if (wk->vm.dbg_state.eval_trace) { */
+	/* 		obj_array_push(wk, wk->vm.dbg_state.eval_trace, make_str(wk, src->label)); */
+	/* 		if ((wk->vm.dbg_state.eval_trace_subdir)) { */
+	/* 			obj subdir_eval_trace; */
+	/* 			make_obj(wk, &subdir_eval_trace, obj_array); */
+	/* 			obj_array_push(wk, wk->vm.dbg_state.eval_trace, subdir_eval_trace); */
+	/* 			wk->vm.dbg_state.eval_trace = subdir_eval_trace; */
+	/* 			wk->vm.dbg_state.eval_trace_subdir = false; */
+	/* 		} */
+	/* 	} */
+	/* } */
 
-	if (mode == eval_mode_first) {
-		if (!ensure_project_is_first_statement(wk, ast, false)) {
-			goto ret;
-		}
-	}
+	/* enum parse_mode parse_mode = 0; */
+	/* if (mode == eval_mode_repl) { */
+	/* 	parse_mode |= pm_ignore_statement_with_no_effect; */
+	/* } */
+	/* if (wk->lang_mode == language_internal || wk->lang_mode == language_extended) { */
+	/* 	parse_mode |= pm_functions; */
+	/* } */
 
-	ret = wk->interp_node(wk, wk->ast->root, res);
+	/* if (!parser_parse(wk, ast, src, parse_mode)) { */
+	/* 	goto ret; */
+	/* } */
 
-	if (wk->subdir_done) {
-		wk->subdir_done = false;
-	}
+	/* struct source *old_src = wk->src; */
+	/* struct ast *old_ast = wk->ast; */
 
-	wk->src = old_src;
-	wk->ast = old_ast;
-ret:
-	TracyCZoneAutoE;
-	return ret;
+	/* wk->src = src; */
+	/* wk->ast = ast; */
+
+	/* if (mode == eval_mode_first) { */
+	/* 	if (!ensure_project_is_first_statement(wk, ast, false)) { */
+	/* 		goto ret; */
+	/* 	} */
+	/* } */
+
+	/* ret = wk->interp_node(wk, wk->ast->root, res); */
+
+	/* if (wk->subdir_done) { */
+	/* 	wk->subdir_done = false; */
+	/* } */
+
+	/* wk->src = old_src; */
+	/* wk->ast = old_ast; */
+/* ret: */
+	/* TracyCZoneAutoE; */
+	/* return ret; */
+
+	return false;
 }
 
 bool
@@ -205,10 +223,10 @@ ret:
 static bool
 repl_eval_str(struct workspace *wk, const char *str, obj *repl_res)
 {
-	bool ret, o_break_on_err = wk->dbg.break_on_err;
-	wk->dbg.break_on_err = false;
+	bool ret, o_break_on_err = wk->vm.dbg_state.break_on_err;
+	wk->vm.dbg_state.break_on_err = false;
 	ret = eval_str(wk, str, eval_mode_repl, repl_res);
-	wk->dbg.break_on_err = o_break_on_err;
+	wk->vm.dbg_state.break_on_err = o_break_on_err;
 	return ret;
 }
 
@@ -250,9 +268,9 @@ repl(struct workspace *wk, bool dbg)
 	};
 
 	if (dbg) {
-		list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->location.line, 1, 0);
+		/* list_line_range(wk->src, get_node(wk->ast, wk->vm.dbg_state.node)->location.line, 1, 0); */
 
-		if (wk->dbg.stepping) {
+		if (wk->vm.dbg_state.stepping) {
 			cmd = repl_cmd_step;
 		}
 	}
@@ -307,7 +325,7 @@ cmd_found:
 				exit(1);
 				break;
 			case repl_cmd_exit:
-				wk->dbg.stepping = false;
+				wk->vm.dbg_state.stepping = false;
 				loop = false;
 				break;
 			case repl_cmd_help:
@@ -332,11 +350,11 @@ cmd_found:
 				}
 				break;
 			case repl_cmd_list: {
-				list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->location.line, 11, 0);
+				/* list_line_range(wk->src, get_node(wk->ast, wk->vm.dbg_state.node)->location.line, 11, 0); */
 				break;
 			}
 			case repl_cmd_step:
-				wk->dbg.stepping = true;
+				wk->vm.dbg_state.stepping = true;
 				loop = false;
 				break;
 			case repl_cmd_inspect:
@@ -347,17 +365,17 @@ cmd_found:
 				obj_inspect(wk, out, repl_res);
 				break;
 			case repl_cmd_watch:
-				if (!wk->dbg.watched) {
-					make_obj(wk, &wk->dbg.watched, obj_array);
+				if (!wk->vm.dbg_state.watched) {
+					make_obj(wk, &wk->vm.dbg_state.watched, obj_array);
 				}
 
-				obj_array_push(wk, wk->dbg.watched, make_str(wk, arg));
+				obj_array_push(wk, wk->vm.dbg_state.watched, make_str(wk, arg));
 				break;
 			case repl_cmd_unwatch:
-				if (wk->dbg.watched) {
+				if (wk->vm.dbg_state.watched) {
 					uint32_t idx;
-					if (obj_array_index_of(wk, wk->dbg.watched, make_str(wk, arg), &idx)) {
-						obj_array_del(wk, wk->dbg.watched, idx);
+					if (obj_array_index_of(wk, wk->vm.dbg_state.watched, make_str(wk, arg), &idx)) {
+						obj_array_del(wk, wk->vm.dbg_state.watched, idx);
 					}
 				}
 				break;
@@ -373,7 +391,7 @@ cmd_found:
 
 			if (repl_res) {
 				obj_fprintf(wk, out, "%o\n", repl_res);
-				wk->assign_variable(wk, "_", repl_res, 0, assign_local);
+				wk->vm.behavior.assign_variable(wk, "_", repl_res, 0, assign_local);
 			}
 		}
 cont:
@@ -383,13 +401,14 @@ cont:
 	muon_bestline_history_free();
 
 	if (!line) {
-		wk->dbg.stepping = false;
+		wk->vm.dbg_state.stepping = false;
 	}
 }
 
 const char *
 determine_project_root(struct workspace *wk, const char *path)
 {
+#if 0
 	SBUF(tmp);
 	SBUF(new_path);
 
@@ -429,4 +448,6 @@ cont:
 		path_push(wk, &new_path, "meson.build");
 		path = new_path.buf;
 	}
+#endif
+	return 0;
 }

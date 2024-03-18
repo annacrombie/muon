@@ -8,7 +8,6 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/source_set.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 
@@ -29,7 +28,7 @@ source_set_add_rule(struct workspace *wk, obj rcvr, struct args_norm *posargs,
 
 	if (get_obj_array(wk, posargs->val)->len) {
 		if (kw_when->set || kw_if_true->set || (kw_if_false && kw_if_false->set)) {
-			interp_error(wk, posargs->node, "posargs not allowed when kwargs are used");
+			vm_error_at(wk, posargs->node, "posargs not allowed when kwargs are used");
 			return false;
 		}
 
@@ -61,7 +60,7 @@ static bool
 source_set_check_not_frozen(struct workspace *wk, uint32_t err_node, obj rcvr)
 {
 	if (get_obj_source_set(wk, rcvr)->frozen) {
-		interp_error(wk, err_node, "cannot modify frozen source set");
+		vm_error_at(wk, err_node, "cannot modify frozen source set");
 		return false;
 	}
 
@@ -196,7 +195,7 @@ source_set_rule_match_iter(struct workspace *wk, void *_ctx, obj v)
 		obj idx;
 		if (!obj_dict_index(wk, ctx->conf, v, &idx)) {
 			if (ctx->strict) {
-				interp_error(wk, ctx->err_node,
+				vm_error_at(wk, ctx->err_node,
 					"key %o not in configuration", v);
 				return ir_err;
 			}

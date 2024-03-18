@@ -10,7 +10,6 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/kernel/options.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -35,7 +34,7 @@ build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enu
 		}
 	}
 
-	interp_error(wk, node, "invalid option type '%s'", get_cstr(wk, name));
+	vm_error_at(wk, node, "invalid option type '%s'", get_cstr(wk, name));
 	return false;
 }
 
@@ -54,7 +53,7 @@ validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
 			continue;
 		}
 
-		interp_error(wk, err_node, "option name may not contain '%c'", s->s[i]);
+		vm_error_at(wk, err_node, "option name may not contain '%c'", s->s[i]);
 		return false;
 	}
 
@@ -110,7 +109,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	if (!akw[kw_type].set) {
-		interp_error(wk, args_node, "missing required keyword 'type'");
+		vm_error_at(wk, args_node, "missing required keyword 'type'");
 		return false;
 	}
 
@@ -142,13 +141,13 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			break;
 		case kw_inv:
 			if (akw[i].set) {
-				interp_error(wk, akw[i].node, "invalid keyword for option type");
+				vm_error_at(wk, akw[i].node, "invalid keyword for option type");
 				return false;
 			}
 			break;
 		case kw_req:
 			if (!akw[i].set) {
-				interp_error(wk, args_node, "missing keyword '%s' for option type", akw[i].key);
+				vm_error_at(wk, args_node, "missing keyword '%s' for option type", akw[i].key);
 				return false;
 			}
 			break;
@@ -171,7 +170,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			break;
 		case op_combo:
 			if (!get_obj_array(wk, akw[kw_choices].val)->len) {
-				interp_error(wk, akw[kw_choices].node, "combo option with no choices");
+				vm_error_at(wk, akw[kw_choices].node, "combo option with no choices");
 				return false;
 			}
 
@@ -211,7 +210,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		} else if (str_eql(&WKSTR("prefixed_dir"), get_str(wk, akw[kw_kind].val))) {
 			o->kind = build_option_kind_prefixed_dir;
 		} else {
-			interp_error(wk, akw[kw_kind].node, "invalid kind: %o", akw[kw_kind].val);
+			vm_error_at(wk, akw[kw_kind].node, "invalid kind: %o", akw[kw_kind].val);
 			return false;
 		}
 	}
@@ -245,7 +244,7 @@ func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	obj opt;
 	if (!get_option(wk, current_project(wk), get_str(wk, an[0].val), &opt)) {
-		interp_error(wk, an[0].node, "undefined option");
+		vm_error_at(wk, an[0].node, "undefined option");
 		return false;
 	}
 

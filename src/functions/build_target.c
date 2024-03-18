@@ -134,7 +134,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_custom_target: {
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, val);
 		if (!obj_array_flatten_one(wk, tgt->output, &file)) {
-			interp_error(wk, ctx->err_node, "cannot coerce custom_target with multiple outputs to file");
+			vm_error_at(wk, ctx->err_node, "cannot coerce custom_target with multiple outputs to file");
 			return ir_err;
 		}
 		break;
@@ -179,7 +179,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	if (!obj_array_in(wk, ctx->tgt->src, file)) {
-		interp_error(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->src);
+		vm_error_at(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->src);
 		return ir_err;
 	}
 

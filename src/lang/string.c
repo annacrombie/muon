@@ -77,11 +77,11 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 
 	uint32_t new_len = len + 1;
 
-	if (new_len > wk->chrs.bucket_size) {
+	if (new_len > wk->vm.objects.chrs.bucket_size) {
 		f |= str_flag_big;
 		p = z_calloc(new_len, 1);
 	} else {
-		p = bucket_arr_pushn(&wk->chrs, NULL, 0, new_len);
+		p = bucket_arr_pushn(&wk->vm.objects.chrs, NULL, 0, new_len);
 	}
 
 	make_obj(wk, s, obj_string);
@@ -121,13 +121,13 @@ grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
 	if (ss->flags & str_flag_big) {
 		ss->s = z_realloc((void *)ss->s, new_len);
 		memset((void *)&ss->s[ss->len], 0, new_len - ss->len);
-	} else if (new_len >= wk->chrs.bucket_size) {
+	} else if (new_len >= wk->vm.objects.chrs.bucket_size) {
 		ss->flags |= str_flag_big;
 		char *np = z_calloc(new_len, 1);
 		memcpy(np, ss->s, ss->len);
 		ss->s = np;
 	} else {
-		char *np = bucket_arr_pushn(&wk->chrs, ss->s, ss->len, new_len);
+		char *np = bucket_arr_pushn(&wk->vm.objects.chrs, ss->s, ss->len, new_len);
 		ss->s = np;
 	}
 
@@ -146,7 +146,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
 	}
 
 	uint64_t *v;
-	if (!mutable && len <= SMALL_STR_LEN && (v = hash_get_strn(&wk->str_hash, p, len))) {
+	if (!mutable && len <= SMALL_STR_LEN && (v = hash_get_strn(&wk->vm.objects.str_hash, p, len))) {
 		s = *v;
 		return s;
 	}
@@ -156,8 +156,8 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, bool mutable)
 
 	if (mutable) {
 		str->flags |= str_flag_mutable;
-	} else if (!wk->obj_clear_mark_set && len <= SMALL_STR_LEN) {
-		hash_set_strn(&wk->str_hash, str->s, str->len, s);
+	} else if (!wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
+		hash_set_strn(&wk->vm.objects.str_hash, str->s, str->len, s);
 	}
 	return s;
 }

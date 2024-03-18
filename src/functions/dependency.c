@@ -15,7 +15,6 @@
 #include "functions/common.h"
 #include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
@@ -38,7 +37,7 @@ dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var
 {
 	struct obj_dependency *d = get_obj_dependency(wk, dep);
 	if (d->type != dependency_type_pkgconf) {
-		interp_error(wk, node, "dependency not from pkgconf");
+		vm_error_at(wk, node, "dependency not from pkgconf");
 		return false;
 	}
 
@@ -68,7 +67,7 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, obj rcvr,
 		if (akw[kw_default].set) {
 			*res = akw[kw_default].val;
 		} else {
-			interp_error(wk, an[0].node, "undefined pkg_config variable");
+			vm_error_at(wk, an[0].node, "undefined pkg_config variable");
 			return false;
 		}
 	}
@@ -82,7 +81,7 @@ dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
 	struct obj_array *array = get_obj_array(wk, var);
 	uint32_t arraylen = array->len;
 	if (arraylen % 2 != 0) {
-		interp_error(wk, node, "non-even number of arguments in list");
+		vm_error_at(wk, node, "non-even number of arguments in list");
 		return false;
 	}
 
@@ -94,7 +93,7 @@ dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
 		const char *ckey = get_cstr(wk, key);
 		const char *cval = get_cstr(wk, val);
 		if (!muon_pkgconf_define(wk, ckey, cval)) {
-			interp_error(wk, node, "error setting %s=%s", ckey, cval);
+			vm_error_at(wk, node, "error setting %s=%s", ckey, cval);
 			return false;
 		}
 	}
@@ -172,7 +171,7 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 		*res = akw[kw_default_value].val;
 		return true;
 	} else {
-		interp_error(wk, node, "pkgconfig file has no such variable");
+		vm_error_at(wk, node, "pkgconfig file has no such variable");
 		return false;
 	}
 }

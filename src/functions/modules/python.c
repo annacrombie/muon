@@ -11,7 +11,6 @@
 #include "external/tinyjson.h"
 #include "functions/external_program.h"
 #include "functions/modules/python.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
@@ -142,7 +141,7 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 	}
 
 	if (_ctx->requirement == requirement_required) {
-		interp_error(wk, _ctx->node, "python: required module '%s' not found", mod);
+		vm_error_at(wk, _ctx->node, "python: required module '%s' not found", mod);
 	}
 
 	return ir_err;
@@ -183,7 +182,7 @@ func_module_python_find_installation(struct workspace *wk,
 	SBUF(cmd_path);
 	bool found = fs_find_cmd(wk, &cmd_path, cmd);
 	if (!found && (requirement == requirement_required)) {
-		interp_error(wk, args_node, "%s not found", cmd);
+		vm_error_at(wk, args_node, "%s not found", cmd);
 		return false;
 	}
 
@@ -225,7 +224,7 @@ func_module_python_find_installation(struct workspace *wk,
 	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
 
 	if (!introspect_python_interpreter(wk, cmd_path.buf, python)) {
-		interp_error(wk, args_node, "failed to introspect python");
+		vm_error_at(wk, args_node, "failed to introspect python");
 		return false;
 	}
 
@@ -259,7 +258,7 @@ func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_no
 
 	SBUF(cmd_path);
 	if (!fs_find_cmd(wk, &cmd_path, cmd)) {
-		interp_error(wk, args_node, "python3 not found");
+		vm_error_at(wk, args_node, "python3 not found");
 		return false;
 	}
 
@@ -289,7 +288,7 @@ func_python_installation_get_path(struct workspace *wk, obj rcvr,
 	}
 
 	if (!ao[0].set) {
-		interp_error(wk, args_node,
+		vm_error_at(wk, args_node,
 			"path '%o' not found, no default specified", path);
 		return false;
 	}
@@ -315,7 +314,7 @@ func_python_installation_get_var(struct workspace *wk, obj rcvr,
 	}
 
 	if (!ao[0].set) {
-		interp_error(wk, args_node,
+		vm_error_at(wk, args_node,
 			"variable '%o' not found, no default specified", var);
 		return false;
 	}

@@ -22,8 +22,6 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
 	*id = arr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
-	proj->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->default_scope);
-
 	make_obj(wk, &proj->args, obj_dict);
 	make_obj(wk, &proj->compilers, obj_dict);
 	make_obj(wk, &proj->link_args, obj_dict);
@@ -61,6 +59,7 @@ current_project(struct workspace *wk)
 void
 workspace_init_bare(struct workspace *wk)
 {
+	*wk = (struct workspace) { 0 };
 	vm_init(wk);
 
 	{
@@ -88,20 +87,6 @@ workspace_init(struct workspace *wk)
 
 	arr_init(&wk->projects, 16, sizeof(struct project));
 	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
-
-	make_obj(wk, &wk->default_scope, obj_array);
-	obj scope;
-	make_obj(wk, &scope, obj_dict);
-	obj_array_push(wk, wk->default_scope, scope);
-
-	obj id;
-	make_obj(wk, &id, obj_meson);
-	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
-
-	make_obj(wk, &id, obj_machine);
-	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
-	obj_dict_set(wk, scope, make_str(wk, "build_machine"), id);
-	obj_dict_set(wk, scope, make_str(wk, "target_machine"), id);
 
 	make_obj(wk, &wk->binaries, obj_dict);
 	make_obj(wk, &wk->host_machine, obj_dict);

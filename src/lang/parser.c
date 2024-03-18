@@ -900,6 +900,7 @@ static const struct parse_rule _parse_rules[] = {
 	[token_type_eq]         = { 0,              parse_binary, parse_precedence_equality   },
 	[token_type_neq]        = { 0,              parse_binary, parse_precedence_equality   },
 	[token_type_in]         = { 0,              parse_binary, parse_precedence_equality   },
+	[token_type_not_in]     = { 0,              parse_binary, parse_precedence_equality   },
 	['.']                   = { 0,              parse_method, parse_precedence_call       },
 	[token_type_not]        = { parse_unary,    0,            0                           },
 };

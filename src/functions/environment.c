@@ -10,7 +10,6 @@
 #include "error.h"
 #include "functions/common.h"
 #include "functions/environment.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
@@ -150,7 +149,7 @@ func_environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, 
 	}
 
 	if (!get_obj_array(wk, an[1].val)->len) {
-		interp_error(wk, an[1].node, "you must pass at least one value");
+		vm_error_at(wk, an[1].node, "you must pass at least one value");
 		return false;
 	}
 

@@ -38,6 +38,7 @@ enum op {
 	op_jmp_if_false,
 	op_jmp,
 	op_pop,
+	op_eval_file,
 };
 
 struct workspace;
@@ -64,7 +65,13 @@ struct source_location_mapping {
 	uint32_t src_idx, ip;
 };
 
+enum call_frame_type {
+	call_frame_type_eval,
+	call_frame_type_func,
+};
+
 struct call_frame {
+	enum call_frame_type type;
 	obj scope_stack;
 	uint32_t return_ip;
 };
@@ -89,7 +96,7 @@ struct vm_behavior {
 	void ((*push_local_scope)(struct workspace *wk));
 	void ((*pop_local_scope)(struct workspace *wk));
 	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
-	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res, uint32_t proj_id));
+	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res));
 	bool ((*eval_project_file)(struct workspace *wk, const char *path, bool first));
 };
 
@@ -106,6 +113,7 @@ struct vm {
 	struct object_stack stack;
 	struct arr call_stack, locations, code, src;
 	uint32_t ip, nargs, nkwargs;
+	obj scope_stack, default_scope_stack;
 
 	struct vm_objects objects;
 	struct vm_behavior behavior;
@@ -125,5 +133,6 @@ void vm_destroy(struct workspace *wk);
 
 MUON_ATTR_FORMAT(printf, 4, 5) void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
+MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_error(struct workspace *wk, const char *fmt, ...);
 #endif

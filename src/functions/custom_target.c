@@ -8,7 +8,6 @@
 #include "functions/common.h"
 #include "functions/custom_target.h"
 #include "functions/file.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 
@@ -47,7 +46,7 @@ func_custom_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node,
 
 	obj elem;
 	if (!obj_array_flatten_one(wk, get_obj_custom_target(wk, rcvr)->output, &elem)) {
-		interp_error(wk, args_node, "this custom_target has multiple outputs");
+		vm_error_at(wk, args_node, "this custom_target has multiple outputs");
 		return false;
 	}
 

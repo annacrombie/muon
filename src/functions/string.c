@@ -15,7 +15,6 @@
 #include "functions/common.h"
 #include "functions/string.h"
 #include "guess.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "rpmvercmp.h"
@@ -105,7 +104,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 
 				switch (cb(wk, err_node, ctx, &key, &elem)) {
 				case format_cb_not_found: {
-					interp_error(wk, err_node, "key '%.*s' not found", key.len, key.s);
+					vm_error_at(wk, err_node, "key '%.*s' not found", key.len, key.s);
 					return false;
 				}
 				case format_cb_error:
@@ -143,7 +142,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 		} else if (ss_in->s[i] == '\\' && ss_in->s[i + 1] == '@') {
 			if (i) {
 				if (reading_id) {
-					interp_warning(wk, err_node, "unclosed @ (opened at index %d)", id_start);
+					vm_warning_at(wk, err_node, "unclosed @ (opened at index %d)", id_start);
 					str_app(wk, res, "@");
 				}
 				str_appn(wk, res, &ss_in->s[id_end], i - id_end);
@@ -155,7 +154,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 	}
 
 	if (reading_id) {
-		interp_warning(wk, err_node, "unclosed @ (opened at index %d)", id_start);
+		vm_warning_at(wk, err_node, "unclosed @ (opened at index %d)", id_start);
 		str_app(wk, res, "@");
 		str_appn(wk, res, &ss_in->s[id_start], i - id_start);
 	} else {
@@ -384,7 +383,7 @@ func_string_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	int64_t n;
 	if (!str_to_i(ss, &n, true)) {
-		interp_error(wk, args_node, "unable to parse %o", rcvr);
+		vm_error_at(wk, args_node, "unable to parse %o", rcvr);
 		return false;
 	}
 

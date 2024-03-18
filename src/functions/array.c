@@ -33,11 +33,11 @@ func_array_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	int64_t i = get_obj_number(wk, an[0].val);
 
-	if (!bounds_adjust(wk, get_obj_array(wk, rcvr)->len, &i)) {
+	if (!bounds_adjust(get_obj_array(wk, rcvr)->len, &i)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
-			interp_error(wk, an[0].node, "index out of bounds");
+			vm_error_at(wk, an[0].node, "index out of bounds");
 			return false;
 		}
 	} else {

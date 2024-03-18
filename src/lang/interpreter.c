@@ -20,7 +20,6 @@
 #include "functions/common.h"
 #include "functions/kernel.h"
 #include "lang/eval.h"
-#include "lang/interpreter.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
@@ -43,7 +42,7 @@ interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const
 }
 
 void
-interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
+vm_error_at(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -52,7 +51,7 @@ interp_error(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 }
 
 void
-interp_warning(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
+vm_warning_at(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -243,7 +242,7 @@ interp_index(struct workspace *wk, struct node *n, obj l_id, bool do_chain, obj 
 		}
 
 		if (!obj_dict_index(wk, l_id, r_id, &tmp)) {
-			interp_error(wk, n->r, "key not in dictionary: %o", r_id);
+			vm_error_at(wk, n->r, "key not in dictionary: %o", r_id);
 			return false;
 		}
 		break;
@@ -281,7 +280,7 @@ interp_index(struct workspace *wk, struct node *n, obj l_id, bool do_chain, obj 
 		break;
 	}
 	default:
-		interp_error(wk, n->r, "index unsupported for %s", obj_type_to_s(t));
+		vm_error_at(wk, n->r, "index unsupported for %s", obj_type_to_s(t));
 		return false;
 	}
 
@@ -366,12 +365,12 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 					 *ss2 = get_str(wk, r_id);
 
 			if (str_has_null(ss1)) {
-				interp_error(wk, nl, "%o is an invalid path", l_id);
+				vm_error_at(wk, nl, "%o is an invalid path", l_id);
 				return false;
 			}
 
 			if (str_has_null(ss2)) {
-				interp_error(wk, nr, "%o is an invalid path", r_id);
+				vm_error_at(wk, nr, "%o is an invalid path", r_id);
 				return false;
 			}
 
@@ -403,7 +402,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			break;
 		case arith_div:
 			if (!r) {
-				interp_error(wk, nr, "divide by 0");
+				vm_error_at(wk, nr, "divide by 0");
 				return false;
 			}
 			num = l / r;
@@ -413,7 +412,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			break;
 		case arith_mod:
 			if (!r) {
-				interp_error(wk, nr, "divide by 0");
+				vm_error_at(wk, nr, "divide by 0");
 				return false;
 			}
 			num = l % r;
@@ -472,7 +471,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 	return true;
 err1:
 	assert(type < 5);
-	interp_error(wk, err_node, "%s does not support %c", obj_type_to_s(get_obj_type(wk, l_id)), "+-%*/"[type]);
+	vm_error_at(wk, err_node, "%s does not support %c", obj_type_to_s(get_obj_type(wk, l_id)), "+-%*/"[type]);
 	return false;
 }
 
@@ -512,7 +511,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 	}
 
 	if (!rhs) {
-		interp_error(wk, n->l, "cannot assign variable to void");
+		vm_error_at(wk, n->l, "cannot assign variable to void");
 		return false;
 	}
 
@@ -551,7 +550,7 @@ interp_array(struct workspace *wk, uint32_t n_id, obj *res)
 	}
 
 	if (n->subtype == arg_kwarg) {
-		interp_error(wk, n->l, "kwarg not valid in array constructor");
+		vm_error_at(wk, n->l, "kwarg not valid in array constructor");
 		return false;
 	}
 
@@ -604,7 +603,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
 	assert(n->type == node_argument);
 
 	if (n->subtype != arg_kwarg) {
-		interp_error(wk, n->l, "non-kwarg not valid in dict constructor");
+		vm_error_at(wk, n->l, "non-kwarg not valid in dict constructor");
 		return false;
 	}
 
@@ -630,7 +629,7 @@ interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
 		type->type = tc_dict;
 	} else {
 		if (obj_dict_in(wk, *res, key)) {
-			interp_error(wk, n->l, "key %o is duplicated", key);
+			vm_error_at(wk, n->l, "key %o is duplicated", key);
 			return false;
 		}
 
@@ -756,7 +755,7 @@ interp_comparison(struct workspace *wk, struct node *n, obj *res)
 			}
 			break;
 		default:
-			interp_error(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, obj_r_id)));
+			vm_error_at(wk, n->r, "'in' not supported for %s", obj_type_to_s(get_obj_type(wk, obj_r_id)));
 			return false;
 		}
 
@@ -988,7 +987,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 	switch (get_obj_type(wk, iterable)) {
 	case obj_array: {
 		if (args->chflg & node_child_r) {
-			interp_error(wk, n->l, "array foreach needs exactly one variable to set");
+			vm_error_at(wk, n->l, "array foreach needs exactly one variable to set");
 			return false;
 		}
 
@@ -1007,7 +1006,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 	}
 	case obj_dict: {
 		if (!(args->chflg & node_child_r)) {
-			interp_error(wk, n->l, "dict foreach needs exactly two variables to set");
+			vm_error_at(wk, n->l, "dict foreach needs exactly two variables to set");
 			return false;
 		}
 
@@ -1029,7 +1028,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 		break;
 	}
 	default:
-		interp_error(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj_type(wk, iterable)));
+		vm_error_at(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj_type(wk, iterable)));
 		return false;
 	}
 
@@ -1060,7 +1059,7 @@ interp_func_def(struct workspace *wk, struct node *n, obj *res)
 		assert(arg->type == node_argument); // TODO: delete
 		if (arg->subtype == arg_normal) {
 			if (f->nkwargs) {
-				interp_error(wk, arg_id, "non-kwarg after kwargs");
+				vm_error_at(wk, arg_id, "non-kwarg after kwargs");
 			}
 			++f->nargs;
 		} else if (arg->subtype == arg_kwarg) {
@@ -1135,7 +1134,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 	case node_id:
 		if (!wk->get_variable(wk, get_cstr(wk,n->data.str), res, wk->cur_project)) {
-			interp_error(wk, n_id, "undefined object");
+			vm_error_at(wk, n_id, "undefined object");
 			ret = false;
 			break;
 		}

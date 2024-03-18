@@ -12,7 +12,6 @@
 #include "coerce.h"
 #include "error.h"
 #include "install.h"
-#include "lang/interpreter.h"
 #include "log.h"
 #include "options.h"
 #include "platform/os.h"
@@ -179,7 +178,7 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 		// skip if we get passed `false` for an install dir
 		return ir_cont;
 	} else if (dt != obj_string) {
-		interp_error(wk, ctx->err_node, "install_dir values must be strings, got %s", obj_type_to_s(dt));
+		vm_error_at(wk, ctx->err_node, "install_dir values must be strings, got %s", obj_type_to_s(dt));
 		return ir_err;
 	}
 
@@ -204,7 +203,7 @@ push_install_targets_iter(struct workspace *wk, void *_ctx, obj val_id)
 	}
 	case obj_file:
 		if (ctx->preserve_path) {
-			interp_error(wk, ctx->err_node, "file arguments are ambiguous with preserve_path: true");
+			vm_error_at(wk, ctx->err_node, "file arguments are ambiguous with preserve_path: true");
 			return ir_err;
 		}
 
@@ -249,7 +248,7 @@ push_install_targets(struct workspace *wk, uint32_t err_node,
 		struct obj_array *a1 = get_obj_array(wk, filenames);
 		struct obj_array *a2 = get_obj_array(wk, install_dirs);
 		if (a1->len != a2->len) {
-			interp_error(wk, err_node, "number of install_dirs does not match number of sources");
+			vm_error_at(wk, err_node, "number of install_dirs does not match number of sources");
 			return false;
 		}
 	}

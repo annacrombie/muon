@@ -189,7 +189,7 @@ analyze_for_each_type(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_
 
 	if (t & obj_typechecking_type_tag) {
 		if (t == tc_disabler) {
-			interp_warning(wk, n_id, "this expression is always disabled");
+			vm_warning_at(wk, n_id, "this expression is always disabled");
 			ctx->expected = tc_any;
 			*res = make_typeinfo(wk, tc_disabler, 0);
 			ctx->found = 2; // set found to > 1 to indicate the
@@ -353,7 +353,7 @@ check_reassign_to_different_type(struct workspace *wk, struct assignment *a, obj
 				buf
 				);
 		} else {
-			interp_warning(wk, n_id, "%s", buf);
+			vm_warning_at(wk, n_id, "%s", buf);
 		}
 	}
 }
@@ -632,7 +632,7 @@ analyze_all_function_arguments(struct workspace *wk, uint32_t n_id, uint32_t arg
 			mark_node_visited(get_node(wk->ast, args->l));
 		} else {
 			if (had_kwargs) {
-				interp_error(wk, args_node, "non-kwarg after kwargs");
+				vm_error_at(wk, args_node, "non-kwarg after kwargs");
 				ret = false;
 			}
 			val_node = args->l;
@@ -760,14 +760,14 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	bool was_pure;
 	if (!analyze_function(wk, fi, args_node, rcvr, &func_res, &was_pure) || analyzer.error) {
 		if (subdir_func && analyzer.opts->subdir_error) {
-			interp_error(wk, n_id, "in subdir");
+			vm_error_at(wk, n_id, "in subdir");
 		}
 		ret = false;
 	}
 
 	if (subdir_func) {
 		if (!was_pure) {
-			interp_warning(wk, n_id, "unable to analyze subdir call");
+			vm_warning_at(wk, n_id, "unable to analyze subdir call");
 			if (parent_eval_trace) {
 				obj_array_push(wk, parent_eval_trace, make_str(wk, "<unknown>"));
 			}
@@ -912,7 +912,7 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 
 	if (!fi && !l_id) {
 		if (name) {
-			interp_error(wk, n_id, "function %s not found", name);
+			vm_error_at(wk, n_id, "function %s not found", name);
 		}
 		ret = false;
 
@@ -982,7 +982,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 			if (rcvr_is_not_found_module || rcvr_is_module_object) {
 				tmp = make_typeinfo(wk, tc_any, tc_module);
 			} else {
-				interp_error(wk, n_id, "method %s not found on %s", get_cstr(wk, get_node(wk->ast, n->r)->data.str), inspect_typeinfo(wk, l_id));
+				vm_error_at(wk, n_id, "method %s not found on %s", get_cstr(wk, get_node(wk->ast, n->r)->data.str), inspect_typeinfo(wk, l_id));
 				ret = false;
 				tmp = make_typeinfo(wk, tc_any, 0);
 			}
@@ -1446,14 +1446,14 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 		switch (t) {
 		case tc_array:
 			if (args->chflg & node_child_r) {
-				interp_error(wk, n->l, "array foreach needs exactly one variable to set");
+				vm_error_at(wk, n->l, "array foreach needs exactly one variable to set");
 				ret = false;
 			}
 
 			break;
 		case tc_dict:
 			if (!(args->chflg & node_child_r)) {
-				interp_error(wk, n->l, "dict foreach needs exactly two variables to set");
+				vm_error_at(wk, n->l, "dict foreach needs exactly two variables to set");
 				ret = false;
 			}
 
@@ -1543,7 +1543,7 @@ analyze_assign(struct workspace *wk, struct node *n)
 	mark_node_visited(get_node(wk->ast, n->l));
 
 	if (!rhs) {
-		interp_error(wk, n->l, "cannot assign variable to void");
+		vm_error_at(wk, n->l, "cannot assign variable to void");
 		ret = false;
 	}
 
@@ -1662,7 +1662,7 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 	case node_id: {
 		struct assignment *a;
 		if (!(a = assign_lookup(wk, get_cstr(wk, n->data.str)))) {
-			interp_error(wk, n_id, "undefined object %s", get_cstr(wk, n->data.str));
+			vm_error_at(wk, n_id, "undefined object %s", get_cstr(wk, n->data.str));
 			*res = make_typeinfo(wk, tc_any, 0);
 			ret = false;
 		} else {

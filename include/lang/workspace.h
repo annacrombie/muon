@@ -75,8 +75,6 @@ struct workspace {
 	obj global_opts;
 	/* dict[sha_512 -> [bool, any]] */
 	obj compiler_check_cache;
-	/* list[dict[str -> any]] */
-	obj default_scope;
 	/* ----------------- */
 
 	struct vm vm;

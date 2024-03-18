@@ -23,7 +23,6 @@
 #include "functions/common.h"
 #include "lang/analyze.h"
 #include "lang/fmt.h"
-#include "lang/interpreter.h"
 #include "lang/serial.h"
 #include "machine_file.h"
 #include "meson_opts.h"
@@ -231,7 +230,6 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	bool ret = false;
 
 	struct source src = { 0 };
-	struct ast ast = { 0 };
 
 	if (!fs_read_entire_file(opts.filename, &src)) {
 		goto ret;
@@ -240,19 +238,19 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init_bare(&wk);
 
-	if (!parser_parse(&wk, &ast, &src, opts.parse_mode)) {
+	struct node *n;
+	if (!(n = parse(&wk, &src, &wk.vm.compiler_state.nodes))) {
 		goto ret;
 	}
 
 	if (opts.print_ast) {
-		print_ast(&wk, &ast);
+		print_ast(&wk, n);
 	}
 
 	ret = true;
 ret:
 	workspace_destroy(&wk);
 	fs_source_destroy(&src);
-	ast_destroy(&ast);
 	return ret;
 }
 
@@ -287,31 +285,31 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 			opts.get_definition_for = optarg;
 			break;
 		case 'W': {
-			bool enable = true;
-			const char *name = optarg;
-			if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) {
-				enable = false;
-				name += 3;
-			}
+			/* bool enable = true; */
+			/* const char *name = optarg; */
+			/* if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) { */
+			/* 	enable = false; */
+			/* 	name += 3; */
+			/* } */
 
-			if (strcmp(name, "list") == 0) {
-				analyze_print_diagnostic_names();
-				return true;
-			} else if (strcmp(name, "error") == 0) {
-				opts.replay_opts |= error_diagnostic_store_replay_werror;
-			} else {
-				enum analyze_diagnostic d;
-				if (!analyze_diagnostic_name_to_enum(name, &d)) {
-					LOG_E("invalid diagnostic name '%s'", name);
-					return false;
-				}
+			/* if (strcmp(name, "list") == 0) { */
+			/* 	analyze_print_diagnostic_names(); */
+			/* 	return true; */
+			/* } else if (strcmp(name, "error") == 0) { */
+			/* 	opts.replay_opts |= error_diagnostic_store_replay_werror; */
+			/* } else { */
+			/* 	enum analyze_diagnostic d; */
+			/* 	if (!analyze_diagnostic_name_to_enum(name, &d)) { */
+			/* 		LOG_E("invalid diagnostic name '%s'", name); */
+			/* 		return false; */
+			/* 	} */
 
-				if (enable) {
-					opts.enabled_diagnostics |= d;
-				} else {
-					opts.enabled_diagnostics &= ~d;
-				}
-			}
+			/* 	if (enable) { */
+			/* 		opts.enabled_diagnostics |= d; */
+			/* 	} else { */
+			/* 		opts.enabled_diagnostics &= ~d; */
+			/* 	} */
+			/* } */
 			break;
 		}
 	} OPTEND(argv[argi], "",
@@ -559,9 +557,9 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 	bool src_allocd = false;
 
 	struct workspace wk;
-	workspace_init(&wk);
+	workspace_init_bare(&wk);
 
-	wk.lang_mode = language_internal;
+	wk.vm.lang_mode = language_internal;
 
 	if (embedded) {
 		if (!(src.src = embedded_get(filename))) {
@@ -578,13 +576,10 @@ eval_internal(const char *filename, bool embedded, const char *argv0, char *cons
 		src_allocd = true;
 	}
 
-	uint32_t proj_id;
-	make_project(&wk, &proj_id, "dummy", wk.source_root, wk.build_root);
-
 	{ // populate argv array
 		obj argv_obj;
 		make_obj(&wk, &argv_obj, obj_array);
-		wk.assign_variable(&wk, "argv", argv_obj, 0, assign_local);
+		wk.vm.behavior.assign_variable(&wk, "argv", argv_obj, 0, assign_local);
 
 		uint32_t i;
 		for (i = 0; i < argc; ++i) {
@@ -635,47 +630,11 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_compile(uint32_t argc, uint32_t argi, char *const argv[])
-{
-	const char *filename;
-
-	OPTSTART("") {
-	} OPTEND(argv[argi], " <filename> [args]", "",
-		NULL, -1)
-
-	if (argi >= argc) {
-		LOG_E("missing required filename argument");
-		return false;
-	}
-
-	filename = argv[argi];
-
-#include "lang/compiler.h"
-	struct source src;
-	if (!fs_read_entire_file(filename, &src)) {
-		return false;
-	}
-
-	struct workspace wk;
-	workspace_init(&wk);
-	wk.lang_mode = language_internal;
-
-	obj id;
-	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
-
-#ifndef MUON_BOOTSTRAPPED
-	return false;
-#else
-	return compile(&wk, &src, 0);
-#endif
-}
-
-static bool
 cmd_repl(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
 	workspace_init(&wk);
-	wk.lang_mode = language_internal;
+	wk.vm.lang_mode = language_internal;
 
 	obj id;
 	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
@@ -715,7 +674,6 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 		{ "exe", cmd_exe, "run an external command" },
 		{ "repl", cmd_repl, "start a meson language repl" },
 		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
-		{ "compile", cmd_compile, "" },
 		0,
 	};
 
@@ -875,7 +833,7 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 			break;
 		}
 		case 'b':
-			wk.dbg.break_on_err = true;
+			wk.vm.dbg_state.break_on_err = true;
 			break;
 	} OPTEND(argv[argi],
 		" <build dir>",

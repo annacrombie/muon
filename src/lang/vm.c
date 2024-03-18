@@ -9,6 +9,8 @@
 #include <string.h>
 
 #include "error.h"
+#include "functions/common.h"
+#include "lang/compiler.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/vm.h"
@@ -135,7 +137,13 @@ vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc,
 	}
 
 	*loc = locations[i].loc;
-	*src = arr_get(&vm->src, locations[i].src_idx);
+
+	if (locations[i].src_idx == UINT32_MAX) {
+		static struct source null_src = { 0 };
+		*src = &null_src;
+	} else {
+		*src = arr_get(&vm->src, locations[i].src_idx);
+	}
 }
 
 void
@@ -175,6 +183,16 @@ vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 }
 
 void
+vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	vm_diagnostic_v(wk, ip, log_warn, fmt, args);
+	va_end(args);
+}
+
+
+void
 vm_error(struct workspace *wk, const char *fmt, ...)
 {
 	va_list args;
@@ -188,10 +206,37 @@ vm_error(struct workspace *wk, const char *fmt, ...)
  ******************************************************************************/
 
 static bool
-pop_args(struct workspace *wk,
-	struct args_norm positional_args[],
-	struct args_norm optional_positional_args[],
-	struct args_kw keyword_args[])
+typecheck_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag type)
+{
+	bool listify = (type & TYPE_TAG_LISTIFY) == TYPE_TAG_LISTIFY;
+	type &= ~TYPE_TAG_LISTIFY;
+
+	// If obj_file or tc_file is requested, and the argument is an array of
+	// length 1, try to unpack it.
+	if (!listify && (type == obj_file || (type & tc_file) == tc_file)) {
+		if (get_obj_type(wk, *val) == obj_array && get_obj_array(wk, *val)->len == 1) {
+			obj i0;
+			obj_array_index(wk, *val, 0, &i0);
+			if (get_obj_type(wk, i0) == obj_file) {
+				*val = i0;
+			}
+		} else if (get_obj_type(wk, *val) == obj_typeinfo
+			   && (get_obj_typeinfo(wk, *val)->type & tc_array) == tc_array) {
+			return true;
+		}
+	}
+
+	if (!listify) {
+		return typecheck(wk, ip, *val, type);
+	}
+
+	/* obj_array_flatten(wk, *val); */
+
+	return true;
+}
+
+static bool
+pop_args(struct workspace *wk, struct args_norm an[], struct args_norm ao[], struct args_kw akw[])
 {
 	const char *kw;
 	struct obj_stack_entry *entry;
@@ -201,35 +246,58 @@ pop_args(struct workspace *wk,
 		entry = object_stack_pop_entry(&wk->vm.stack);
 		kw = get_str(wk, entry->o)->s;
 
-		for (j = 0; keyword_args[j].key; ++j) {
-			if (strcmp(kw, keyword_args[j].key) == 0) {
+		if (!akw) {
+			vm_error_at(wk, entry->ip, "this function does not accept kwargs");
+			return false;
+		}
+
+		for (j = 0; akw[j].key; ++j) {
+			if (strcmp(kw, akw[j].key) == 0) {
 				break;
 			}
 		}
 
-		if (!keyword_args[j].key) {
+		if (!akw[j].key) {
 			vm_diagnostic(wk, entry->ip, log_error, "unknown kwarg %s", kw);
 			return false;
 		}
 
 		entry = object_stack_pop_entry(&wk->vm.stack);
-		keyword_args[j].val = entry->o;
-		keyword_args[j].node = entry->ip;
+		akw[j].val = entry->o;
+		akw[j].node = entry->ip;
 	}
 
-	for (i = 0; positional_args[i].type != ARG_TYPE_NULL; ++i) {
+	for (i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+		if (an[i].type & TYPE_TAG_GLOB) {
+			an[i].type &= ~TYPE_TAG_GLOB;
+			make_obj(wk, &an[i].val, obj_array);
+			for (j = i; j < wk->vm.nargs; ++j) {
+				entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - j);
+				an[j].val = entry->o;
+				an[j].node = entry->ip;
+			}
+		}
+
 		if (i >= wk->vm.nargs) {
-			vm_error(wk, wk->vm.ip, "not enough args");
+			vm_error(wk, "not enough args");
 			return false;
 		}
 
 		entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - i);
-		positional_args[i].val = entry->o;
-		positional_args[i].node = entry->ip;
+		an[i].val = entry->o;
+		an[i].node = entry->ip;
 	}
 
 	object_stack_discard(&wk->vm.stack, wk->vm.nargs);
 	return true;
+}
+
+bool interp_args(struct workspace *wk, uint32_t args_node,
+	struct args_norm positional_args[],
+	struct args_norm optional_positional_args[],
+	struct args_kw keyword_args[])
+{
+	return pop_args(wk, positional_args, optional_positional_args, keyword_args);
 }
 
 /* static bool */
@@ -396,6 +464,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_return) break;
 	op_case(op_iterator) break;
 	op_case(op_iterator_next) break;
+	op_case(op_eval_file) break;
 
 	op_case(op_store)
 		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
@@ -451,7 +520,7 @@ vm_dis(struct workspace *wk)
 		struct source_location loc;
 		struct source *src;
 		vm_lookup_inst_location(&wk->vm, i, &loc, &src);
-		L("%s %s:%d:%d", dis.text, src->label, loc.line, loc.col);
+		L("%s %s:%d:%d", dis.text, src ? src->label : 0, loc.line, loc.col);
 		i += dis.inst_len;
 	}
 }
@@ -466,17 +535,13 @@ void
 vm_execute(struct workspace *wk)
 {
 	obj a, b;
-
-	object_stack_init(&wk->vm.stack);
-	arr_init(&wk->vm.call_stack, 64, sizeof(struct call_frame));
+	/* vm_dis(wk); */
 
 	while (!wk->vm.error) {
-#ifdef COMP_DEBUG
-		LL("%-50s", vm_dis_inst(wk, wk->vm.code, wk->vm.ip).text);
-		object_stack_print(wk, &wk->vm.stack);
-#endif
+		/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
+		/* object_stack_print(wk, &wk->vm.stack); */
 
-		switch (wk->vm.code.e[wk->vm.ip++]) {
+		switch ((enum op)wk->vm.code.e[wk->vm.ip++]) {
 		case op_constant:
 			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 			object_stack_push(wk, a);
@@ -518,7 +583,7 @@ vm_execute(struct workspace *wk)
 			capture = get_obj_capture(wk, c);
 
 			capture->func = get_obj_func(wk, a);
-			capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, current_project(wk)->scope_stack);
+			capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.scope_stack);
 
 			object_stack_push(wk, c);
 			break;
@@ -556,7 +621,7 @@ vm_execute(struct workspace *wk)
 				break;
 			default:
 op_add_type_err:
-				vm_error(wk, wk->vm.ip, "+ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				vm_error(wk, "+ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
 				break;
 			}
 
@@ -570,7 +635,7 @@ op_add_type_err:
 
 			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
 			if (!(a_t == obj_number && a_t == b_t)) {
-				vm_error(wk, wk->vm.ip, "- not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				vm_error(wk, "- not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
 				break;
 			}
 
@@ -588,7 +653,7 @@ op_add_type_err:
 
 			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
 			if (!(a_t == obj_number && a_t == b_t)) {
-				vm_error(wk, wk->vm.ip, "* not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				vm_error(wk, "* not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
 				break;
 			}
 
@@ -621,10 +686,10 @@ op_add_type_err:
 						 *ss2 = get_str(wk, b);
 
 				if (str_has_null(ss1)) {
-					vm_error(wk, wk->vm.ip, "%o is an invalid path", a);
+					vm_error(wk, "%o is an invalid path", a);
 					break;
 				} else if (str_has_null(ss2)) {
-					vm_error(wk, wk->vm.ip, "%o is an invalid path", b);
+					vm_error(wk, "%o is an invalid path", b);
 					break;
 				}
 
@@ -635,7 +700,7 @@ op_add_type_err:
 			}
 			default:
 op_div_type_err:
-				vm_error(wk, wk->vm.ip, "/ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				vm_error(wk, "/ not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
 				break;
 			}
 
@@ -649,7 +714,7 @@ op_div_type_err:
 
 			enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
 			if (!(a_t == obj_number && a_t == b_t)) {
-				vm_error(wk, wk->vm.ip, "%% not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				vm_error(wk, "%% not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
 				break;
 			}
 
@@ -698,6 +763,27 @@ op_div_type_err:
 			a = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
 			object_stack_push(wk, a);
 			break;
+		case op_not:
+			a = object_stack_pop(&wk->vm.stack);
+
+			if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
+				break;
+			}
+
+			a = get_obj_bool(wk, a) ? obj_bool_false : obj_bool_true;
+			object_stack_push(wk, a);
+			break;
+		case op_negate:
+			a = object_stack_pop(&wk->vm.stack);
+
+			if (!typecheck(wk, wk->vm.ip, a, obj_number)) {
+				break;
+			}
+
+			make_obj(wk, &b, obj_number);
+			set_obj_number(wk, b, get_obj_number(wk, a) * -1);
+			object_stack_push(wk, b);
+			break;
 		case op_store: {
 			b = object_stack_peek(&wk->vm.stack, 1);
 
@@ -736,8 +822,8 @@ op_div_type_err:
 			b = object_stack_pop(&wk->vm.stack);
 			obj a_id = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 			const struct str *id = get_str(wk, a_id);
-			if (!wk->vm.behavior.get_variable(wk, id->s, &a, wk->cur_project)) {
-				vm_error(wk, wk->vm.ip, "undefined object %s", get_cstr(wk, a_id));
+			if (!wk->vm.behavior.get_variable(wk, id->s, &a)) {
+				vm_error(wk, "undefined object %s", get_cstr(wk, a_id));
 				break;
 			}
 
@@ -772,7 +858,7 @@ op_div_type_err:
 				break;
 			default:
 op_add_store_type_err:
-				vm_error(wk, wk->vm.ip, "+= not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
+				vm_error(wk, "+= not defined for %s and %s", obj_type_to_s(a_t), obj_type_to_s(b_t));
 				break;
 			}
 
@@ -782,8 +868,8 @@ op_add_store_type_err:
 		case op_load: {
 			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-			if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b, wk->cur_project)) {
-				vm_error(wk, wk->vm.ip, "undefined object %s", get_cstr(wk, a));
+			if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
+				vm_error(wk, "undefined object %s", get_cstr(wk, a));
 				break;
 			}
 
@@ -805,14 +891,13 @@ op_add_store_type_err:
 				break;
 			}
 
-			struct project *proj = current_project(wk);
-
 			arr_push(&wk->vm.call_stack, &(struct call_frame) {
-					.return_ip = wk->vm.ip,
-					.scope_stack = proj->scope_stack,
+				.type = call_frame_type_func,
+				.return_ip = wk->vm.ip,
+				.scope_stack = wk->vm.scope_stack,
 			});
 
-			proj->scope_stack = capture->scope_stack;
+			wk->vm.scope_stack = capture->scope_stack;
 
 			wk->vm.behavior.push_local_scope(wk);
 
@@ -832,7 +917,7 @@ op_add_store_type_err:
 			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			/* kernel_func_tbl2[language_internal][b].func(wk, 0, &a); */
+			native_funcs[b].func(wk, 0, 0, &a);
 			object_stack_push(wk, a);
 			break;
 		case op_iterator: {
@@ -862,7 +947,7 @@ op_add_store_type_err:
 				}
 				break;
 			default:
-				vm_error(wk, wk->vm.ip, "bad iterator type");
+				vm_error(wk, "bad iterator type");
 				return;
 			}
 			break;
@@ -924,11 +1009,41 @@ op_add_store_type_err:
 			wk->vm.ip = frame.return_ip;
 
 			wk->vm.behavior.pop_local_scope(wk);
-			current_project(wk)->scope_stack = frame.scope_stack;
+			wk->vm.scope_stack = frame.scope_stack;
+
+			if (frame.type == call_frame_type_eval) {
+				return;
+			}
 			break;
 		}
-		default:
-			UNREACHABLE;
+		case op_eval_file: {
+			a = object_stack_pop(&wk->vm.stack);
+
+			if (!typecheck(wk, wk->vm.ip, a, obj_string)) {
+				break;
+			}
+
+			uint32_t src_idx = arr_push(&wk->vm.src, &(struct source) { 0 });
+			struct source *src = arr_get(&wk->vm.src, src_idx);
+
+			if (!fs_read_entire_file(get_cstr(wk, a), src)) {
+				break;
+			}
+
+			uint32_t entry;
+			if (!compile(wk, src, 0, &entry)) {
+				break;
+			}
+
+			arr_push(&wk->vm.call_stack, &(struct call_frame) {
+				.type = call_frame_type_eval,
+				.return_ip = wk->vm.ip,
+				.scope_stack = wk->vm.scope_stack,
+			});
+
+			wk->vm.ip = entry;
+			break;
+		}
 		}
 	}
 	/* stack_pop(&stack, a); */
@@ -959,10 +1074,10 @@ vm_check_scope(struct workspace *wk, void *_ctx, obj scope)
 
 
 static bool
-vm_get_local_variable(struct workspace *wk, const char *name, struct project *proj, obj *res, obj *scope)
+vm_get_local_variable(struct workspace *wk, const char *name, obj *res, obj *scope)
 {
 	struct vm_check_scope_ctx ctx = { .name = name };
-	obj_array_foreach(wk, proj->scope_stack, &ctx, vm_check_scope);
+	obj_array_foreach(wk, wk->vm.scope_stack, &ctx, vm_check_scope);
 
 	if (ctx.found) {
 		*res = ctx.res;
@@ -974,11 +1089,11 @@ vm_get_local_variable(struct workspace *wk, const char *name, struct project *pr
 }
 
 static bool
-vm_get_variable(struct workspace *wk, const char *name, obj *res, uint32_t proj_id)
+vm_get_variable(struct workspace *wk, const char *name, obj *res)
 {
 	obj o, _scope;
 
-	if (vm_get_local_variable(wk, name, arr_get(&wk->projects, proj_id), &o, &_scope)) {
+	if (vm_get_local_variable(wk, name, &o, &_scope)) {
 		*res = o;
 		return true;
 	} else {
@@ -1011,20 +1126,20 @@ vm_push_local_scope(struct workspace *wk)
 {
 	obj scope;
 	make_obj(wk, &scope, obj_dict);
-	obj_array_push(wk, current_project(wk)->scope_stack, scope);
+	obj_array_push(wk, wk->vm.scope_stack, scope);
 }
 
 static void
 vm_pop_local_scope(struct workspace *wk)
 {
-	obj_array_pop(wk, current_project(wk)->scope_stack);
+	obj_array_pop(wk, wk->vm.scope_stack);
 }
 
 static void
 vm_unassign_variable(struct workspace *wk, const char *name)
 {
 	obj _, scope;
-	if (!vm_get_local_variable(wk, name, current_project(wk), &_, &scope)) {
+	if (!vm_get_local_variable(wk, name, &_, &scope)) {
 		return;
 	}
 
@@ -1034,16 +1149,15 @@ vm_unassign_variable(struct workspace *wk, const char *name)
 static void
 vm_assign_variable(struct workspace *wk, const char *name, obj o, uint32_t ip, enum variable_assignment_mode mode)
 {
-	struct project *proj = current_project(wk);
 	obj scope = 0;
 	if (mode == assign_reassign) {
 		obj _;
-		if (!vm_get_local_variable(wk, name, current_project(wk), &_, &scope)) {
+		if (!vm_get_local_variable(wk, name, &_, &scope)) {
 			UNREACHABLE;
 		}
 	} else {
-		uint32_t len = get_obj_array(wk, proj->scope_stack)->len;
-		obj_array_index(wk, proj->scope_stack, len - 1, &scope);
+		uint32_t len = get_obj_array(wk, wk->vm.scope_stack)->len;
+		obj_array_index(wk, wk->vm.scope_stack, len - 1, &scope);
 	}
 
 	obj_dict_set(wk, scope, make_str(wk, name), o);
@@ -1059,24 +1173,8 @@ vm_assign_variable(struct workspace *wk, const char *name, obj o, uint32_t ip, e
  ******************************************************************************/
 
 void
-vm_init(struct workspace *wk)
+vm_init_objects(struct workspace *wk)
 {
-	arr_init(&wk->vm.compiler_state.node_stack, 4096, sizeof(struct node *));
-	arr_init(&wk->vm.compiler_state.jmp_stack, 1024, sizeof(uint32_t));
-	bucket_arr_init(&wk->vm.compiler_state.nodes, 2048, sizeof(struct node));
-	arr_init(&wk->vm.code, 4 * 1024, 1);
-	arr_init(&wk->vm.locations, 1024, sizeof(struct source_location_mapping));
-
-	wk->vm.behavior = (struct vm_behavior){
-		.assign_variable = vm_assign_variable,
-		.unassign_variable = vm_unassign_variable,
-		.push_local_scope = vm_push_local_scope,
-		.pop_local_scope = vm_pop_local_scope,
-		.scope_stack_dup = vm_scope_stack_dup,
-		.get_variable = vm_get_variable,
-		.eval_project_file = eval_project_file,
-	};
-
 	bucket_arr_init(&wk->vm.objects.chrs, 4096, 1);
 	bucket_arr_init(&wk->vm.objects.objs, 1024, sizeof(struct obj_internal));
 	bucket_arr_init(&wk->vm.objects.dict_elems, 1024, sizeof(struct obj_dict_elem));
@@ -1146,7 +1244,62 @@ vm_init(struct workspace *wk)
 }
 
 void
-vm_destroy(struct workspace *wk)
+vm_init(struct workspace *wk)
+{
+	wk->vm = (struct vm) { 0 };
+
+	/* core vm runtime */
+	object_stack_init(&wk->vm.stack);
+	arr_init(&wk->vm.call_stack, 64, sizeof(struct call_frame));
+	arr_init(&wk->vm.code, 4 * 1024, 1);
+	arr_init(&wk->vm.src, 64, sizeof(struct source));
+	arr_init(&wk->vm.locations, 1024, sizeof(struct source_location_mapping));
+
+	/* compiler state */
+	arr_init(&wk->vm.compiler_state.node_stack, 4096, sizeof(struct node *));
+	arr_init(&wk->vm.compiler_state.jmp_stack, 1024, sizeof(uint32_t));
+	bucket_arr_init(&wk->vm.compiler_state.nodes, 2048, sizeof(struct node));
+
+	/* behavior pointers */
+	wk->vm.behavior = (struct vm_behavior){
+		.assign_variable = vm_assign_variable,
+		.unassign_variable = vm_unassign_variable,
+		.push_local_scope = vm_push_local_scope,
+		.pop_local_scope = vm_pop_local_scope,
+		.scope_stack_dup = vm_scope_stack_dup,
+		.get_variable = vm_get_variable,
+		.eval_project_file = eval_project_file,
+	};
+
+	/* objects */
+	vm_init_objects(wk);
+
+	/* func impl tables */
+	build_func_impl_tables();
+
+	/* default scope */
+	make_obj(wk, &wk->vm.default_scope_stack, obj_array);
+	obj scope;
+	make_obj(wk, &scope, obj_dict);
+	obj_array_push(wk, wk->vm.default_scope_stack, scope);
+
+	obj id;
+	make_obj(wk, &id, obj_meson);
+	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
+
+	make_obj(wk, &id, obj_machine);
+	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
+	obj_dict_set(wk, scope, make_str(wk, "build_machine"), id);
+	obj_dict_set(wk, scope, make_str(wk, "target_machine"), id);
+
+	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
+
+	/* initial code segment */
+	compiler_write_initial_code_segment(wk);
+}
+
+void
+vm_destroy_objects(struct workspace *wk)
 {
 	uint32_t i;
 	struct bucket_arr *ba = &wk->vm.objects.obj_aos[obj_string - _obj_aos_start];
@@ -1173,4 +1326,10 @@ vm_destroy(struct workspace *wk)
 
 	hash_destroy(&wk->vm.objects.obj_hash);
 	hash_destroy(&wk->vm.objects.str_hash);
+}
+
+void
+vm_destroy(struct workspace *wk)
+{
+	vm_destroy_objects(wk);
 }

@@ -7,7 +7,6 @@
 
 #include "functions/common.h"
 #include "functions/dict.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 
@@ -61,7 +60,7 @@ func_dict_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
-			interp_error(wk, an[0].node, "key not in dictionary: '%s'", get_cstr(wk, an[0].val));
+			vm_error_at(wk, an[0].node, "key not in dictionary: '%s'", get_cstr(wk, an[0].val));
 			return false;
 		}
 	}

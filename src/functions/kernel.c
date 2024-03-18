@@ -26,7 +26,6 @@
 #include "functions/kernel/subproject.h"
 #include "functions/modules.h"
 #include "functions/string.h"
-#include "lang/interpreter.h"
 #include "lang/serial.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -48,7 +47,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 	enum compiler_language l;
 	if (!s_to_compiler_language(get_cstr(wk, str), &l)) {
 		if (req == requirement_required) {
-			interp_error(wk, err_node, "%o is not a valid language", str);
+			vm_error_at(wk, err_node, "%o is not a valid language", str);
 			return false;
 		} else {
 			return true;
@@ -63,7 +62,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 
 	if (!toolchain_detect(wk, &comp_id, l)) {
 		if (req == requirement_required) {
-			interp_error(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
+			vm_error_at(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
 			return false;
 		} else {
 			return true;
@@ -153,14 +152,14 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (current_project(wk)->initialized) {
-		interp_error(wk, args_node, "project may only be called once");
+		vm_error_at(wk, args_node, "project may only be called once");
 		return false;
 	}
 
 	current_project(wk)->cfg.name = an[0].val;
 #ifndef MUON_BOOTSTRAPPED
 	if (wk->cur_project == 0 && !str_eql(get_str(wk, an[0].val), &WKSTR("muon"))) {
-		interp_error(wk, an[0].node, "This muon has not been fully bootstrapped. It can only be used to setup muon itself.");
+		vm_error_at(wk, an[0].node, "This muon has not been fully bootstrapped. It can only be used to setup muon itself.");
 		return false;
 	}
 #endif
@@ -182,7 +181,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		} else {
 			struct source ver_src = { 0 };
 			if (!fs_read_entire_file(get_file_path(wk, akw[kw_version].val), &ver_src)) {
-				interp_error(wk, akw[kw_version].node, "failed to read version file");
+				vm_error_at(wk, akw[kw_version].node, "failed to read version file");
 				return false;
 			}
 
@@ -191,7 +190,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			for (i = 0; ver_src.src[i]; ++i) {
 				if (ver_src.src[i] == '\n') {
 					if (ver_src.src[i + 1]) {
-						interp_error(wk, akw[kw_version].node, "version file is more than one line long");
+						vm_error_at(wk, akw[kw_version].node, "version file is more than one line long");
 						return false;
 					}
 					break;
@@ -285,7 +284,7 @@ add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 	enum compiler_language l;
 
 	if (!s_to_compiler_language(get_cstr(wk, val), &l)) {
-		interp_error(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, val));
+		vm_error_at(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, val));
 		return ir_err;
 	}
 
@@ -335,7 +334,7 @@ static bool
 func_add_global_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (wk->cur_project != 0) {
-		interp_error(wk, args_node, "add_global_arguments cannot be called from a subproject");
+		vm_error_at(wk, args_node, "add_global_arguments cannot be called from a subproject");
 		return false;
 	}
 
@@ -352,7 +351,7 @@ static bool
 func_add_global_link_arguments(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	if (wk->cur_project != 0) {
-		interp_error(wk, args_node, "add_global_link_arguments cannot be called from a subproject");
+		vm_error_at(wk, args_node, "add_global_link_arguments cannot be called from a subproject");
 		return false;
 	}
 
@@ -371,7 +370,7 @@ add_project_dependencies_iter(struct workspace *wk, void *_ctx, obj lang)
 	enum compiler_language l;
 
 	if (!s_to_compiler_language(get_cstr(wk, lang), &l)) {
-		interp_error(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, lang));
+		vm_error_at(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, lang));
 		return ir_err;
 	}
 
@@ -380,7 +379,7 @@ add_project_dependencies_iter(struct workspace *wk, void *_ctx, obj lang)
 		// NOTE: Its a little weird that the other add_project_xxx
 		// functions don't check this and this function does, but that
 		// is how meson does it.
-		interp_error(wk, ctx->lang_node, "undeclared language '%s'", get_cstr(wk, lang));
+		vm_error_at(wk, ctx->lang_node, "undeclared language '%s'", get_cstr(wk, lang));
 		return ir_err;
 	}
 
@@ -576,7 +575,7 @@ find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *
 		} else if (!ctx->found) {
 			obj _;
 			if (!obj_dict_index(wk, wk->find_program_overrides, prog, &_)) {
-				interp_warning(wk, 0, "subproject %o claims to provide %o, but did not override it", subproj_name, prog);
+				vm_warning_at(wk, 0, "subproject %o claims to provide %o, but did not override it", subproj_name, prog);
 			}
 		}
 	}
@@ -797,7 +796,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (!ctx.found) {
 		if (requirement == requirement_required) {
-			interp_error(wk, an[0].node, "program not found");
+			vm_error_at(wk, an[0].node, "program not found");
 			return false;
 		}
 
@@ -1017,7 +1016,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		};
 
 		if (!get_obj_array(wk, an[0].val)->len) {
-			interp_error(wk, an[0].node, "missing command");
+			vm_error_at(wk, an[0].node, "missing command");
 			return false;
 		}
 
@@ -1034,7 +1033,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			if (!find_program(wk, &find_program_ctx, arg0)) {
 				return false;
 			} else if (!find_program_ctx.found) {
-				interp_error(wk, an[0].node, "unable to find program %o", arg0);
+				vm_error_at(wk, an[0].node, "unable to find program %o", arg0);
 				return false;
 			}
 			obj_array_set(wk, an[0].val, 0, cmd_file);
@@ -1062,13 +1061,13 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
-		interp_error(wk, an[0].node, "%s", cmd_ctx.err_msg);
+		vm_error_at(wk, an[0].node, "%s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
 	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val)
 	    && cmd_ctx.status != 0) {
-		interp_error(wk, an[0].node, "command failed: '%s'", cmd_ctx.err.buf);
+		vm_error_at(wk, an[0].node, "command failed: '%s'", cmd_ctx.err.buf);
 		return false;
 
 	}
@@ -1162,7 +1161,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	enum kwargs {
 		kw_if_found,
 	};
-	type_tag if_found_type = wk->in_analyzer ? tc_any : TYPE_TAG_LISTIFY | tc_dependency;
+	type_tag if_found_type = wk->vm.in_analyzer ? tc_any : TYPE_TAG_LISTIFY | tc_dependency;
 	struct args_kw akw[] = {
 		[kw_if_found] = { "if_found", if_found_type },
 		0
@@ -1171,7 +1170,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (akw[kw_if_found].set && !wk->in_analyzer) {
+	if (akw[kw_if_found].set && !wk->vm.in_analyzer) {
 		bool all_found = true;
 		obj_array_foreach(wk, akw[kw_if_found].val, &all_found, subdir_if_found_iter);
 
@@ -1193,14 +1192,14 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->build_dir = sbuf_into_str(wk, &build_dir);
 
 	bool ret = false;
-	if (!wk->in_analyzer) {
+	if (!wk->vm.in_analyzer) {
 		if (!fs_mkdir_p(build_dir.buf)) {
 			goto ret;
 		}
 	}
 
 	path_push(wk, &new_cwd, "meson.build");
-	ret = wk->eval_project_file(wk, new_cwd.buf, false);
+	ret = wk->vm.behavior.eval_project_file(wk, new_cwd.buf, false);
 
 ret:
 	current_project(wk)->cwd = old_cwd;
@@ -1397,14 +1396,14 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		}
 
 		if (protocol == ARRAY_LEN(protocol_names)) {
-			interp_error(wk, akw[kw_protocol].node,
+			vm_error_at(wk, akw[kw_protocol].node,
 				"invalid protocol %o", akw[kw_protocol].val);
 			return false;
 		}
 
 		if (protocol == test_protocol_gtest
 		    || protocol == test_protocol_rust) {
-			interp_warning(wk, akw[kw_protocol].node,
+			vm_warning_at(wk, akw[kw_protocol].node,
 				"unsupported protocol %o, falling back to 'exitcode'",
 				akw[kw_protocol].val);
 			protocol = test_protocol_exitcode;
@@ -1580,7 +1579,7 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (wk->in_analyzer) {
+	if (wk->vm.in_analyzer) {
 		// If we are in the analyzer, don't create a disabler here so
 		// that the custom not found module logic can be used
 		akw[kw_disabler].set = false;
@@ -1599,14 +1598,14 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (module_import(wk, get_cstr(wk, an[0].val), true, res)) {
 			found = true;
 		} else if (requirement == requirement_required) {
-			interp_error(wk, an[0].node, "module not found");
+			vm_error_at(wk, an[0].node, "module not found");
 			return false;
 		}
 	}
 
 	struct obj_module *m = get_obj_module(wk, *res);
 	if (!m->has_impl) {
-		if (requirement != requirement_required || wk->in_analyzer) {
+		if (requirement != requirement_required || wk->vm.in_analyzer) {
 			found = false;
 		} else {
 			LOG_W("importing unimplemented module '%s'", get_cstr(wk, an[0].val));
@@ -1658,7 +1657,7 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 	disabler_among_args_immunity = false;
 
-	wk->assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, args_node, assign_local);
+	wk->vm.behavior.assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, args_node, assign_local);
 	return true;
 }
 
@@ -1673,10 +1672,10 @@ func_unset_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	const char *varname = get_cstr(wk, an[0].val);
 	obj _val;
 
-	if (wk->get_variable(wk, varname, &_val, wk->cur_project)) {
-		wk->unassign_variable(wk, varname);
+	if (wk->vm.behavior.get_variable(wk, varname, &_val)) {
+		wk->vm.behavior.unassign_variable(wk, varname);
 	} else {
-		interp_error(wk, an[0].node, "cannot unset undefined variable: %o", an[0].val);
+		vm_error_at(wk, an[0].node, "cannot unset undefined variable: %o", an[0].val);
 		return false;
 	}
 
@@ -1701,11 +1700,11 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (!wk->get_variable(wk, get_cstr(wk, an[0].val), res, wk->cur_project)) {
+	if (!wk->vm.behavior.get_variable(wk, get_cstr(wk, an[0].val), res)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
-			interp_error(wk, an[0].node, "undefined object %o", an[0].val);
+			vm_error_at(wk, an[0].node, "undefined object %o", an[0].val);
 			return false;
 		}
 	}
@@ -1726,7 +1725,7 @@ func_is_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	obj dont_care;
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, wk->get_variable(wk, get_cstr(wk, an[0].val), &dont_care, wk->cur_project));
+	set_obj_bool(wk, *res, wk->vm.behavior.get_variable(wk, get_cstr(wk, an[0].val), &dont_care));
 	return true;
 }
 
@@ -1737,7 +1736,6 @@ func_subdir_done(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	wk->subdir_done = true;
 	return true;
 }
 
@@ -1825,7 +1823,7 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, ctx->deps, val);
 		break;
 	default:
-		interp_error(wk, val, "expected target but got: %s",
+		vm_error_at(wk, val, "expected target but got: %s",
 			obj_type_to_s(t));
 		return ir_err;
 	}

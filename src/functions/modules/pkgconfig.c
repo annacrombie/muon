@@ -14,7 +14,6 @@
 #include "functions/custom_target.h"
 #include "functions/file.h"
 #include "install.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -151,7 +150,7 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		if (!tgt->generated_pc) {
-			interp_error(wk, ctx->err_node, "build target has no associated pc file");
+			vm_error_at(wk, ctx->err_node, "build target has no associated pc file");
 			return ir_err;
 		}
 
@@ -166,7 +165,7 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (dep->type != dependency_type_pkgconf) {
-			interp_error(wk, ctx->err_node, "dependency not from pkgconf");
+			vm_error_at(wk, ctx->err_node, "dependency not from pkgconf");
 			return ir_err;
 		}
 
@@ -175,7 +174,7 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	}
 	default:
-		interp_error(wk, ctx->err_node, "invalid type for pkgconf require %s", obj_type_to_s(get_obj_type(wk, val)));
+		vm_error_at(wk, ctx->err_node, "invalid type for pkgconf require %s", obj_type_to_s(get_obj_type(wk, val)));
 		return ir_err;
 	}
 
@@ -237,7 +236,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_file: {
 		if (!file_is_linkable(wk, val)) {
-			interp_error(wk, ctx->err_node, "non linkable file %o among libraries", val);
+			vm_error_at(wk, ctx->err_node, "non linkable file %o among libraries", val);
 			return ir_err;
 		}
 
@@ -263,7 +262,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			obj_array_push(wk, ctx->pc->reqs[ctx->vis], tgt->generated_pc);
 		} else {
 			if (tgt->type == tgt_executable) {
-				interp_error(wk, ctx->err_node, "invalid build_target type");
+				vm_error_at(wk, ctx->err_node, "invalid build_target type");
 				return ir_err;
 			}
 
@@ -375,7 +374,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_custom_target: {
 		if (!custom_target_is_linkable(wk, val)) {
-			interp_error(wk, ctx->err_node, "non linkable custom target %o among libraries", val);
+			vm_error_at(wk, ctx->err_node, "non linkable custom target %o among libraries", val);
 			return ir_err;
 		}
 
@@ -397,7 +396,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	}
 	default:
-		interp_error(wk, ctx->err_node, "invalid type for pkgconf library %s", obj_type_to_s(get_obj_type(wk, val)));
+		vm_error_at(wk, ctx->err_node, "invalid type for pkgconf library %s", obj_type_to_s(get_obj_type(wk, val)));
 		return ir_err;
 	}
 
@@ -437,7 +436,7 @@ module_pkgconf_declare_var(struct workspace *wk, uint32_t err_node, bool escape,
 		uint32_t i;
 		for (i = 0; reserved[i]; ++i) {
 			if (str_eql(key, &WKSTR(reserved[i]))) {
-				interp_error(wk, err_node, "variable %s is reserved", reserved[i]);
+				vm_error_at(wk, err_node, "variable %s is reserved", reserved[i]);
 				return false;
 			}
 		}
@@ -499,7 +498,7 @@ module_pkgconf_process_vars_array_iter(struct workspace *wk, void *_ctx, obj v)
 	const struct str *src = get_str(wk, v);
 	const char *sep;
 	if (!(sep = strchr(src->s, '='))) {
-		interp_error(wk, ctx->err_node, "invalid variable string, missing '='");
+		vm_error_at(wk, ctx->err_node, "invalid variable string, missing '='");
 		return ir_err;
 	}
 
@@ -561,7 +560,7 @@ module_pkgconf_process_vars(struct workspace *wk, uint32_t err_node, bool escape
 		}
 		break;
 	default:
-		interp_error(wk, err_node, "invalid type for variables, expected array or dict");
+		vm_error_at(wk, err_node, "invalid type for variables, expected array or dict");
 		return false;
 	}
 
@@ -585,7 +584,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 			path_relative_to(wk, &rel, prefix, install_dir);
 			path = rel.buf;
 		} else if (path_is_absolute(install_dir)) {
-			interp_error(wk, install_dir_opt->val, "absolute install dir path not a subdir of prefix");
+			vm_error_at(wk, install_dir_opt->val, "absolute install dir path not a subdir of prefix");
 			return false;
 		} else {
 			path = install_dir;
@@ -763,7 +762,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 	}
 
 	if (!ao[0].set && !akw[kw_name].set) {
-		interp_error(wk, args_node, "you must either pass a library, "
+		vm_error_at(wk, args_node, "you must either pass a library, "
 			"or the name keyword");
 		return false;
 	}

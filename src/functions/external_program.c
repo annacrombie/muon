@@ -9,7 +9,6 @@
 #include "functions/common.h"
 #include "functions/external_program.h"
 #include "guess.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/run_cmd.h"
@@ -56,7 +55,7 @@ func_external_program_path(struct workspace *wk, obj rcvr, uint32_t args_node, o
 
 	struct obj_external_program *ep = get_obj_external_program(wk, rcvr);
 	if (get_obj_array(wk, ep->cmd_array)->len > 1) {
-		interp_error(wk, args_node, "cannot return the full_path() of an external program with multiple elements (have: %o)\n", ep->cmd_array);
+		vm_error_at(wk, args_node, "cannot return the full_path() of an external program with multiple elements (have: %o)\n", ep->cmd_array);
 		return false;
 	}
 

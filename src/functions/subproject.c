@@ -7,7 +7,6 @@
 
 #include "functions/common.h"
 #include "functions/subproject.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 
@@ -19,11 +18,11 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 	struct obj_subproject *sub = get_obj_subproject(wk, subproj);
 
 	if (!sub->found) {
-		interp_error(wk, node, "subproject was not found");
+		vm_error_at(wk, node, "subproject was not found");
 		return false;
 	}
 
-	if (!wk->get_variable(wk, name, res, sub->id)) {
+	if (!wk->vm.behavior.get_variable(wk, name, res)) {
 		if (!fallback) {
 			return false;
 		} else {
@@ -45,7 +44,7 @@ func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node,
 	}
 
 	if (!subproject_get_variable(wk, an[0].node, an[0].val, ao[0].val, rcvr, res)) {
-		interp_error(wk, an[0].node, "subproject does not define '%s'", get_cstr(wk, an[0].val));
+		vm_error_at(wk, an[0].node, "subproject does not define '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
 	return true;

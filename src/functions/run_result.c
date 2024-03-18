@@ -7,7 +7,6 @@
 
 #include "functions/common.h"
 #include "functions/run_result.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 
@@ -18,7 +17,7 @@ ensure_valid_run_result(struct workspace *wk, uint32_t node, obj rcvr)
 
 	if ((rr->flags & run_result_flag_from_compile)
 	    && !(rr->flags & run_result_flag_compile_ok)) {
-		interp_error(wk, node, "this run_result was not run because its source could not be compiled");
+		vm_error_at(wk, node, "this run_result was not run because its source could not be compiled");
 		return false;
 	}
 
@@ -81,7 +80,7 @@ func_run_result_compiled(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	struct obj_run_result *rr = get_obj_run_result(wk, rcvr);
 
 	if (!(rr->flags & run_result_flag_from_compile)) {
-		interp_error(wk, args_node, "this run_result is not from a compiler.run() call");
+		vm_error_at(wk, args_node, "this run_result is not from a compiler.run() call");
 		return false;
 	}
 

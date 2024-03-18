@@ -10,7 +10,6 @@
 #include "lang/typecheck.h"
 #include "functions/common.h"
 #include "functions/configuration_data.h"
-#include "lang/interpreter.h"
 #include "log.h"
 
 static bool
@@ -106,7 +105,7 @@ configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf,
 		if (def) {
 			*res = def;
 		} else {
-			interp_error(wk, err_node, "key '%s' not found", get_cstr(wk, key));
+			vm_error_at(wk, err_node, "key '%s' not found", get_cstr(wk, key));
 			return false;
 		}
 	}

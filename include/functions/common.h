@@ -28,7 +28,10 @@ extern struct func_impl native_funcs[];
 
 extern bool disabler_among_args_immunity, disable_fuzz_unsafe_functions;
 
+void build_func_impl_tables(void);
+
 bool func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj *func);
+bool func_lookup_for_group(const struct func_impl_group impl_group[], enum language_mode mode, const char *name, uint32_t *idx);
 
 bool interp_args(struct workspace *wk, uint32_t args_node,
 	struct args_norm positional_args[],

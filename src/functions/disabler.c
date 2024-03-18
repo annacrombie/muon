@@ -7,7 +7,6 @@
 
 #include "functions/common.h"
 #include "functions/disabler.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 

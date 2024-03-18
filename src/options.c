@@ -12,7 +12,6 @@
 #include "backend/output.h"
 #include "embedded.h"
 #include "error.h"
-#include "lang/interpreter.h"
 #include "lang/serial.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
@@ -165,7 +164,7 @@ check_array_opt_iter(struct workspace *wk, void *_ctx, obj val)
 	struct check_array_opt_ctx *ctx = _ctx;
 
 	if (!obj_array_in(wk, ctx->choices, val)) {
-		interp_error(wk, ctx->node, "array element %o is not one of %o", val, ctx->choices);
+		vm_error_at(wk, ctx->node, "array element %o is not one of %o", val, ctx->choices);
 		return ir_err;
 	}
 
@@ -184,7 +183,7 @@ coerce_feature_opt(struct workspace *wk, uint32_t node, const struct str *val, o
 	} else if (str_eql(val, &WKSTR("disabled"))) {
 		f = feature_opt_disabled;
 	} else {
-		interp_error(wk, node, "unable to coerce '%s' into a feature", val->s);
+		vm_error_at(wk, node, "unable to coerce '%s' into a feature", val->s);
 		return false;
 	}
 
@@ -209,7 +208,7 @@ check_deprecated_option_iter(struct workspace *wk, void *_ctx, obj old, obj new)
 	case op_array: {
 		uint32_t idx;
 		if (obj_array_index_of(wk, *ctx->val, old, &idx)) {
-			interp_warning(wk, ctx->err_node, "option value %o is deprecated", old);
+			vm_warning_at(wk, ctx->err_node, "option value %o is deprecated", old);
 
 			if (new) {
 				obj_array_set(wk, *ctx->val, idx, new);
@@ -219,7 +218,7 @@ check_deprecated_option_iter(struct workspace *wk, void *_ctx, obj old, obj new)
 	}
 	default:
 		if (str_eql(get_str(wk, ctx->sval), get_str(wk, old))) {
-			interp_warning(wk, ctx->err_node, "option value %o is deprecated", old);
+			vm_warning_at(wk, ctx->err_node, "option value %o is deprecated", old);
 
 			if (new) {
 				*ctx->val = new;
@@ -244,13 +243,13 @@ check_deprecated_option(struct workspace *wk, uint32_t err_node,
 	switch (get_obj_type(wk, opt->deprecated)) {
 	case obj_bool:
 		if (get_obj_bool(wk, opt->deprecated)) {
-			interp_warning(wk, err_node, "option %o is deprecated", ctx.opt->name);
+			vm_warning_at(wk, err_node, "option %o is deprecated", ctx.opt->name);
 		}
 		break;
 	case obj_string: {
 		struct project *cur_proj = current_project(wk);
 
-		interp_warning(wk, err_node, "option %o is deprecated to %o", opt->name, opt->deprecated);
+		vm_warning_at(wk, err_node, "option %o is deprecated to %o", opt->name, opt->deprecated);
 
 		obj newopt;
 		if (get_option(wk, cur_proj, get_str(wk, opt->deprecated), &newopt)) {
@@ -325,7 +324,7 @@ coerce_option_override(struct workspace *wk, uint32_t node, struct obj_option *o
 		} else if (str_eql(val, &WKSTR("false"))) {
 			b = false;
 		} else {
-			interp_error(wk, node, "unable to coerce '%s' into a boolean", val->s);
+			vm_error_at(wk, node, "unable to coerce '%s' into a boolean", val->s);
 			return false;
 		}
 
@@ -339,7 +338,7 @@ coerce_option_override(struct workspace *wk, uint32_t node, struct obj_option *o
 		num = strtol(val->s, &endptr, 10);
 
 		if (!val->len || *endptr) {
-			interp_error(wk, node, "unable to coerce '%s' into a number", val->s);
+			vm_error_at(wk, node, "unable to coerce '%s' into a number", val->s);
 			return false;
 		}
 
@@ -489,7 +488,7 @@ set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val,
 	o->source = source;
 
 	if (get_obj_type(wk, o->deprecated) == obj_bool && get_obj_bool(wk, o->deprecated)) {
-		interp_warning(wk, node, "option %o is deprecated", o->name);
+		vm_warning_at(wk, node, "option %o is deprecated", o->name);
 	}
 
 	if (coerce) {
@@ -507,7 +506,7 @@ set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val,
 	switch (o->type) {
 	case op_combo: {
 		if (!obj_array_in(wk, o->choices, new_val)) {
-			interp_error(wk, node, "'%o' is not one of %o", new_val, o->choices);
+			vm_error_at(wk, node, "'%o' is not one of %o", new_val, o->choices);
 			return false;
 		}
 		break;
@@ -517,7 +516,7 @@ set_option(struct workspace *wk, uint32_t node, obj opt, obj new_val,
 
 		if ((o->max && num > get_obj_number(wk, o->max))
 		    || (o->min && num < get_obj_number(wk, o->min)) ) {
-			interp_error(wk, node, "value %" PRId64 " is out of range (%" PRId64 "..%" PRId64 ")",
+			vm_error_at(wk, node, "value %" PRId64 " is out of range (%" PRId64 "..%" PRId64 ")",
 				get_obj_number(wk, new_val),
 				(o->min ? get_obj_number(wk, o->min) : INT64_MIN),
 				(o->max ? get_obj_number(wk, o->max) : INT64_MAX)
@@ -571,10 +570,10 @@ create_option(struct workspace *wk, uint32_t node, obj opts, obj opt, obj val)
 	const struct str *name = get_str(wk, o->name);
 	if (str_has_null(name)
 	    || strchr(name->s, ':')) {
-		interp_error(wk, node, "invalid option name %o", o->name);
+		vm_error_at(wk, node, "invalid option name %o", o->name);
 		return false;
 	} else if (get_option(wk, proj, name, &_)) {
-		interp_error(wk, node, "duplicate option %o", o->name);
+		vm_error_at(wk, node, "duplicate option %o", o->name);
 		return false;
 	}
 
@@ -682,13 +681,13 @@ init_builtin_options(struct workspace *wk, const char *script, const char *fallb
 		opts = fallback;
 	}
 
-	enum language_mode old_mode = wk->lang_mode;
-	wk->lang_mode = language_opts;
+	enum language_mode old_mode = wk->vm.lang_mode;
+	wk->vm.lang_mode = language_opts;
 	obj _;
 	initializing_builtin_options = true;
 	bool ret = eval_str(wk, opts, eval_mode_default, &_);
 	initializing_builtin_options = false;
-	wk->lang_mode = old_mode;
+	wk->vm.lang_mode = old_mode;
 	return ret;
 }
 
@@ -718,7 +717,7 @@ set_yielding_project_options_iter(struct workspace *wk, void *_ctx, obj _k, obj 
 
 	po = get_obj_option(wk, parent_opt);
 	if (po->type != o->type) {
-		interp_warning(wk, 0,
+		vm_warning_at(wk, 0,
 			"option %o cannot yield to parent option due to a type mismatch (%s != %s)",
 			o->name,
 			build_option_type_to_s[po->type],
@@ -763,13 +762,13 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	}
 
 	if (exists) {
-		enum language_mode old_mode = wk->lang_mode;
-		wk->lang_mode = language_opts;
-		if (!wk->eval_project_file(wk, meson_opts.buf, false)) {
-			wk->lang_mode = old_mode;
+		enum language_mode old_mode = wk->vm.lang_mode;
+		wk->vm.lang_mode = language_opts;
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, false)) {
+			wk->vm.lang_mode = old_mode;
 			return false;
 		}
-		wk->lang_mode = old_mode;
+		wk->vm.lang_mode = old_mode;
 	}
 
 	bool is_master_project = wk->cur_project == 0;
@@ -880,7 +879,7 @@ parse_and_set_default_options_iter(struct workspace *wk, void *_ctx, obj v)
 
 	struct option_override oo = { .source = option_value_source_default_options };
 	if (!parse_config_string(wk, get_str(wk, v), &oo)) {
-		interp_error(wk, ctx->node, "invalid option string");
+		vm_error_at(wk, ctx->node, "invalid option string");
 		return ir_err;
 	}
 
@@ -940,18 +939,18 @@ parse_and_set_override_options_iter(struct workspace *wk, void *_ctx, obj v)
 
 	struct option_override oo = { .source = option_value_source_default_options };
 	if (!parse_config_string(wk, get_str(wk, v), &oo)) {
-		interp_error(wk, ctx->node, "invalid option string");
+		vm_error_at(wk, ctx->node, "invalid option string");
 		return ir_err;
 	}
 
 	if (oo.proj) {
-		interp_error(wk, ctx->node, "subproject options may not be set in override_options");
+		vm_error_at(wk, ctx->node, "subproject options may not be set in override_options");
 		return ir_err;
 	}
 
 	obj opt;
 	if (!get_option(wk, current_project(wk), get_str(wk, oo.name), &opt)) {
-		interp_error(wk, ctx->node, "invalid option %o in override_options", oo.name);
+		vm_error_at(wk, ctx->node, "invalid option %o in override_options", oo.name);
 		return ir_err;
 	}
 
@@ -965,7 +964,7 @@ parse_and_set_override_options_iter(struct workspace *wk, void *_ctx, obj v)
 	}
 
 	if (obj_dict_in(wk, ctx->opts, o->name)) {
-		interp_error(wk, ctx->node, "duplicate option %o in override_options", oo.name);
+		vm_error_at(wk, ctx->node, "duplicate option %o in override_options", oo.name);
 		return ir_err;
 	}
 
@@ -1228,7 +1227,7 @@ list_options(const struct list_options_opts *list_opts)
 	bool ret = false;
 	struct workspace wk = { 0 };
 	workspace_init(&wk);
-	wk.lang_mode = language_opts;
+	wk.vm.lang_mode = language_opts;
 
 	arr_push(&wk.projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk.projects, 0);
@@ -1239,7 +1238,7 @@ list_options(const struct list_options_opts *list_opts)
 		path_make_absolute(&wk, &meson_opts, "meson_options.txt");
 
 		if (fs_file_exists(meson_opts.buf)) {
-			if (!wk.eval_project_file(&wk, meson_opts.buf, false)) {
+			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, false)) {
 				goto ret;
 			}
 		}

@@ -18,7 +18,6 @@
 #include "functions/kernel/custom_target.h"
 #include "functions/string.h"
 #include "install.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -195,7 +194,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		/* @BASENAME@: the input filename, with extension removed */
 		struct obj_array *in = get_obj_array(wk, ctx->opts->input);
 		if (in->len != 1) {
-			interp_error(wk, ctx->opts->err_node,
+			vm_error_at(wk, ctx->opts->err_node,
 				"to use @PLAINNAME@ and @BASENAME@ in a custom "
 				"target command, there must be exactly one input");
 			return format_cb_error;
@@ -231,7 +230,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		arr = ctx->opts->output;
 	} else {
 		if (ctx->opts->err_node) {
-			interp_warning(wk, ctx->opts->err_node, "not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
+			vm_warning_at(wk, ctx->opts->err_node, "not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
 		}
 		return format_cb_skip;
 	}
@@ -326,7 +325,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		goto cont;
 	}
 	default:
-		interp_error(wk, ctx->opts->err_node, "unable to coerce %o to string", val);
+		vm_error_at(wk, ctx->opts->err_node, "unable to coerce %o to string", val);
 		return ir_err;
 	}
 
@@ -355,7 +354,7 @@ process_custom_target_commandline(struct workspace *wk,
 	}
 
 	if (!get_obj_array(wk, *res)->len) {
-		interp_error(wk, opts->err_node, "cmd cannot be empty");
+		vm_error_at(wk, opts->err_node, "cmd cannot be empty");
 		return false;
 	}
 	return true;
@@ -390,7 +389,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 
 	struct obj_array *in = get_obj_array(wk, ctx->opts->input);
 	if (in->len != 1) {
-		interp_error(wk, ctx->opts->err_node,
+		vm_error_at(wk, ctx->opts->err_node,
 			"to use @PLAINNAME@ and @BASENAME@ in a custom "
 			"target output, there must be exactly one input");
 		return format_cb_error;
@@ -516,7 +515,7 @@ make_custom_target(struct workspace *wk,
 		if (!coerce_output_files(wk, opts->output_node, opts->output_orig, opts->output_dir, &raw_output)) {
 			return false;
 		} else if (!get_obj_array(wk, raw_output)->len) {
-			interp_error(wk, opts->output_node, "output cannot be empty");
+			vm_error_at(wk, opts->output_node, "output cannot be empty");
 			return false;
 		}
 
@@ -578,7 +577,7 @@ make_custom_target(struct workspace *wk,
 	}
 
 	if (opts->extra_args && !cmdline_opts.extra_args_used) {
-		interp_warning(wk, opts->command_node, "extra args passed, but no @EXTRA_ARGS@ key found to substitute");
+		vm_warning_at(wk, opts->command_node, "extra args passed, but no @EXTRA_ARGS@ key found to substitute");
 	}
 
 	if (opts->capture) {
@@ -650,7 +649,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		name = ao[0].val;
 	} else {
 		if (!get_obj_array(wk, akw[kw_output].val)->len) {
-			interp_error(wk, akw[kw_output].node, "output cannot be empty");
+			vm_error_at(wk, akw[kw_output].node, "output cannot be empty");
 			return false;
 		}
 
@@ -711,7 +710,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	if (akw[kw_console].set && get_obj_bool(wk, akw[kw_console].val)) {
 		if (opts.capture) {
-			interp_error(wk, akw[kw_console].node, "console and capture cannot both be set to true");
+			vm_error_at(wk, akw[kw_console].node, "console and capture cannot both be set to true");
 			return false;
 		}
 
@@ -721,7 +720,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
 	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set || !get_obj_array(wk, akw[kw_install_dir].val)->len) {
-			interp_error(wk, akw[kw_install].node, "custom target installation requires install_dir");
+			vm_error_at(wk, akw[kw_install].node, "custom target installation requires install_dir");
 			return false;
 		}
 
@@ -811,7 +810,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		}
 
 		if (!obj_array_flatten_one(wk, input_arr, &input)) {
-			interp_error(wk, akw[kw_input].node, "expected exactly one input");
+			vm_error_at(wk, akw[kw_input].node, "expected exactly one input");
 			return false;
 		}
 	}

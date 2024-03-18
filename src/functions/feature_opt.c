@@ -7,7 +7,6 @@
 
 #include "functions/common.h"
 #include "functions/feature_opt.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 
@@ -127,7 +126,7 @@ func_feature_opt_enable_if(struct workspace *wk, obj rcvr, uint32_t args_node, o
 			? get_cstr(wk, akw[kw_error_message].set)
 			: "requirement not met";
 
-		interp_error(wk, an[0].node, "%s", err_msg);
+		vm_error_at(wk, an[0].node, "%s", err_msg);
 		return false;
 	} else {
 		make_obj(wk, res, obj_feature_opt);
@@ -163,7 +162,7 @@ func_feature_opt_disable_if(struct workspace *wk, obj rcvr, uint32_t args_node, 
 			? get_cstr(wk, akw[kw_error_message].set)
 			: "requirement not met";
 
-		interp_error(wk, an[0].node, "%s", err_msg);
+		vm_error_at(wk, an[0].node, "%s", err_msg);
 		return false;
 	} else {
 		make_obj(wk, res, obj_feature_opt);
@@ -193,7 +192,7 @@ func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
 	if (!get_obj_bool(wk, an[0].val)) {
 		if (state == feature_opt_enabled) {
-			interp_error(wk, an[0].node, "%s",
+			vm_error_at(wk, an[0].node, "%s",
 				akw[kw_error_message].set
 					? get_cstr(wk, akw[kw_error_message].set)
 					: "requirement not met");

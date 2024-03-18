@@ -11,7 +11,6 @@
 #include "functions/common.h"
 #include "functions/generator.h"
 #include "functions/kernel/custom_target.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/path.h"
@@ -186,7 +185,7 @@ check_preserve_path_from_iter(struct workspace *wk, void *_ctx, obj f)
 		   *base = get_cstr(wk, ctx->gl->preserve_path_from);
 
 	if (!path_is_subpath(base, src)) {
-		interp_error(wk, ctx->err_node,
+		vm_error_at(wk, ctx->err_node,
 			"source file '%s' is not a subdir of preserve_path_from path '%s'",
 			src, base);
 		return ir_err;
@@ -225,7 +224,7 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 
 	if (gl->preserve_path_from) {
 		if (!path_is_absolute(get_cstr(wk, gl->preserve_path_from))) {
-			interp_error(wk, akw[kw_preserve_path_from].node, "preserve_path_from must be an absolute path");
+			vm_error_at(wk, akw[kw_preserve_path_from].node, "preserve_path_from must be an absolute path");
 			return false;
 		}
 

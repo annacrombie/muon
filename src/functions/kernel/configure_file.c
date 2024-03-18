@@ -18,7 +18,6 @@
 #include "functions/kernel/configure_file.h"
 #include "functions/kernel/custom_target.h"
 #include "install.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -345,7 +344,7 @@ generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 		sbuf_pushf(wk, ctx->out_buf, "%cdefine %s %" PRId64 "\n", define_prefix, get_cstr(wk, key), get_obj_number(wk, val));
 		break;
 	default:
-		interp_error(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
+		vm_error_at(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
 		return ir_err;
 	}
 
@@ -429,12 +428,12 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	join_args_argstr(wk, &argstr, &argc, args);
 	env_to_envstr(wk, &envstr, &envc, env);
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
-		interp_error(wk, node, "error running command: %s", cmd_ctx.err_msg);
+		vm_error_at(wk, node, "error running command: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
 
 	if (cmd_ctx.status != 0) {
-		interp_error(wk, node, "error running command: %s", cmd_ctx.err.buf);
+		vm_error_at(wk, node, "error running command: %s", cmd_ctx.err.buf);
 		goto ret;
 	}
 
@@ -464,7 +463,7 @@ array_to_elem_or_err(struct workspace *wk, uint32_t node, uint32_t arr, uint32_t
 	}
 
 	if (get_obj_array(wk, arr)->len != 1) {
-		interp_error(wk, node, "expected an array of length 1");
+		vm_error_at(wk, node, "expected an array of length 1");
 		return false;
 	}
 
@@ -590,7 +589,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		} else if (str_eql(output_format_str, &WKSTR("nasm"))) {
 			output_format = configure_file_output_format_nasm;
 		} else {
-			interp_error(wk, akw[kw_output_format].node, "invalid output format %o", akw[kw_output_format].val);
+			vm_error_at(wk, akw[kw_output_format].node, "invalid output format %o", akw[kw_output_format].val);
 			return false;
 		}
 	}
@@ -615,7 +614,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		SBUF(out_path);
 
 		if (!path_is_basename(out)) {
-			interp_error(wk, akw[kw_output].node, "config file output '%s' contains path separator", out);
+			vm_error_at(wk, akw[kw_output].node, "config file output '%s' contains path separator", out);
 			return false;
 		}
 
@@ -632,7 +631,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (!exclusive_or((bool []) { akw[kw_command].set, akw[kw_configuration].set, akw[kw_copy].set }, 3)) {
-		interp_error(wk, args_node, "you must pass either command:, configuration:, or copy:");
+		vm_error_at(wk, args_node, "you must pass either command:, configuration:, or copy:");
 		return false;
 	}
 
@@ -687,7 +686,7 @@ copy_err:
 			dict = get_obj_configuration_data(wk, conf)->dict;
 			break;
 		default:
-			interp_error(wk, akw[kw_configuration].node, "invalid type for configuration data '%s'",
+			vm_error_at(wk, akw[kw_configuration].node, "invalid type for configuration data '%s'",
 				obj_type_to_s(t));
 			return false;
 		}
@@ -722,7 +721,7 @@ copy_err:
 					syntax = configure_file_syntax_cmakedefine
 						 | configure_file_syntax_mesonvar;
 				} else {
-					interp_error(wk, akw[kw_format].node, "invalid format type %o", akw[kw_format].val);
+					vm_error_at(wk, akw[kw_format].node, "invalid format type %o", akw[kw_format].val);
 					return false;
 				}
 			}
@@ -742,7 +741,7 @@ copy_err:
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
 	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set) {
-			interp_error(wk, akw[kw_install].node, "configure_file installation requires install_dir");
+			vm_error_at(wk, akw[kw_install].node, "configure_file installation requires install_dir");
 			return false;
 		}
 

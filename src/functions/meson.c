@@ -15,7 +15,6 @@
 #include "functions/build_target.h"
 #include "functions/common.h"
 #include "functions/meson.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -39,7 +38,7 @@ func_meson_get_compiler(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	enum compiler_language l;
 	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)
 	    || !obj_dict_geti(wk, current_project(wk)->compilers, l, res)) {
-		interp_error(wk, an[0].node, "no compiler found for '%s'", get_cstr(wk, an[0].val));
+		vm_error_at(wk, an[0].node, "no compiler found for '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
 
@@ -390,7 +389,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	default:
 type_error:
-		interp_error(wk, ctx->node, "invalid type for script commandline '%s'",
+		vm_error_at(wk, ctx->node, "invalid type for script commandline '%s'",
 			obj_type_to_s(t));
 		return ir_err;
 	}
@@ -503,7 +502,7 @@ func_meson_get_cross_property(struct workspace *wk, obj _, uint32_t args_node, o
 	if (ao[0].set) {
 		*res = ao[0].val;
 	} else {
-		interp_error(wk, an[0].node, "TODO: get cross property");
+		vm_error_at(wk, an[0].node, "TODO: get cross property");
 		return false;
 	}
 
@@ -528,7 +527,7 @@ func_meson_get_external_property(struct workspace *wk, obj _, uint32_t args_node
 	if (ao[0].set) {
 		*res = ao[0].val;
 	} else {
-		interp_error(wk, an[0].node, "TODO: get external property");
+		vm_error_at(wk, an[0].node, "TODO: get external property");
 		return false;
 	}
 

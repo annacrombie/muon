@@ -12,7 +12,6 @@
 #include "functions/common.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/modules/fs.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/filesystem.h"
@@ -41,17 +40,17 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		}
 	// FALLTHROUGH
 	default:
-		interp_error(wk, err_node, "expected string%s, got %s",
+		vm_error_at(wk, err_node, "expected string%s, got %s",
 			(opts & fix_file_path_allow_file) ? " or file" : "",
 			obj_type_to_s(t));
 		return false;
 	}
 
 	if (str_has_null(ss)) {
-		interp_error(wk, err_node, "path cannot contain null bytes");
+		vm_error_at(wk, err_node, "path cannot contain null bytes");
 		return false;
 	} else if (!ss->len) {
-		interp_error(wk, err_node, "path cannot be empty");
+		vm_error_at(wk, err_node, "path cannot be empty");
 		return false;
 	}
 
@@ -61,7 +60,7 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		if ((opts & fix_file_path_expanduser) && ss->s[0] == '~') {
 			const char *home;
 			if (!(home = fs_user_home())) {
-				interp_error(wk, err_node, "failed to get user home directory");
+				vm_error_at(wk, err_node, "failed to get user home directory");
 				return false;
 			}
 
@@ -159,7 +158,7 @@ func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 	if (akw[kw_encoding].set) {
 		if (!str_eql(get_str(wk, akw[kw_encoding].val), &WKSTR("utf-8"))) {
-			interp_error(wk, akw[kw_encoding].node, "only 'utf-8' supported");
+			vm_error_at(wk, akw[kw_encoding].node, "only 'utf-8' supported");
 		}
 	}
 
@@ -314,7 +313,7 @@ func_module_fs_hash(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	}
 
 	if (!str_eql(get_str(wk, an[1].val), &WKSTR("sha256"))) {
-		interp_error(wk, an[1].node, "only sha256 is supported");
+		vm_error_at(wk, an[1].node, "only sha256 is supported");
 		return false;
 	}
 
@@ -579,10 +578,10 @@ func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		   *p2 = get_cstr(wk, an[1].val);
 
 	if (!path_is_absolute(p1)) {
-		interp_error(wk, an[0].node, "base path '%s' is not absolute", p1);
+		vm_error_at(wk, an[0].node, "base path '%s' is not absolute", p1);
 		return false;
 	} else if (!path_is_absolute(p2)) {
-		interp_error(wk, an[1].node, "path '%s' is not absolute", p2);
+		vm_error_at(wk, an[1].node, "path '%s' is not absolute", p2);
 		return false;
 	}
 

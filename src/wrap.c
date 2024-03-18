@@ -13,7 +13,6 @@
 #include "external/libcurl.h"
 #include "formats/ini.h"
 #include "lang/eval.h"
-#include "lang/interpreter.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/filesystem.h"

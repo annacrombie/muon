@@ -20,7 +20,6 @@
 #include "functions/kernel/dependency.h"
 #include "functions/machine.h"
 #include "install.h"
-#include "lang/interpreter.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -157,7 +156,7 @@ build_tgt_determine_linker(struct workspace *wk, uint32_t err_node, struct obj_b
 	}
 
 	if (!tgt->dep_internal.link_language) {
-		interp_error(wk, err_node, "unable to determine linker for target");
+		vm_error_at(wk, err_node, "unable to determine linker for target");
 		return false;
 	}
 
@@ -285,7 +284,7 @@ type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 	}
 
 	if (!tgt_tbl[i].name) {
-		interp_error(wk, node, "unsupported target type '%s'", tgt_type);
+		vm_error_at(wk, node, "unsupported target type '%s'", tgt_type);
 		return false;
 	}
 
@@ -502,7 +501,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 				pic = get_obj_bool(wk, akw[bt_kw_pic].val);
 
 				if (!pic && tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
-					interp_error(wk, akw[bt_kw_pic].node, "shared libraries must be compiled as pic");
+					vm_error_at(wk, akw[bt_kw_pic].node, "shared libraries must be compiled as pic");
 					return false;
 				}
 			} else {
@@ -527,7 +526,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 				pie = get_obj_bool(wk, akw[bt_kw_pie].set);
 
 				if (pie && (tgt->type & tgt_executable) != tgt_executable) {
-					interp_error(wk, akw[bt_kw_pie].node, "pie cannot be set for non-executables");
+					vm_error_at(wk, akw[bt_kw_pie].node, "pie cannot be set for non-executables");
 					return false;
 				}
 			} else if ((tgt->type & tgt_executable) == tgt_executable) {
@@ -561,7 +560,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			} else if (str_eql(str, &WKSTR("inlineshidden"))) {
 				tgt->visibility = compiler_visibility_inlineshidden;
 			} else {
-				interp_error(wk, vis->node, "unknown visibility '%s'", get_cstr(wk, vis->val));
+				vm_error_at(wk, vis->node, "unknown visibility '%s'", get_cstr(wk, vis->val));
 				return false;
 			}
 
@@ -644,7 +643,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		    && tgt->type != tgt_static_library) {
 			uint32_t node = akw[bt_kw_sources].set? akw[bt_kw_sources].node : an[1].node;
 
-			interp_error(wk, node, "target declared with no linkable sources");
+			vm_error_at(wk, node, "target declared with no linkable sources");
 			return false;
 		}
 	}
@@ -839,7 +838,7 @@ typecheck_string_or_empty_array(struct workspace *wk, struct args_kw *kw)
 		kw->val = 0;
 		return true;
 	} else {
-		interp_error(wk, kw->node, "expected string or [], got %s", obj_type_to_s(t));
+		vm_error_at(wk, kw->node, "expected string or [], got %s", obj_type_to_s(t));
 		return false;
 	}
 }
@@ -901,7 +900,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 
 	if (tgt_type_from_kw) {
 		if (!akw[bt_kw_target_type].set) {
-			interp_error(wk, args_node, "missing required kwarg: %s", akw[bt_kw_target_type].key);
+			vm_error_at(wk, args_node, "missing required kwarg: %s", akw[bt_kw_target_type].key);
 			return false;
 		}
 
@@ -910,7 +909,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		}
 	} else {
 		if (akw[bt_kw_target_type].set) {
-			interp_error(wk, akw[bt_kw_target_type].node, "invalid kwarg");
+			vm_error_at(wk, akw[bt_kw_target_type].node, "invalid kwarg");
 			return false;
 		}
 	}
@@ -926,7 +925,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		if (keyword_validity[i]
 		    && akw[i].set
 		    && !(keyword_validity[i] & argtype)) {
-			interp_error(wk, akw[i].node, "invalid kwarg");
+			vm_error_at(wk, akw[i].node, "invalid kwarg");
 			return false;
 		}
 	}
