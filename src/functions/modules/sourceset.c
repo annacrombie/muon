@@ -9,7 +9,7 @@
 #include "lang/typecheck.h"
 
 static bool
-func_module_sourceset_source_set(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_sourceset_source_set(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

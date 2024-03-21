@@ -137,7 +137,7 @@ ret:
 }
 
 static bool
-func_module_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_found(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

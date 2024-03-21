@@ -442,7 +442,7 @@ set_dependency_cache_iter(struct workspace *wk, void *_ctx, obj name)
 }
 
 bool
-func_dependency(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -716,7 +716,7 @@ coerce_dependency_sources_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 bool
-func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_declare_dependency(struct workspace *wk, obj _, obj *res)
 {
 	enum kwargs {
 		kw_sources,

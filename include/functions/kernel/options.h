@@ -8,6 +8,6 @@
 
 #include "lang/workspace.h"
 
-bool func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res);
-bool func_get_option(struct workspace *wk, obj self, uint32_t args_node, obj *res);
+bool func_option(struct workspace *wk, obj self, obj *res);
+bool func_get_option(struct workspace *wk, obj self, obj *res);
 #endif

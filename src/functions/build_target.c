@@ -18,7 +18,11 @@
 #include "platform/path.h"
 
 bool
-tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt, obj src_file, bool relative, struct sbuf *res)
+tgt_src_to_object_path(struct workspace *wk,
+	const struct obj_build_target *tgt,
+	obj src_file,
+	bool relative,
+	struct sbuf *res)
 {
 	obj src = *get_obj_file(wk, src_file);
 
@@ -69,7 +73,7 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 		enum compiler_language lang;
 		obj comp_id;
 		if (filename_to_compiler_language(res->buf, &lang)
-		    && obj_dict_geti(wk, current_project(wk)->compilers, lang, &comp_id)) {
+			&& obj_dict_geti(wk, current_project(wk)->compilers, lang, &comp_id)) {
 			ext = compilers[get_obj_compiler(wk, comp_id)->type].object_ext;
 		}
 	}
@@ -79,7 +83,7 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 }
 
 static bool
-func_build_target_name(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_build_target_name(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -90,7 +94,7 @@ func_build_target_name(struct workspace *wk, obj self, uint32_t args_node, obj *
 }
 
 static bool
-func_build_target_full_path(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_build_target_full_path(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -116,8 +120,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	obj file;
 	enum obj_type t = get_obj_type(wk, val);
 
-	if (!typecheck(wk, ctx->err_node, val,
-		tc_file | tc_string | tc_custom_target | tc_generated_list)) {
+	if (!typecheck(wk, ctx->err_node, val, tc_file | tc_string | tc_custom_target | tc_generated_list)) {
 		return false;
 	}
 
@@ -128,9 +131,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		break;
 	}
-	case obj_file:
-		file = val;
-		break;
+	case obj_file: file = val; break;
 	case obj_custom_target: {
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, val);
 		if (!obj_array_flatten_one(wk, tgt->output, &file)) {
@@ -150,10 +151,8 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		return ir_cont;
 	}
-	default:
-		UNREACHABLE_RETURN;
+	default: UNREACHABLE_RETURN;
 	}
-
 
 	enum compiler_language l;
 	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
@@ -171,11 +170,9 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case compiler_language_c:
 	case compiler_language_cpp:
 	case compiler_language_llvm_ir:
-	case compiler_language_objc:
-		break;
+	case compiler_language_objc: break;
 	case compiler_language_null:
-	case compiler_language_count:
-		UNREACHABLE;
+	case compiler_language_count: UNREACHABLE;
 	}
 
 	if (!obj_array_in(wk, ctx->tgt->src, file)) {
@@ -211,9 +208,10 @@ build_target_extract_objects(struct workspace *wk, obj self, uint32_t err_node, 
 }
 
 static bool
-func_build_target_extract_objects(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_build_target_extract_objects(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
+	struct args_norm an[]
+		= { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
@@ -230,12 +228,11 @@ build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj self, obj *res, bool recursive)
+build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, obj *res, bool recursive)
 {
 	make_obj(wk, res, obj_array);
 
 	struct build_target_extract_objects_ctx ctx = {
-		.err_node = err_node,
 		.res = res,
 		.tgt = get_obj_build_target(wk, self),
 		.tgt_id = self,
@@ -253,28 +250,23 @@ build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj se
 }
 
 static bool
-func_build_target_extract_all_objects(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_build_target_extract_all_objects(struct workspace *wk, obj self, obj *res)
 {
 	enum kwargs {
 		kw_recursive,
 	};
-	struct args_kw akw[] = {
-		[kw_recursive] = { "recursive", obj_bool },
-		0
-	};
+	struct args_kw akw[] = { [kw_recursive] = { "recursive", obj_bool }, 0 };
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
-	bool recursive = akw[kw_recursive].set
-		? get_obj_bool(wk, akw[kw_recursive].val)
-		: false;
+	bool recursive = akw[kw_recursive].set ? get_obj_bool(wk, akw[kw_recursive].val) : false;
 
-	return build_target_extract_all_objects(wk, args_node, self, res, recursive);
+	return build_target_extract_all_objects(wk, 0, self, res, recursive);
 }
 
 static bool
-func_build_target_private_dir_include(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_build_target_private_dir_include(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -288,7 +280,7 @@ func_build_target_private_dir_include(struct workspace *wk, obj self, uint32_t a
 }
 
 static bool
-func_build_target_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_build_target_found(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

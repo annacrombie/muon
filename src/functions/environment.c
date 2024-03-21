@@ -51,8 +51,7 @@ evironment_to_dict_iter(struct workspace *wk, void *_ctx, obj action)
 	case environment_set_mode_prepend:
 		str = make_strf(wk, "%s%s%s", get_cstr(wk, val), get_cstr(wk, sep), oval);
 		break;
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	obj_dict_set(wk, env, key, str);
@@ -76,14 +75,11 @@ static void
 environment_or_dict_set(struct workspace *wk, obj env, const char *key, const char *val)
 {
 	switch (get_obj_type(wk, env)) {
-	case obj_dict:
-		obj_dict_set(wk, env, make_str(wk, key), make_str(wk, val));
-		break;
+	case obj_dict: obj_dict_set(wk, env, make_str(wk, key), make_str(wk, val)); break;
 	case obj_environment:
 		environment_set(wk, env, environment_set_mode_set, make_str(wk, key), make_str(wk, val), 0);
 		break;
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 }
 
@@ -134,7 +130,7 @@ environment_set(struct workspace *wk, obj env, enum environment_set_mode mode, o
 }
 
 static bool
-func_environment_set_common(struct workspace *wk, obj self, uint32_t args_node, enum environment_set_mode mode)
+func_environment_set_common(struct workspace *wk, obj self, enum environment_set_mode mode)
 {
 	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -142,7 +138,7 @@ func_environment_set_common(struct workspace *wk, obj self, uint32_t args_node, 
 	};
 	struct args_kw akw[] = {
 		[kw_separator] = { "separator", obj_string },
-		0
+		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -157,21 +153,21 @@ func_environment_set_common(struct workspace *wk, obj self, uint32_t args_node, 
 }
 
 static bool
-func_environment_set(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_environment_set(struct workspace *wk, obj self, obj *res)
 {
-	return func_environment_set_common(wk, self, args_node, environment_set_mode_set);
+	return func_environment_set_common(wk, self, environment_set_mode_set);
 }
 
 static bool
-func_environment_append(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_environment_append(struct workspace *wk, obj self, obj *res)
 {
-	return func_environment_set_common(wk, self, args_node, environment_set_mode_append);
+	return func_environment_set_common(wk, self, environment_set_mode_append);
 }
 
 static bool
-func_environment_prepend(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_environment_prepend(struct workspace *wk, obj self, obj *res)
 {
-	return func_environment_set_common(wk, self, args_node, environment_set_mode_prepend);
+	return func_environment_set_common(wk, self, environment_set_mode_prepend);
 }
 
 const struct func_impl impl_tbl_environment[] = {

@@ -20,15 +20,14 @@
 #include "platform/path.h"
 
 static bool
-func_dependency_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency_found(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res,
-		(get_obj_dependency(wk, self)->flags & dep_flag_found) == dep_flag_found);
+	set_obj_bool(wk, *res, (get_obj_dependency(wk, self)->flags & dep_flag_found) == dep_flag_found);
 	return true;
 }
 
@@ -48,17 +47,13 @@ dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var
 }
 
 static bool
-func_dependency_get_pkgconfig_variable(struct workspace *wk, obj self,
-	uint32_t args_node, obj *res)
+func_dependency_get_pkgconfig_variable(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_default,
 	};
-	struct args_kw akw[] = {
-		[kw_default] = { "default", obj_string },
-		0
-	};
+	struct args_kw akw[] = { [kw_default] = { "default", obj_string }, 0 };
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
@@ -102,8 +97,7 @@ dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
 }
 
 static bool
-func_dependency_get_variable(struct workspace *wk, obj self,
-	uint32_t args_node, obj *res)
+func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -112,22 +106,16 @@ func_dependency_get_variable(struct workspace *wk, obj self,
 		kw_internal,
 		kw_default_value,
 	};
-	struct args_kw akw[] = {
-		[kw_pkgconfig] = { "pkgconfig", obj_string },
+	struct args_kw akw[] = { [kw_pkgconfig] = { "pkgconfig", obj_string },
 		[kw_pkgconfig_define] = { "pkgconfig_define", TYPE_TAG_LISTIFY | obj_string },
 		[kw_internal] = { "internal", obj_string },
 		[kw_default_value] = { "default_value", obj_string },
-		0
-	};
+		0 };
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
-	uint32_t node = args_node;
-
 	if (ao[0].set) {
-		node = ao[0].node;
-
 		if (!akw[kw_pkgconfig].set) {
 			akw[kw_pkgconfig].set = true;
 			akw[kw_pkgconfig].node = ao[0].node;
@@ -144,23 +132,18 @@ func_dependency_get_variable(struct workspace *wk, obj self,
 	struct obj_dependency *dep = get_obj_dependency(wk, self);
 	if (dep->type == dependency_type_pkgconf) {
 		if (akw[kw_pkgconfig_define].set) {
-			node = akw[kw_pkgconfig_define].node;
-
-			if (!dep_pkgconfig_define(wk, self, node, akw[kw_pkgconfig_define].val)) {
+			if (!dep_pkgconfig_define(
+				    wk, self, akw[kw_pkgconfig_define].node, akw[kw_pkgconfig_define].val)) {
 				return false;
 			}
 		}
 		if (akw[kw_pkgconfig].set) {
-			node = akw[kw_pkgconfig].node;
-
 			if (dep_get_pkgconfig_variable(wk, self, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, res)) {
 				return true;
 			}
 		}
 	} else if (dep->variables) {
 		if (akw[kw_internal].set) {
-			node = akw[kw_internal].node;
-
 			if (obj_dict_index(wk, dep->variables, akw[kw_internal].val, res)) {
 				return true;
 			}
@@ -171,13 +154,13 @@ func_dependency_get_variable(struct workspace *wk, obj self,
 		*res = akw[kw_default_value].val;
 		return true;
 	} else {
-		vm_error_at(wk, node, "pkgconfig file has no such variable");
+		vm_error(wk, "pkgconfig file has no such variable");
 		return false;
 	}
 }
 
 static bool
-func_dependency_version(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency_version(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -195,7 +178,7 @@ func_dependency_version(struct workspace *wk, obj self, uint32_t args_node, obj 
 }
 
 static bool
-func_dependency_type_name(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency_type_name(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -210,22 +193,12 @@ func_dependency_type_name(struct workspace *wk, obj self, uint32_t args_node, ob
 
 	const char *n = NULL;
 	switch (dep->type) {
-	case dependency_type_pkgconf:
-		n = "pkgconfig";
-		break;
-	case dependency_type_declared:
-		n = "internal";
-		break;
+	case dependency_type_pkgconf: n = "pkgconfig"; break;
+	case dependency_type_declared: n = "internal"; break;
 	case dependency_type_appleframeworks:
-	case dependency_type_threads:
-		n = "system";
-		break;
-	case dependency_type_external_library:
-		n = "library";
-		break;
-	case dependency_type_not_found:
-		n = "not-found";
-		break;
+	case dependency_type_threads: n = "system"; break;
+	case dependency_type_external_library: n = "library"; break;
+	case dependency_type_not_found: n = "not-found"; break;
 	}
 
 	*res = make_str(wk, n);
@@ -233,7 +206,7 @@ func_dependency_type_name(struct workspace *wk, obj self, uint32_t args_node, ob
 }
 
 static bool
-func_dependency_name(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency_name(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -251,7 +224,7 @@ func_dependency_name(struct workspace *wk, obj self, uint32_t args_node, obj *re
 }
 
 static bool
-func_dependency_partial_dependency(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency_partial_dependency(struct workspace *wk, obj self, obj *res)
 {
 	enum kwargs {
 		kw_compile_args,
@@ -260,21 +233,18 @@ func_dependency_partial_dependency(struct workspace *wk, obj self, uint32_t args
 		kw_links,
 		kw_sources,
 	};
-	struct args_kw akw[] = {
-		[kw_compile_args] = { "compile_args", obj_bool },
+	struct args_kw akw[] = { [kw_compile_args] = { "compile_args", obj_bool },
 		[kw_includes] = { "includes", obj_bool },
 		[kw_link_args] = { "link_args", obj_bool },
 		[kw_links] = { "links", obj_bool },
 		[kw_sources] = { "sources", obj_bool },
-		0
-	};
+		0 };
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_dependency);
-	struct obj_dependency *dep = get_obj_dependency(wk, self),
-			      *partial = get_obj_dependency(wk, *res);
+	struct obj_dependency *dep = get_obj_dependency(wk, self), *partial = get_obj_dependency(wk, *res);
 
 	*partial = *dep;
 	partial->dep = (struct build_dep){ 0 };
@@ -307,7 +277,7 @@ func_dependency_partial_dependency(struct workspace *wk, obj self, uint32_t args
 }
 
 static bool
-func_dependency_as_system(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency_as_system(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
@@ -329,15 +299,14 @@ func_dependency_as_system(struct workspace *wk, obj self, uint32_t args_node, ob
 	obj old_includes = dep->dep.include_directories;
 	make_obj(wk, &dep->dep.include_directories, obj_array);
 
-	dep_process_includes(wk, old_includes, inc_type,
-		dep->dep.include_directories);
+	dep_process_includes(wk, old_includes, inc_type, dep->dep.include_directories);
 	dep->include_type = inc_type;
 
 	return true;
 }
 
 static bool
-func_dependency_include_type(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dependency_include_type(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -345,18 +314,10 @@ func_dependency_include_type(struct workspace *wk, obj self, uint32_t args_node,
 
 	const char *s = NULL;
 	switch (get_obj_dependency(wk, self)->include_type) {
-	case include_type_preserve:
-		s = "preserve";
-		break;
-	case include_type_system:
-		s = "system";
-		break;
-	case include_type_non_system:
-		s = "non-system";
-		break;
-	default:
-		assert(false && "unreachable");
-		break;
+	case include_type_preserve: s = "preserve"; break;
+	case include_type_system: s = "system"; break;
+	case include_type_non_system: s = "non-system"; break;
+	default: assert(false && "unreachable"); break;
 	}
 
 	*res = make_str(wk, s);

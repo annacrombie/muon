@@ -28,7 +28,7 @@ keyval_parse_cb(void *_ctx, struct source *src, const char *sect, const char *k,
 }
 
 static bool
-func_module_keyval_load(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_keyval_load(struct workspace *wk, obj self, obj *res)
 {
 	bool ret = false;
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };

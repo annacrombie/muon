@@ -28,13 +28,13 @@
 #include "platform/path.h"
 
 static void
-interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const char *fmt, va_list args)
+interp_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, va_list args)
 {
 	SBUF(buf);
 	obj_vasprintf(wk, &buf, fmt, args);
 
-	if (n_id) {
-		struct node *n = get_node(wk->ast, n_id);
+	if (ip) {
+		struct node *n = get_node(wk->ast, ip);
 		error_message(wk->src, n->location, lvl, buf.buf);
 	} else {
 		log_print(true, lvl, "%s", buf.buf);
@@ -42,20 +42,29 @@ interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const
 }
 
 void
-vm_error_at(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
+vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	interp_diagnostic(wk, n_id, log_error, fmt, args);
+	interp_diagnostic(wk, ip, log_error, fmt, args);
 	va_end(args);
 }
 
 void
-vm_warning_at(struct workspace *wk, uint32_t n_id, const char *fmt, ...)
+vm_warning(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	interp_diagnostic(wk, n_id, log_warn, fmt, args);
+	interp_diagnostic(wk, ip, log_warn, fmt, args);
+	va_end(args);
+}
+
+void
+vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	interp_diagnostic(wk, ip, log_warn, fmt, args);
 	va_end(args);
 }
 
@@ -152,10 +161,10 @@ unassign_variable(struct workspace *wk, const char *name)
 static bool interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res);
 
 static bool
-interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *res)
+interp_func(struct workspace *wk, uint32_t ip, bool chained, obj l_id, obj *res)
 {
 	obj tmp = 0;
-	struct node *n = get_node(wk->ast, n_id);
+	struct node *n = get_node(wk->ast, ip);
 
 	bool have_self = true;
 	if (!chained) {
@@ -176,7 +185,7 @@ interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *re
 		return false;
 	}
 
-	if (!builtin_run(wk, have_self, l_id, n_id, &tmp)) {
+	if (!builtin_run(wk, have_self, l_id, ip, &tmp)) {
 		return false;
 	}
 
@@ -499,12 +508,12 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 }
 
 static bool
-interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
+interp_plusassign(struct workspace *wk, uint32_t ip, obj *_)
 {
-	struct node *n = get_node(wk->ast, n_id);
+	struct node *n = get_node(wk->ast, ip);
 
 	obj rhs;
-	if (!interp_arithmetic(wk, n_id, arith_add, true, n->l, n->r, &rhs)) {
+	if (!interp_arithmetic(wk, ip, arith_add, true, n->l, n->r, &rhs)) {
 		return false;
 	}
 
@@ -513,11 +522,11 @@ interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 }
 
 static bool
-interp_array(struct workspace *wk, uint32_t n_id, obj *res)
+interp_array(struct workspace *wk, uint32_t ip, obj *res)
 {
 	obj l, r;
 
-	struct node *n = get_node(wk->ast, n_id);
+	struct node *n = get_node(wk->ast, ip);
 	n->chflg |= node_visited;
 
 	if (n->type == node_empty) {
@@ -564,11 +573,11 @@ interp_array(struct workspace *wk, uint32_t n_id, obj *res)
 }
 
 static bool
-interp_dict(struct workspace *wk, uint32_t n_id, obj *res)
+interp_dict(struct workspace *wk, uint32_t ip, obj *res)
 {
 	obj key, value;
 
-	struct node *n = get_node(wk->ast, n_id);
+	struct node *n = get_node(wk->ast, ip);
 	n->chflg |= node_visited;
 
 	if (n->type == node_empty) {
@@ -1048,15 +1057,15 @@ interp_stringify(struct workspace *wk, struct node *n, obj *res)
 }
 
 bool
-interp_node(struct workspace *wk, uint32_t n_id, obj *res)
+interp_node(struct workspace *wk, uint32_t ip, obj *res)
 {
 	bool ret = false;
 	*res = 0;
 
-	struct node *n = get_node(wk->ast, n_id);
+	struct node *n = get_node(wk->ast, ip);
 	n->chflg |= node_visited; // for analyzer
 
-	/* L("%d:%s", n_id, node_to_s(n)); */
+	/* L("%d:%s", ip, node_to_s(n)); */
 	if (wk->subdir_done || wk->loop_ctl || wk->returning) {
 		return true;
 	}
@@ -1076,7 +1085,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 	case node_id:
 		if (!wk->get_variable(wk, get_cstr(wk, n->data.str), res, wk->cur_project)) {
-			vm_error_at(wk, n_id, "undefined object");
+			vm_error_at(wk, ip, "undefined object");
 			ret = false;
 			break;
 		}
@@ -1122,7 +1131,7 @@ interp_block:
 			switch (r->type) {
 			case node_empty: *res = obj_l; break;
 			case node_block:
-				n_id = n->r;
+				ip = n->r;
 				n = r;
 				goto interp_block;
 			default: UNREACHABLE;
@@ -1145,12 +1154,12 @@ interp_block:
 		break;
 	case node_return:
 		ret = wk->interp_node(wk, n->l, &wk->returned);
-		wk->return_node = n_id;
+		wk->return_node = ip;
 		wk->returning = true;
 		break;
 
 	/* functions */
-	case node_function: ret = interp_func(wk, n_id, false, 0, res); break;
+	case node_function: ret = interp_func(wk, ip, false, 0, res); break;
 	case node_method:
 	case node_index: {
 		obj l_id;
@@ -1161,7 +1170,7 @@ interp_block:
 			break;
 		}
 
-		ret = interp_chained(wk, n_id, l_id, res);
+		ret = interp_chained(wk, ip, l_id, res);
 		break;
 	}
 
@@ -1177,8 +1186,8 @@ interp_block:
 
 	/* math */
 	case node_u_minus: ret = interp_u_minus(wk, n, res); break;
-	case node_arithmetic: ret = interp_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, res); break;
-	case node_plusassign: ret = interp_plusassign(wk, n_id, res); break;
+	case node_arithmetic: ret = interp_arithmetic(wk, ip, n->subtype, false, n->l, n->r, res); break;
+	case node_plusassign: ret = interp_plusassign(wk, ip, res); break;
 
 	/* special */
 	case node_stringify: ret = interp_stringify(wk, n, res); break;

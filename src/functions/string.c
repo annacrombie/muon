@@ -21,7 +21,7 @@
 #include "util.h"
 
 static bool
-func_strip(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_strip(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -33,7 +33,7 @@ func_strip(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_to_upper(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_to_upper(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -53,7 +53,7 @@ func_to_upper(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_to_lower(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_to_lower(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -187,7 +187,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 }
 
 static bool
-func_format(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_format(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_number | tc_bool | tc_string | tc_file }, ARG_TYPE_NULL };
 
@@ -209,7 +209,7 @@ func_format(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_underscorify(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_underscorify(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -231,7 +231,7 @@ func_underscorify(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_split(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_split(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 
@@ -246,7 +246,7 @@ func_split(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_join(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_join(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -357,7 +357,7 @@ version_compare(struct workspace *wk, uint32_t err_node, const struct str *ver, 
 }
 
 static bool
-func_version_compare(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_version_compare(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -380,7 +380,7 @@ func_version_compare(struct workspace *wk, obj self, uint32_t args_node, obj *re
 }
 
 static bool
-func_string_to_int(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_string_to_int(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -390,7 +390,7 @@ func_string_to_int(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 
 	int64_t n;
 	if (!str_to_i(ss, &n, true)) {
-		vm_error_at(wk, args_node, "unable to parse %o", self);
+		vm_error(wk, "unable to parse %o", self);
 		return false;
 	}
 
@@ -400,7 +400,7 @@ func_string_to_int(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_string_startswith(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_string_startswith(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -413,7 +413,7 @@ func_string_startswith(struct workspace *wk, obj self, uint32_t args_node, obj *
 }
 
 static bool
-func_string_endswith(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_string_endswith(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -426,7 +426,7 @@ func_string_endswith(struct workspace *wk, obj self, uint32_t args_node, obj *re
 }
 
 static bool
-func_string_substring(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_string_substring(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm ao[] = { { obj_number }, { obj_number }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
@@ -461,7 +461,7 @@ func_string_substring(struct workspace *wk, obj self, uint32_t args_node, obj *r
 }
 
 static bool
-func_string_replace(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_string_replace(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -504,7 +504,7 @@ func_string_replace(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_string_contains(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_string_contains(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {

@@ -34,7 +34,7 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 }
 
 static bool
-func_subproject_get_variable(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_subproject_get_variable(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -51,7 +51,7 @@ func_subproject_get_variable(struct workspace *wk, obj self, uint32_t args_node,
 }
 
 static bool
-func_subproject_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_subproject_found(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

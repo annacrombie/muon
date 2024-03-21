@@ -8,7 +8,7 @@
 
 #include "lang/workspace.h"
 
-typedef bool (*func_impl)(struct workspace *wk, obj self, uint32_t args_node, obj *res);
+typedef bool (*func_impl)(struct workspace *wk, obj self, obj *res);
 typedef obj (*func_impl_self_transform)(struct workspace *wk, obj self);
 
 struct func_impl {

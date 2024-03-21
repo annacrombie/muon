@@ -11,8 +11,7 @@
 #include "log.h"
 
 static bool
-feature_opt_common(struct workspace *wk, obj self, uint32_t args_node,
-	obj *res, enum feature_opt_state state)
+feature_opt_common(struct workspace *wk, obj self, obj *res, enum feature_opt_state state)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -24,25 +23,25 @@ feature_opt_common(struct workspace *wk, obj self, uint32_t args_node,
 }
 
 static bool
-func_feature_opt_auto(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_auto(struct workspace *wk, obj self, obj *res)
 {
-	return feature_opt_common(wk, self, args_node, res, feature_opt_auto);
+	return feature_opt_common(wk, self, res, feature_opt_auto);
 }
 
 static bool
-func_feature_opt_disabled(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_disabled(struct workspace *wk, obj self, obj *res)
 {
-	return feature_opt_common(wk, self, args_node, res, feature_opt_disabled);
+	return feature_opt_common(wk, self, res, feature_opt_disabled);
 }
 
 static bool
-func_feature_opt_enabled(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_enabled(struct workspace *wk, obj self, obj *res)
 {
-	return feature_opt_common(wk, self, args_node, res, feature_opt_enabled);
+	return feature_opt_common(wk, self, res, feature_opt_enabled);
 }
 
 static bool
-func_feature_opt_allowed(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_allowed(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -56,7 +55,7 @@ func_feature_opt_allowed(struct workspace *wk, obj self, uint32_t args_node, obj
 }
 
 static bool
-func_feature_opt_disable_auto_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_disable_auto_if(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -79,7 +78,7 @@ func_feature_opt_disable_auto_if(struct workspace *wk, obj self, uint32_t args_n
 }
 
 static bool
-func_feature_opt_enable_auto_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_enable_auto_if(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -102,16 +101,13 @@ func_feature_opt_enable_auto_if(struct workspace *wk, obj self, uint32_t args_no
 }
 
 static bool
-func_feature_opt_enable_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_enable_if(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_error_message,
 	};
-	struct args_kw akw[] = {
-		[kw_error_message] = { "error_message", obj_string },
-		0
-	};
+	struct args_kw akw[] = { [kw_error_message] = { "error_message", obj_string }, 0 };
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
@@ -122,9 +118,8 @@ func_feature_opt_enable_if(struct workspace *wk, obj self, uint32_t args_node, o
 		*res = self;
 		return true;
 	} else if (state == feature_opt_disabled) {
-		const char *err_msg = akw[kw_error_message].set
-			? get_cstr(wk, akw[kw_error_message].set)
-			: "requirement not met";
+		const char *err_msg = akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].set) :
+								  "requirement not met";
 
 		vm_error_at(wk, an[0].node, "%s", err_msg);
 		return false;
@@ -138,16 +133,13 @@ func_feature_opt_enable_if(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_feature_opt_disable_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_disable_if(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_error_message,
 	};
-	struct args_kw akw[] = {
-		[kw_error_message] = { "error_message", obj_string },
-		0
-	};
+	struct args_kw akw[] = { [kw_error_message] = { "error_message", obj_string }, 0 };
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
@@ -158,9 +150,8 @@ func_feature_opt_disable_if(struct workspace *wk, obj self, uint32_t args_node, 
 		*res = self;
 		return true;
 	} else if (state == feature_opt_enabled) {
-		const char *err_msg = akw[kw_error_message].set
-			? get_cstr(wk, akw[kw_error_message].set)
-			: "requirement not met";
+		const char *err_msg = akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].set) :
+								  "requirement not met";
 
 		vm_error_at(wk, an[0].node, "%s", err_msg);
 		return false;
@@ -174,16 +165,13 @@ func_feature_opt_disable_if(struct workspace *wk, obj self, uint32_t args_node, 
 }
 
 static bool
-func_feature_opt_require(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_feature_opt_require(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_error_message,
 	};
-	struct args_kw akw[] = {
-		[kw_error_message] = { "error_message", obj_string },
-		0
-	};
+	struct args_kw akw[] = { [kw_error_message] = { "error_message", obj_string }, 0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -192,10 +180,11 @@ func_feature_opt_require(struct workspace *wk, obj self, uint32_t args_node, obj
 	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 	if (!get_obj_bool(wk, an[0].val)) {
 		if (state == feature_opt_enabled) {
-			vm_error_at(wk, an[0].node, "%s",
-				akw[kw_error_message].set
-					? get_cstr(wk, akw[kw_error_message].set)
-					: "requirement not met");
+			vm_error_at(wk,
+				an[0].node,
+				"%s",
+				akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].set) :
+							    "requirement not met");
 			return false;
 		} else {
 			make_obj(wk, res, obj_feature_opt);

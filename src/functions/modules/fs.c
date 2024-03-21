@@ -30,9 +30,7 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 	enum obj_type t = get_obj_type(wk, path);
 	const struct str *ss;
 	switch (t) {
-	case obj_string:
-		ss = get_str(wk, path);
-		break;
+	case obj_string: ss = get_str(wk, path); break;
 	case obj_file:
 		if (opts & fix_file_path_allow_file) {
 			ss = get_str(wk, *get_obj_file(wk, path));
@@ -40,7 +38,9 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		}
 	// FALLTHROUGH
 	default:
-		vm_error_at(wk, err_node, "expected string%s, got %s",
+		vm_error_at(wk,
+			err_node,
+			"expected string%s, got %s",
 			(opts & fix_file_path_allow_file) ? " or file" : "",
 			obj_type_to_s(t));
 		return false;
@@ -76,10 +76,10 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 	return true;
 }
 
-typedef bool ((*fs_lookup_func)(const char *));
+typedef bool((*fs_lookup_func)(const char *));
 
 static bool
-func_module_fs_lookup_common(struct workspace *wk, uint32_t args_node, obj *res, fs_lookup_func lookup, enum fix_file_path_opts opts)
+func_module_fs_lookup_common(struct workspace *wk, obj *res, fs_lookup_func lookup, enum fix_file_path_opts opts)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -97,32 +97,32 @@ func_module_fs_lookup_common(struct workspace *wk, uint32_t args_node, obj *res,
 }
 
 static bool
-func_module_fs_exists(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_exists(struct workspace *wk, obj self, obj *res)
 {
-	return func_module_fs_lookup_common(wk, args_node, res, fs_exists, fix_file_path_expanduser);
+	return func_module_fs_lookup_common(wk, res, fs_exists, fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_is_file(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_is_file(struct workspace *wk, obj self, obj *res)
 {
-	return func_module_fs_lookup_common(wk, args_node, res, fs_file_exists, fix_file_path_expanduser);
+	return func_module_fs_lookup_common(wk, res, fs_file_exists, fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_is_dir(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_is_dir(struct workspace *wk, obj self, obj *res)
 {
-	return func_module_fs_lookup_common(wk, args_node, res, fs_dir_exists, fix_file_path_expanduser);
+	return func_module_fs_lookup_common(wk, res, fs_dir_exists, fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_is_symlink(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_is_symlink(struct workspace *wk, obj self, obj *res)
 {
-	return func_module_fs_lookup_common(wk, args_node, res, fs_symlink_exists,
-		fix_file_path_allow_file | fix_file_path_expanduser);
+	return func_module_fs_lookup_common(
+		wk, res, fs_symlink_exists, fix_file_path_allow_file | fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_parent(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_parent(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -130,8 +130,11 @@ func_module_fs_parent(struct workspace *wk, obj self, uint32_t args_node, obj *r
 	}
 
 	SBUF(path);
-	if (!fix_file_path(wk, an[0].node, an[0].val,
-		fix_file_path_allow_file | fix_file_path_expanduser | fix_file_path_noabs, &path)) {
+	if (!fix_file_path(wk,
+		    an[0].node,
+		    an[0].val,
+		    fix_file_path_allow_file | fix_file_path_expanduser | fix_file_path_noabs,
+		    &path)) {
 		return false;
 	}
 
@@ -142,7 +145,7 @@ func_module_fs_parent(struct workspace *wk, obj self, uint32_t args_node, obj *r
 }
 
 static bool
-func_module_fs_read(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_read(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	enum {
@@ -150,7 +153,7 @@ func_module_fs_read(struct workspace *wk, obj self, uint32_t args_node, obj *res
 	};
 	struct args_kw akw[] = {
 		[kw_encoding] = { "encoding", obj_string },
-		0
+		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -163,8 +166,7 @@ func_module_fs_read(struct workspace *wk, obj self, uint32_t args_node, obj *res
 	}
 
 	SBUF(path);
-	if (!fix_file_path(wk, an[0].node, an[0].val,
-		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
 		return false;
 	}
 
@@ -180,7 +182,7 @@ func_module_fs_read(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_is_absolute(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_is_absolute(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -193,7 +195,7 @@ func_module_fs_is_absolute(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_expanduser(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_expanduser(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -210,7 +212,7 @@ func_module_fs_expanduser(struct workspace *wk, obj self, uint32_t args_node, ob
 }
 
 static bool
-func_module_fs_name(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_name(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -229,7 +231,7 @@ func_module_fs_name(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_stem(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_stem(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -255,7 +257,7 @@ func_module_fs_stem(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_as_posix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_as_posix(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -281,7 +283,7 @@ func_module_as_posix(struct workspace *wk, obj self, uint32_t args_node, obj *re
 }
 
 static bool
-func_module_replace_suffix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_replace_suffix(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -305,7 +307,7 @@ func_module_replace_suffix(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_hash(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_hash(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -344,7 +346,7 @@ func_module_fs_hash(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_size(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_size(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -373,7 +375,7 @@ func_module_fs_size(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_is_samepath(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_is_samepath(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -398,7 +400,7 @@ func_module_fs_is_samepath(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_copyfile(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_string }, ARG_TYPE_NULL };
@@ -413,7 +415,7 @@ func_module_fs_copyfile(struct workspace *wk, obj self, uint32_t args_node, obj 
 		[kw_install_dir] = { "install_dir", TYPE_TAG_LISTIFY | tc_string | tc_bool },
 		[kw_install_tag] = { "install_tag", tc_string }, // TODO
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
-		0
+		0,
 	};
 
 	if (!pop_args(wk, an, akw)) {
@@ -421,8 +423,7 @@ func_module_fs_copyfile(struct workspace *wk, obj self, uint32_t args_node, obj 
 	}
 
 	SBUF(path);
-	if (!fix_file_path(wk, an[0].node, an[0].val,
-		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
 		return false;
 	}
 
@@ -437,24 +438,26 @@ func_module_fs_copyfile(struct workspace *wk, obj self, uint32_t args_node, obj 
 
 	obj command;
 	make_obj(wk, &command, obj_array);
-	push_args_null_terminated(wk, command, (char *const []){
-		(char *)wk->argv0,
-		"internal",
-		"eval",
-		"-e",
-		"copyfile.meson",
-		"@INPUT@",
-		"@OUTPUT@",
-		NULL,
-	});
+	push_args_null_terminated(wk,
+		command,
+		(char *const[]){
+			(char *)wk->argv0,
+			"internal",
+			"eval",
+			"-e",
+			"copyfile.meson",
+			"@INPUT@",
+			"@OUTPUT@",
+			NULL,
+		});
 
 	struct make_custom_target_opts opts = {
-		.name         = make_str(wk, "copyfile"),
-		.input_node   = an[0].node,
-		.output_node  = ao[1].node,
-		.input_orig   = an[0].val,
-		.output_orig  = output,
-		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.name = make_str(wk, "copyfile"),
+		.input_node = an[0].node,
+		.output_node = ao[1].node,
+		.input_orig = an[0].val,
+		.output_orig = output,
+		.output_dir = get_cstr(wk, current_project(wk)->build_dir),
 		.command_orig = command,
 	};
 
@@ -482,13 +485,17 @@ const struct func_impl impl_tbl_module_fs[] = {
 	{ "parent", func_module_fs_parent, tc_string, true },
 	{ "read", func_module_fs_read, tc_string },
 	{ "replace_suffix", func_module_replace_suffix, tc_string, true },
-	{ "size", func_module_fs_size, tc_number, },
+	{
+		"size",
+		func_module_fs_size,
+		tc_number,
+	},
 	{ "stem", func_module_fs_stem, tc_string, true },
 	{ NULL, NULL },
 };
 
 static bool
-func_module_fs_write(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_write(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -496,8 +503,7 @@ func_module_fs_write(struct workspace *wk, obj self, uint32_t args_node, obj *re
 	}
 
 	SBUF(path);
-	if (!fix_file_path(wk, an[0].node, an[0].val,
-		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
 		return false;
 	}
 
@@ -509,7 +515,7 @@ func_module_fs_write(struct workspace *wk, obj self, uint32_t args_node, obj *re
 }
 
 static bool
-func_module_fs_copy(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_copy(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -517,8 +523,7 @@ func_module_fs_copy(struct workspace *wk, obj self, uint32_t args_node, obj *res
 	}
 
 	SBUF(path);
-	if (!fix_file_path(wk, an[0].node, an[0].val,
-		fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_allow_file | fix_file_path_expanduser, &path)) {
 		return false;
 	}
 
@@ -529,7 +534,7 @@ func_module_fs_copy(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_cwd(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_cwd(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -542,7 +547,7 @@ func_module_fs_cwd(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_module_fs_make_absolute(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_make_absolute(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -556,7 +561,7 @@ func_module_fs_make_absolute(struct workspace *wk, obj self, uint32_t args_node,
 }
 
 static bool
-func_module_fs_mkdir(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_mkdir(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -567,15 +572,14 @@ func_module_fs_mkdir(struct workspace *wk, obj self, uint32_t args_node, obj *re
 }
 
 static bool
-func_module_fs_relative_to(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	const char *p1 = get_cstr(wk, an[0].val),
-		   *p2 = get_cstr(wk, an[1].val);
+	const char *p1 = get_cstr(wk, an[0].val), *p2 = get_cstr(wk, an[1].val);
 
 	if (!path_is_absolute(p1)) {
 		vm_error_at(wk, an[0].node, "base path '%s' is not absolute", p1);
@@ -592,7 +596,7 @@ func_module_fs_relative_to(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_is_basename(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_is_basename(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -605,7 +609,7 @@ func_module_fs_is_basename(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_without_ext(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_without_ext(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -619,7 +623,7 @@ func_module_fs_without_ext(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_is_subpath(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_is_subpath(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -631,9 +635,8 @@ func_module_fs_is_subpath(struct workspace *wk, obj self, uint32_t args_node, ob
 	return true;
 }
 
-
 static bool
-func_module_fs_add_suffix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_add_suffix(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -648,7 +651,7 @@ func_module_fs_add_suffix(struct workspace *wk, obj self, uint32_t args_node, ob
 }
 
 static bool
-func_module_fs_executable(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_fs_executable(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -663,7 +666,10 @@ func_module_fs_executable(struct workspace *wk, obj self, uint32_t args_node, ob
 
 const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "as_posix", func_module_as_posix, tc_string, true },
-	{ "copyfile", func_module_fs_copyfile, },
+	{
+		"copyfile",
+		func_module_fs_copyfile,
+	},
 	{ "exists", func_module_fs_exists, tc_bool },
 	{ "expanduser", func_module_fs_expanduser, tc_string },
 	{ "hash", func_module_fs_hash, tc_string },
@@ -676,7 +682,11 @@ const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "parent", func_module_fs_parent, tc_string, true },
 	{ "read", func_module_fs_read, tc_string },
 	{ "replace_suffix", func_module_replace_suffix, tc_string, true },
-	{ "size", func_module_fs_size, tc_number, },
+	{
+		"size",
+		func_module_fs_size,
+		tc_number,
+	},
 	{ "stem", func_module_fs_stem, tc_string, true },
 	// non-standard muon extensions
 	{ "add_suffix", func_module_fs_add_suffix, tc_string, true },

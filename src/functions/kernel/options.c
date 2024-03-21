@@ -44,12 +44,8 @@ validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
 	uint32_t i;
 	const struct str *s = get_str(wk, name);
 	for (i = 0; i < s->len; ++i) {
-		if (('a' <= s->s[i] && s->s[i] <= 'z')
-		    || ('A' <= s->s[i] && s->s[i] <= 'Z')
-		    || ('0' <= s->s[i] && s->s[i] <= '9')
-		    || (s->s[i] == '-')
-		    || (s->s[i] == '_')
-		    ) {
+		if (('a' <= s->s[i] && s->s[i] <= 'z') || ('A' <= s->s[i] && s->s[i] <= 'Z')
+			|| ('0' <= s->s[i] && s->s[i] <= '9') || (s->s[i] == '-') || (s->s[i] == '_')) {
 			continue;
 		}
 
@@ -61,7 +57,7 @@ validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
 }
 
 bool
-func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_option(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -79,16 +75,15 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 
 	// TODO: this winds up creating 4 typeinfo objects every time you call
 	// option, it'd be nice to have some caching
-	type_tag deprecated_type = make_complex_type(wk, complex_type_or,
-			tc_string | tc_bool,
-			make_complex_type(wk, complex_type_or,
-				make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
-				make_complex_type(wk, complex_type_nested, tc_array, tc_string)
-			)
-	);
+	type_tag deprecated_type = make_complex_type(wk,
+		complex_type_or,
+		tc_string | tc_bool,
+		make_complex_type(wk,
+			complex_type_or,
+			make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
+			make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
 
-	struct args_kw akw[] = {
-		[kw_type] = { "type", obj_string },
+	struct args_kw akw[] = { [kw_type] = { "type", obj_string },
 		[kw_value] = { "value", tc_any },
 		[kw_description] = { "description", obj_string },
 		[kw_choices] = { "choices", obj_array },
@@ -97,11 +92,10 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 		[kw_yield] = { "yield", obj_bool },
 		[kw_deprecated] = { "deprecated", deprecated_type },
 		[kw_kind] = { 0 },
-		0
-	};
+		0 };
 
 	if (initializing_builtin_options) {
-		akw[kw_kind] = (struct args_kw) { "kind", tc_string };
+		akw[kw_kind] = (struct args_kw){ "kind", tc_string };
 	}
 
 	if (!pop_args(wk, an, akw)) {
@@ -109,7 +103,7 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 	}
 
 	if (!akw[kw_type].set) {
-		vm_error_at(wk, args_node, "missing required keyword 'type'");
+		vm_error(wk, "missing required keyword 'type'");
 		return false;
 	}
 
@@ -137,8 +131,7 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 	uint32_t i;
 	for (i = 0; i < kwargs_count; ++i) {
 		switch (keyword_validity[type][i]) {
-		case kw_opt:
-			break;
+		case kw_opt: break;
 		case kw_inv:
 			if (akw[i].set) {
 				vm_error_at(wk, akw[i].node, "invalid keyword for option type");
@@ -147,12 +140,11 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 			break;
 		case kw_req:
 			if (!akw[i].set) {
-				vm_error_at(wk, args_node, "missing keyword '%s' for option type", akw[i].key);
+				vm_error(wk, "missing keyword '%s' for option type", akw[i].key);
 				return false;
 			}
 			break;
-		default:
-			assert(false && "unreachable");
+		default: assert(false && "unreachable");
 		}
 	}
 
@@ -161,9 +153,7 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 		val = akw[kw_value].val;
 	} else {
 		switch (type) {
-		case op_string:
-			val = make_str(wk, "");
-			break;
+		case op_string: val = make_str(wk, ""); break;
 		case op_boolean:
 			make_obj(wk, &val, obj_bool);
 			set_obj_bool(wk, val, true);
@@ -187,8 +177,7 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 			make_obj(wk, &val, obj_feature_opt);
 			set_obj_feature_opt(wk, val, feature_opt_auto);
 			break;
-		default:
-			UNREACHABLE_RETURN;
+		default: UNREACHABLE_RETURN;
 		}
 	}
 
@@ -226,7 +215,7 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 		opts = wk->global_opts;
 	}
 
-	if (!create_option(wk, args_node, opts, opt, val)) {
+	if (!create_option(wk, opts, opt, val)) {
 		return false;
 	}
 
@@ -234,7 +223,7 @@ func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 bool
-func_get_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_get_option(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 

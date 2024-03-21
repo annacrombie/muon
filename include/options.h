@@ -16,13 +16,19 @@ struct option_override {
 	bool obj_value;
 };
 
-bool create_option(struct workspace *wk, uint32_t node, obj opts, obj opt, obj val);
-bool get_option(struct workspace *wk, const struct project *proj,
-	const struct str *name, obj *res);
-bool get_option_overridable(struct workspace *wk, const struct project *proj, obj overrides,
-	const struct str *name, obj *res);
+bool create_option(struct workspace *wk, obj opts, obj opt, obj val);
+bool get_option(struct workspace *wk, const struct project *proj, const struct str *name, obj *res);
+bool get_option_overridable(struct workspace *wk,
+	const struct project *proj,
+	obj overrides,
+	const struct str *name,
+	obj *res);
 void get_option_value(struct workspace *wk, const struct project *proj, const char *name, obj *res);
-void get_option_value_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, obj *res);
+void get_option_value_overridable(struct workspace *wk,
+	const struct project *proj,
+	obj overrides,
+	const char *name,
+	obj *res);
 
 bool check_invalid_option_overrides(struct workspace *wk);
 bool check_invalid_subproject_option(struct workspace *wk);
@@ -32,7 +38,8 @@ bool setup_project_options(struct workspace *wk, const char *cwd);
 bool init_global_options(struct workspace *wk);
 
 bool parse_and_set_cmdline_option(struct workspace *wk, char *lhs);
-bool parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name, bool for_subproject);
+bool
+parse_and_set_default_options(struct workspace *wk, uint32_t err_node, obj arr, obj project_name, bool for_subproject);
 bool parse_and_set_override_options(struct workspace *wk, uint32_t err_node, obj arr, obj *res);
 
 enum wrap_mode {

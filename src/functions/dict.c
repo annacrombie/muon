@@ -21,7 +21,7 @@ dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 }
 
 static bool
-func_dict_keys(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dict_keys(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -34,7 +34,7 @@ func_dict_keys(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_dict_has_key(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dict_has_key(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -48,7 +48,7 @@ func_dict_has_key(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_dict_get(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dict_get(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -68,7 +68,7 @@ func_dict_get(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_dict_delete(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_dict_delete(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {

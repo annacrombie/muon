@@ -173,7 +173,7 @@ not_found:
 }
 
 bool
-func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_subproject(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {

@@ -11,7 +11,7 @@
 #include "log.h"
 
 static bool
-func_array_length(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_array_length(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -23,7 +23,7 @@ func_array_length(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-func_array_get(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_array_get(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -73,7 +73,7 @@ array_contains_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_array_contains(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_array_contains(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -89,7 +89,7 @@ func_array_contains(struct workspace *wk, obj self, uint32_t args_node, obj *res
 }
 
 static bool
-func_array_delete(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_array_delete(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {

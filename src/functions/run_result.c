@@ -11,13 +11,12 @@
 #include "log.h"
 
 static bool
-ensure_valid_run_result(struct workspace *wk, uint32_t node, obj self)
+ensure_valid_run_result(struct workspace *wk, obj self)
 {
 	struct obj_run_result *rr = get_obj_run_result(wk, self);
 
-	if ((rr->flags & run_result_flag_from_compile)
-	    && !(rr->flags & run_result_flag_compile_ok)) {
-		vm_error_at(wk, node, "this run_result was not run because its source could not be compiled");
+	if ((rr->flags & run_result_flag_from_compile) && !(rr->flags & run_result_flag_compile_ok)) {
+		vm_error(wk, "this run_result was not run because its source could not be compiled");
 		return false;
 	}
 
@@ -25,13 +24,13 @@ ensure_valid_run_result(struct workspace *wk, uint32_t node, obj self)
 }
 
 static bool
-func_run_result_returncode(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_run_result_returncode(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	if (!ensure_valid_run_result(wk, args_node, self)) {
+	if (!ensure_valid_run_result(wk, self)) {
 		return false;
 	}
 
@@ -41,13 +40,13 @@ func_run_result_returncode(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_run_result_stdout(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_run_result_stdout(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	if (!ensure_valid_run_result(wk, args_node, self)) {
+	if (!ensure_valid_run_result(wk, self)) {
 		return false;
 	}
 
@@ -56,13 +55,13 @@ func_run_result_stdout(struct workspace *wk, obj self, uint32_t args_node, obj *
 }
 
 static bool
-func_run_result_stderr(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_run_result_stderr(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	if (!ensure_valid_run_result(wk, args_node, self)) {
+	if (!ensure_valid_run_result(wk, self)) {
 		return false;
 	}
 
@@ -71,7 +70,7 @@ func_run_result_stderr(struct workspace *wk, obj self, uint32_t args_node, obj *
 }
 
 static bool
-func_run_result_compiled(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_run_result_compiled(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -80,7 +79,7 @@ func_run_result_compiled(struct workspace *wk, obj self, uint32_t args_node, obj
 	struct obj_run_result *rr = get_obj_run_result(wk, self);
 
 	if (!(rr->flags & run_result_flag_from_compile)) {
-		vm_error_at(wk, args_node, "this run_result is not from a compiler.run() call");
+		vm_error(wk, "this run_result is not from a compiler.run() call");
 		return false;
 	}
 

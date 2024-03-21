@@ -13,7 +13,7 @@
 #include "log.h"
 
 static bool
-func_boolean_to_string(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_boolean_to_string(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
@@ -30,7 +30,7 @@ func_boolean_to_string(struct workspace *wk, obj self, uint32_t args_node, obj *
 }
 
 static bool
-func_boolean_to_int(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_boolean_to_int(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

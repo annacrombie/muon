@@ -182,6 +182,15 @@ vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 }
 
 void
+vm_warning(struct workspace *wk, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	vm_diagnostic_v(wk, wk->vm.ip - 1, log_warn, fmt, args);
+	va_end(args);
+}
+
+void
 vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 {
 	va_list args;
@@ -195,7 +204,7 @@ vm_error(struct workspace *wk, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vm_diagnostic_v(wk, wk->vm.ip, log_error, fmt, args);
+	vm_diagnostic_v(wk, wk->vm.ip - 1, log_error, fmt, args);
 	va_end(args);
 }
 
@@ -975,7 +984,7 @@ op_add_store_type_err:
 				break;
 			}
 
-			native_funcs[idx].func(wk, b, 0, &a);
+			native_funcs[idx].func(wk, b, &a);
 			object_stack_push(wk, a);
 			break;
 		}
@@ -984,7 +993,7 @@ op_add_store_type_err:
 			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			native_funcs[b].func(wk, 0, 0, &a);
+			native_funcs[b].func(wk, 0, &a);
 			object_stack_push(wk, a);
 			break;
 		}

@@ -597,7 +597,7 @@ make_custom_target(struct workspace *wk,
 }
 
 bool
-func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_custom_target(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -757,7 +757,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 }
 
 bool
-func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_vcs_tag(struct workspace *wk, obj _, obj *res)
 {
 	enum kwargs {
 		kw_input,

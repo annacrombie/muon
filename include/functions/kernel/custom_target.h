@@ -42,7 +42,7 @@ struct process_custom_target_commandline_opts {
 bool process_custom_target_commandline(struct workspace *wk,
 	struct process_custom_target_commandline_opts *opts, obj arr, obj *res);
 
-bool func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res);
+bool func_custom_target(struct workspace *wk, obj _, obj *res);
 
-bool func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res);
+bool func_vcs_tag(struct workspace *wk, obj _, obj *res);
 #endif

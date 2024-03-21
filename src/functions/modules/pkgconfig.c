@@ -55,20 +55,23 @@ enum module_pkgconf_diropt {
 	module_pkgconf_diropt_sysconfdir,
 };
 
-static struct { const char *const name, *const optname; bool refd, added; } module_pkgconf_diropts[] = {
-	[module_pkgconf_diropt_prefix]         = { "${prefix}",         "prefix" },
-	[module_pkgconf_diropt_bindir]         = { "${bindir}",         "bindir" },
-	[module_pkgconf_diropt_datadir]        = { "${datadir}",        "datadir" },
-	[module_pkgconf_diropt_includedir]     = { "${includedir}",     "includedir" },
-	[module_pkgconf_diropt_infodir]        = { "${infodir}",        "infodir" },
-	[module_pkgconf_diropt_libdir]         = { "${libdir}",         "libdir" },
-	[module_pkgconf_diropt_libexecdir]     = { "${libexecdir}",     "libexecdir" },
-	[module_pkgconf_diropt_localedir]      = { "${localedir}",      "localedir" },
-	[module_pkgconf_diropt_localstatedir]  = { "${localstatedir}",  "localstatedir" },
-	[module_pkgconf_diropt_mandir]         = { "${mandir}",         "mandir" },
-	[module_pkgconf_diropt_sbindir]        = { "${sbindir}",        "sbindir" },
+static struct {
+	const char *const name, *const optname;
+	bool refd, added;
+} module_pkgconf_diropts[] = {
+	[module_pkgconf_diropt_prefix] = { "${prefix}", "prefix" },
+	[module_pkgconf_diropt_bindir] = { "${bindir}", "bindir" },
+	[module_pkgconf_diropt_datadir] = { "${datadir}", "datadir" },
+	[module_pkgconf_diropt_includedir] = { "${includedir}", "includedir" },
+	[module_pkgconf_diropt_infodir] = { "${infodir}", "infodir" },
+	[module_pkgconf_diropt_libdir] = { "${libdir}", "libdir" },
+	[module_pkgconf_diropt_libexecdir] = { "${libexecdir}", "libexecdir" },
+	[module_pkgconf_diropt_localedir] = { "${localedir}", "localedir" },
+	[module_pkgconf_diropt_localstatedir] = { "${localstatedir}", "localstatedir" },
+	[module_pkgconf_diropt_mandir] = { "${mandir}", "mandir" },
+	[module_pkgconf_diropt_sbindir] = { "${sbindir}", "sbindir" },
 	[module_pkgconf_diropt_sharedstatedir] = { "${sharedstatedir}", "sharedstatedir" },
-	[module_pkgconf_diropt_sysconfdir]     = { "${sysconfdir}",     "sysconfdir" },
+	[module_pkgconf_diropt_sysconfdir] = { "${sysconfdir}", "sysconfdir" },
 };
 
 static enum iteration_result
@@ -94,9 +97,7 @@ module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 	const char *str;
 
 	switch (get_obj_type(wk, lib)) {
-	case obj_string:
-		str = get_cstr(wk, lib);
-		break;
+	case obj_string: str = get_cstr(wk, lib); break;
 	case obj_file: {
 		path_basename(wk, &basename, get_file_path(wk, lib));
 
@@ -108,8 +109,7 @@ module_pkgconf_lib_to_lname(struct workspace *wk, obj lib, obj *res)
 		str = basename.buf;
 		break;
 	}
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	if (str[0] == '-') {
@@ -141,11 +141,8 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 	struct module_pkgconf_process_reqs_iter_ctx *ctx = _ctx;
 
 	switch (get_obj_type(wk, val)) {
-	case obj_string:
-		obj_array_push(wk, ctx->dest, val);
-		break;
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_string: obj_array_push(wk, ctx->dest, val); break;
+	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
@@ -159,8 +156,7 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	case obj_dependency: {
 		struct obj_dependency *dep = get_obj_dependency(wk, val);
-		if (!(dep->flags & dep_flag_found)
-		    || (dep->type == dependency_type_threads)) {
+		if (!(dep->flags & dep_flag_found) || (dep->type == dependency_type_threads)) {
 			return ir_cont;
 		}
 
@@ -174,7 +170,8 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	}
 	default:
-		vm_error_at(wk, ctx->err_node, "invalid type for pkgconf require %s", obj_type_to_s(get_obj_type(wk, val)));
+		vm_error_at(
+			wk, ctx->err_node, "invalid type for pkgconf require %s", obj_type_to_s(get_obj_type(wk, val)));
 		return ir_err;
 	}
 
@@ -202,8 +199,12 @@ struct module_pkgconf_process_libs_iter_ctx {
 	bool link_whole;
 };
 
-static bool module_pkgconf_process_libs(struct workspace *wk, uint32_t err_node, obj src,
-	struct pkgconf_file *pc, enum pkgconf_visibility vis, bool link_whole);
+static bool module_pkgconf_process_libs(struct workspace *wk,
+	uint32_t err_node,
+	obj src,
+	struct pkgconf_file *pc,
+	enum pkgconf_visibility vis,
+	bool link_whole);
 
 static enum iteration_result
 str_to_file_iter(struct workspace *wk, void *_ctx, obj v)
@@ -241,7 +242,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 
 		if (path_is_subpath(wk->source_root, get_file_path(wk, val))
-		    || path_is_subpath(wk->build_root, get_file_path(wk, val))) {
+			|| path_is_subpath(wk->build_root, get_file_path(wk, val))) {
 			ctx->pc->libs_contains_internal[ctx->vis] = true;
 		}
 
@@ -253,8 +254,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, ctx->pc->libs[ctx->vis], lib);
 		break;
 	}
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
@@ -267,27 +267,29 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 
 			if (tgt->dep.raw.deps) {
-				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					tgt->dep.raw.deps, ctx->pc, pkgconf_visibility_priv, false)) {
+				if (!module_pkgconf_process_libs(wk,
+					    ctx->err_node,
+					    tgt->dep.raw.deps,
+					    ctx->pc,
+					    pkgconf_visibility_priv,
+					    false)) {
 					return ir_err;
 				}
 			}
 
-			const enum pkgconf_visibility link_vis =
-				tgt->type == tgt_static_library
-				? pkgconf_visibility_pub
-				: pkgconf_visibility_priv;
+			const enum pkgconf_visibility link_vis
+				= tgt->type == tgt_static_library ? pkgconf_visibility_pub : pkgconf_visibility_priv;
 
 			if (tgt->dep.raw.link_with) {
-				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					tgt->dep.raw.link_with, ctx->pc, link_vis, false)) {
+				if (!module_pkgconf_process_libs(
+					    wk, ctx->err_node, tgt->dep.raw.link_with, ctx->pc, link_vis, false)) {
 					return ir_err;
 				}
 			}
 
 			if (tgt->dep.raw.link_whole) {
-				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					tgt->dep.raw.link_whole, ctx->pc, link_vis, true)) {
+				if (!module_pkgconf_process_libs(
+					    wk, ctx->err_node, tgt->dep.raw.link_whole, ctx->pc, link_vis, true)) {
 					return ir_err;
 				}
 			}
@@ -325,22 +327,26 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 
 			if (dep->dep.raw.link_with) {
-				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					dep->dep.raw.link_with, ctx->pc, ctx->vis, false)) {
+				if (!module_pkgconf_process_libs(
+					    wk, ctx->err_node, dep->dep.raw.link_with, ctx->pc, ctx->vis, false)) {
 					return ir_err;
 				}
 			}
 
 			if (dep->dep.raw.link_whole) {
-				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					dep->dep.raw.link_whole, ctx->pc, ctx->vis, true)) {
+				if (!module_pkgconf_process_libs(
+					    wk, ctx->err_node, dep->dep.raw.link_whole, ctx->pc, ctx->vis, true)) {
 					return ir_err;
 				}
 			}
 
 			if (dep->dep.raw.deps) {
-				if (!module_pkgconf_process_libs(wk, ctx->err_node,
-					dep->dep.raw.deps, ctx->pc, pkgconf_visibility_priv, false)) {
+				if (!module_pkgconf_process_libs(wk,
+					    ctx->err_node,
+					    dep->dep.raw.deps,
+					    ctx->pc,
+					    pkgconf_visibility_priv,
+					    false)) {
 					return ir_err;
 				}
 			}
@@ -358,8 +364,8 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			make_obj(wk, &link_with_files, obj_array);
 			obj_array_foreach(wk, dep->dep.link_with, &link_with_files, str_to_file_iter);
 
-			if (!module_pkgconf_process_libs(wk, ctx->err_node,
-				link_with_files, ctx->pc, ctx->vis, false)) {
+			if (!module_pkgconf_process_libs(
+				    wk, ctx->err_node, link_with_files, ctx->pc, ctx->vis, false)) {
 				return ir_err;
 			}
 			break;
@@ -367,8 +373,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		case dependency_type_appleframeworks:
 			// TODO: actually add correct -framework arguments
 			break;
-		case dependency_type_not_found:
-			break;
+		case dependency_type_not_found: break;
 		}
 		break;
 	}
@@ -396,7 +401,8 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 		break;
 	}
 	default:
-		vm_error_at(wk, ctx->err_node, "invalid type for pkgconf library %s", obj_type_to_s(get_obj_type(wk, val)));
+		vm_error_at(
+			wk, ctx->err_node, "invalid type for pkgconf library %s", obj_type_to_s(get_obj_type(wk, val)));
 		return ir_err;
 	}
 
@@ -404,8 +410,12 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-module_pkgconf_process_libs(struct workspace *wk, uint32_t err_node, obj src,
-	struct pkgconf_file *pc, enum pkgconf_visibility vis, bool link_whole)
+module_pkgconf_process_libs(struct workspace *wk,
+	uint32_t err_node,
+	obj src,
+	struct pkgconf_file *pc,
+	enum pkgconf_visibility vis,
+	bool link_whole)
 {
 	struct module_pkgconf_process_libs_iter_ctx ctx = {
 		.pc = pc,
@@ -428,8 +438,13 @@ module_pkgconf_process_libs(struct workspace *wk, uint32_t err_node, obj src,
 }
 
 static bool
-module_pkgconf_declare_var(struct workspace *wk, uint32_t err_node, bool escape, bool skip_reserved_check,
-	const struct str *key, const struct str *val, obj dest)
+module_pkgconf_declare_var(struct workspace *wk,
+	uint32_t err_node,
+	bool escape,
+	bool skip_reserved_check,
+	const struct str *key,
+	const struct str *val,
+	obj dest)
 {
 	if (!skip_reserved_check) {
 		const char *reserved[] = { "prefix", "libdir", "includedir", NULL };
@@ -502,17 +517,13 @@ module_pkgconf_process_vars_array_iter(struct workspace *wk, void *_ctx, obj v)
 		return ir_err;
 	}
 
-	struct str key = {
-		.s = src->s,
-		.len = sep - src->s
-	};
+	struct str key = { .s = src->s, .len = sep - src->s };
 	struct str val = {
 		.s = src->s + (key.len + 1),
 		.len = src->len - (key.len + 1),
 	};
 
-	if (!module_pkgconf_declare_var(wk, ctx->err_node, ctx->escape,
-		ctx->dataonly, &key, &val, ctx->dest)) {
+	if (!module_pkgconf_declare_var(wk, ctx->err_node, ctx->escape, ctx->dataonly, &key, &val, ctx->dest)) {
 		return ir_err;
 	}
 
@@ -524,8 +535,8 @@ module_pkgconf_process_vars_dict_iter(struct workspace *wk, void *_ctx, obj key,
 {
 	struct module_pkgconf_process_vars_ctx *ctx = _ctx;
 
-	if (!module_pkgconf_declare_var(wk, ctx->err_node, ctx->escape,
-		ctx->dataonly, get_str(wk, key), get_str(wk, val), ctx->dest)) {
+	if (!module_pkgconf_declare_var(
+		    wk, ctx->err_node, ctx->escape, ctx->dataonly, get_str(wk, key), get_str(wk, val), ctx->dest)) {
 		return ir_err;
 	}
 
@@ -533,8 +544,7 @@ module_pkgconf_process_vars_dict_iter(struct workspace *wk, void *_ctx, obj key,
 }
 
 static bool
-module_pkgconf_process_vars(struct workspace *wk, uint32_t err_node, bool escape,
-	bool dataonly, obj vars, obj dest)
+module_pkgconf_process_vars(struct workspace *wk, uint32_t err_node, bool escape, bool dataonly, obj vars, obj dest)
 {
 	struct module_pkgconf_process_vars_ctx ctx = {
 		.err_node = err_node,
@@ -559,9 +569,7 @@ module_pkgconf_process_vars(struct workspace *wk, uint32_t err_node, bool escape
 			return false;
 		}
 		break;
-	default:
-		vm_error_at(wk, err_node, "invalid type for variables, expected array or dict");
-		return false;
+	default: vm_error_at(wk, err_node, "invalid type for variables, expected array or dict"); return false;
 	}
 
 	return true;
@@ -577,8 +585,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 		obj pre;
 		get_option_value(wk, current_project(wk), "prefix", &pre);
 
-		const char *install_dir = get_cstr(wk, install_dir_opt->val),
-			   *prefix = get_cstr(wk, pre);
+		const char *install_dir = get_cstr(wk, install_dir_opt->val), *prefix = get_cstr(wk, pre);
 
 		if (path_is_subpath(prefix, install_dir)) {
 			path_relative_to(wk, &rel, prefix, install_dir);
@@ -708,7 +715,7 @@ module_pkgconf_write(struct workspace *wk, const char *path, struct pkgconf_file
 }
 
 static bool
-func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 {
 	uint32_t i;
 	struct args_norm ao[] = { { tc_both_libs | tc_build_target }, ARG_TYPE_NULL };
@@ -732,9 +739,9 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_nod
 		kw_dataonly,
 		kw_conflicts,
 	};
-	const type_tag
-		tc_library = tc_string | tc_file | tc_build_target | tc_dependency | tc_custom_target | tc_both_libs,
-		tc_requires = tc_string | tc_build_target | tc_dependency | tc_both_libs;
+	const type_tag tc_library = tc_string | tc_file | tc_build_target | tc_dependency | tc_custom_target
+				    | tc_both_libs,
+		       tc_requires = tc_string | tc_build_target | tc_dependency | tc_both_libs;
 
 	struct args_kw akw[] = {
 		[kw_name] = { "name", obj_string },
@@ -743,36 +750,34 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_nod
 		[kw_filebase] = { "filebase", obj_string },
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_libraries] = { "libraries", TYPE_TAG_LISTIFY | tc_library },
-		[kw_libraries_private] = { "libraries_private", TYPE_TAG_LISTIFY | tc_library  },
+		[kw_libraries_private] = { "libraries_private", TYPE_TAG_LISTIFY | tc_library },
 		[kw_subdirs] = { "subdirs", TYPE_TAG_LISTIFY | obj_string },
 		[kw_requires] = { "requires", TYPE_TAG_LISTIFY | tc_requires },
 		[kw_requires_private] = { "requires_private", TYPE_TAG_LISTIFY | tc_requires },
 		[kw_url] = { "url", obj_string },
 		[kw_variables] = { "variables", tc_string | tc_array | tc_dict },
 		[kw_unescaped_variables] = { "unescaped_variables", tc_string | tc_array | tc_dict },
-		[kw_uninstalled_variables] = { "uninstalled_variables", tc_string |  tc_array | tc_dict },
-		[kw_unescaped_uninstalled_variables] = { "unescaped_uninstalled_variables", tc_string | tc_array | tc_dict },
+		[kw_uninstalled_variables] = { "uninstalled_variables", tc_string | tc_array | tc_dict },
+		[kw_unescaped_uninstalled_variables]
+		= { "unescaped_uninstalled_variables", tc_string | tc_array | tc_dict },
 		[kw_version] = { "version", obj_string },
 		[kw_dataonly] = { "dataonly", obj_bool },
 		[kw_conflicts] = { "conflicts", TYPE_TAG_LISTIFY | obj_string },
-		0
+		0,
 	};
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
 	if (!ao[0].set && !akw[kw_name].set) {
-		vm_error_at(wk, args_node, "you must either pass a library, "
-			"or the name keyword");
+		vm_error(wk, "you must either pass a library, or the name keyword");
 		return false;
 	}
 
 	struct pkgconf_file pc = {
 		.url = akw[kw_url].val,
 		.conflicts = akw[kw_conflicts].val,
-		.dataonly = akw[kw_dataonly].set
-			? get_obj_bool(wk, akw[kw_dataonly].val)
-			: false,
+		.dataonly = akw[kw_dataonly].set ? get_obj_bool(wk, akw[kw_dataonly].val) : false,
 	};
 	for (i = 0; i < 2; ++i) {
 		make_obj(wk, &pc.libs[i], obj_array);
@@ -790,11 +795,8 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_nod
 			mainlib = get_obj_both_libs(wk, ao[0].val)->dynamic_lib;
 			break;
 		}
-		case obj_build_target:
-			mainlib = ao[0].val;
-			break;
-		default:
-			assert(false && "unreachable");
+		case obj_build_target: mainlib = ao[0].val; break;
+		default: assert(false && "unreachable");
 		}
 	}
 
@@ -807,9 +809,8 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_nod
 	if (akw[kw_description].set) {
 		pc.description = akw[kw_description].val;
 	} else if (mainlib) {
-		pc.description = make_strf(wk, "%s: %s",
-			get_cstr(wk, current_project(wk)->cfg.name),
-			get_cstr(wk, pc.name));
+		pc.description
+			= make_strf(wk, "%s: %s", get_cstr(wk, current_project(wk)->cfg.name), get_cstr(wk, pc.name));
 	}
 
 	if (akw[kw_version].set) {
@@ -828,22 +829,25 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_nod
 	}
 
 	if (mainlib) {
-		if (!module_pkgconf_process_libs(wk, ao[0].node, mainlib,
-			&pc, pkgconf_visibility_pub, false)) {
+		if (!module_pkgconf_process_libs(wk, ao[0].node, mainlib, &pc, pkgconf_visibility_pub, false)) {
 			return false;
 		}
 	}
 
 	if (akw[kw_libraries].set) {
-		if (!module_pkgconf_process_libs(wk, akw[kw_libraries].node,
-			akw[kw_libraries].val, &pc, pkgconf_visibility_pub, false)) {
+		if (!module_pkgconf_process_libs(
+			    wk, akw[kw_libraries].node, akw[kw_libraries].val, &pc, pkgconf_visibility_pub, false)) {
 			return false;
 		}
 	}
 
 	if (akw[kw_libraries_private].set) {
-		if (!module_pkgconf_process_libs(wk, akw[kw_libraries_private].node,
-			akw[kw_libraries_private].val, &pc, pkgconf_visibility_priv, false)) {
+		if (!module_pkgconf_process_libs(wk,
+			    akw[kw_libraries_private].node,
+			    akw[kw_libraries_private].val,
+			    &pc,
+			    pkgconf_visibility_priv,
+			    false)) {
 			return false;
 		}
 	}
@@ -862,15 +866,17 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_nod
 	}
 
 	if (akw[kw_requires].set) {
-		if (!module_pkgconf_process_reqs(wk, akw[kw_requires].node,
-			akw[kw_requires].val, pc.reqs[pkgconf_visibility_pub])) {
+		if (!module_pkgconf_process_reqs(
+			    wk, akw[kw_requires].node, akw[kw_requires].val, pc.reqs[pkgconf_visibility_pub])) {
 			return false;
 		}
 	}
 
 	if (akw[kw_requires_private].set) {
-		if (!module_pkgconf_process_reqs(wk, akw[kw_requires_private].node,
-			akw[kw_requires_private].val, pc.reqs[pkgconf_visibility_priv])) {
+		if (!module_pkgconf_process_reqs(wk,
+			    akw[kw_requires_private].node,
+			    akw[kw_requires_private].val,
+			    pc.reqs[pkgconf_visibility_priv])) {
 			return false;
 		}
 	}
@@ -888,30 +894,33 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_nod
 			module_pkgconf_diropts[module_pkgconf_diropt_prefix].refd = true;
 
 			module_pkgconf_diropts[module_pkgconf_diropt_includedir].refd = true;
-			if (get_obj_array(wk, pc.libs[0])->len || get_obj_array(wk, pc.libs[1])->len ) {
+			if (get_obj_array(wk, pc.libs[0])->len || get_obj_array(wk, pc.libs[1])->len) {
 				module_pkgconf_diropts[module_pkgconf_diropt_libdir].refd = true;
 			}
 		}
 
 		if (akw[kw_variables].set) {
-			if (!module_pkgconf_process_vars(wk, akw[kw_variables].node, true,
-				pc.dataonly, akw[kw_variables].val, pc.variables)) {
+			if (!module_pkgconf_process_vars(
+				    wk, akw[kw_variables].node, true, pc.dataonly, akw[kw_variables].val, pc.variables)) {
 				return false;
 			}
 		}
 
 		if (akw[kw_unescaped_variables].set) {
-			if (!module_pkgconf_process_vars(wk, akw[kw_unescaped_variables].node, false,
-				pc.dataonly, akw[kw_unescaped_variables].val, pc.variables)) {
+			if (!module_pkgconf_process_vars(wk,
+				    akw[kw_unescaped_variables].node,
+				    false,
+				    pc.dataonly,
+				    akw[kw_unescaped_variables].val,
+				    pc.variables)) {
 				return false;
 			}
 		}
 
 		for (i = 0; i < ARRAY_LEN(module_pkgconf_diropts); ++i) {
 			if (module_pkgconf_diropts[i].refd && !module_pkgconf_diropts[i].added) {
-				module_pkgconf_declare_builtin_dir_var(wk,
-					module_pkgconf_diropts[i].optname,
-					pc.builtin_dir_variables);
+				module_pkgconf_declare_builtin_dir_var(
+					wk, module_pkgconf_diropts[i].optname, pc.builtin_dir_variables);
 			}
 		}
 	}

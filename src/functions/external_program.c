@@ -33,9 +33,8 @@ find_program_guess_version(struct workspace *wk, obj cmd_array, obj *ver)
 	run_cmd_ctx_destroy(&cmd_ctx);
 }
 
-
 static bool
-func_external_program_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_external_program_found(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -47,7 +46,7 @@ func_external_program_found(struct workspace *wk, obj self, uint32_t args_node, 
 }
 
 static bool
-func_external_program_path(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_external_program_path(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -55,7 +54,9 @@ func_external_program_path(struct workspace *wk, obj self, uint32_t args_node, o
 
 	struct obj_external_program *ep = get_obj_external_program(wk, self);
 	if (get_obj_array(wk, ep->cmd_array)->len > 1) {
-		vm_error_at(wk, args_node, "cannot return the full_path() of an external program with multiple elements (have: %o)\n", ep->cmd_array);
+		vm_error(wk,
+			"cannot return the full_path() of an external program with multiple elements (have: %o)\n",
+			ep->cmd_array);
 		return false;
 	}
 
@@ -64,7 +65,7 @@ func_external_program_path(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_external_program_version(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_external_program_version(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

@@ -27,7 +27,7 @@ custom_target_is_linkable(struct workspace *wk, obj ct)
 }
 
 static bool
-func_custom_target_to_list(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_custom_target_to_list(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -38,7 +38,7 @@ func_custom_target_to_list(struct workspace *wk, obj self, uint32_t args_node, o
 }
 
 static bool
-func_custom_target_full_path(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_custom_target_full_path(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -46,7 +46,7 @@ func_custom_target_full_path(struct workspace *wk, obj self, uint32_t args_node,
 
 	obj elem;
 	if (!obj_array_flatten_one(wk, get_obj_custom_target(wk, self)->output, &elem)) {
-		vm_error_at(wk, args_node, "this custom_target has multiple outputs");
+		vm_error(wk, "this custom_target has multiple outputs");
 		return false;
 	}
 

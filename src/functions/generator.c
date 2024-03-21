@@ -189,7 +189,7 @@ check_preserve_path_from_iter(struct workspace *wk, void *_ctx, obj f)
 }
 
 static bool
-func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *res)
+func_generator_process(struct workspace *wk, obj gen, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {

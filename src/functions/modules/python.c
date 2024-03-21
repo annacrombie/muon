@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "compat.h"
 #include "coerce.h"
+#include "compat.h"
 
 #include <string.h>
 
@@ -15,23 +15,19 @@
 #include "platform/filesystem.h"
 #include "platform/run_cmd.h"
 
-static const char *introspect_version =
-	"import sysconfig\n"
-	"print(sysconfig.get_python_version())\n";
+static const char *introspect_version = "import sysconfig\n"
+					"print(sysconfig.get_python_version())\n";
 
-static const char *introspect_paths =
-	"import sysconfig\n"
-	"import json\n"
-	"print(json.dumps(sysconfig.get_paths()))\n";
+static const char *introspect_paths = "import sysconfig\n"
+				      "import json\n"
+				      "print(json.dumps(sysconfig.get_paths()))\n";
 
-static const char *introspect_vars =
-	"import sysconfig\n"
-	"import json\n"
-	"print(json.dumps(sysconfig.get_config_vars()))\n";
+static const char *introspect_vars = "import sysconfig\n"
+				     "import json\n"
+				     "print(json.dumps(sysconfig.get_config_vars()))\n";
 
 static bool
-query_version(struct workspace *wk, const char *path,
-	struct obj_python_installation *python)
+query_version(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const args[] = { (char *)path, "-c", (char *)introspect_version, 0 };
@@ -45,7 +41,7 @@ query_version(struct workspace *wk, const char *path,
 		if (buf[buf_index] == '\n') {
 			buf[buf_index] = '\0';
 
-			if (index == 0) {  /* language_version */
+			if (index == 0) { /* language_version */
 				python->language_version = make_str(wk, entry);
 			}
 
@@ -63,8 +59,7 @@ query_version(struct workspace *wk, const char *path,
 }
 
 static bool
-query_paths(struct workspace *wk, const char *path,
-	struct obj_python_installation *python)
+query_paths(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const path_args[] = { (char *)path, "-c", (char *)introspect_paths, 0 };
@@ -79,8 +74,7 @@ query_paths(struct workspace *wk, const char *path,
 }
 
 static bool
-query_vars(struct workspace *wk, const char *path,
-	struct obj_python_installation *python)
+query_vars(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const var_args[] = { (char *)path, "-c", (char *)introspect_vars, 0 };
@@ -95,11 +89,9 @@ query_vars(struct workspace *wk, const char *path,
 }
 
 static bool
-introspect_python_interpreter(struct workspace *wk, const char *path,
-	struct obj_python_installation *python)
+introspect_python_interpreter(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
-	return query_version(wk, path, python) && query_paths(wk, path, python)
-	       && query_vars(wk, path, python);
+	return query_version(wk, path, python) && query_paths(wk, path, python) && query_vars(wk, path, python);
 }
 
 static bool
@@ -110,12 +102,7 @@ python_module_present(struct workspace *wk, const char *pythonpath, const char *
 	SBUF(importstr);
 	sbuf_pushf(wk, &importstr, "import %s", mod);
 
-	char *const *args = (char *const []){
-		(char *)pythonpath,
-		"-c",
-		importstr.buf,
-		0
-	};
+	char *const *args = (char *const[]){ (char *)pythonpath, "-c", importstr.buf, 0 };
 
 	bool present = run_cmd_argv(&cmd_ctx, args, NULL, 0) && cmd_ctx.status == 0;
 
@@ -148,8 +135,7 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 }
 
 static bool
-func_module_python_find_installation(struct workspace *wk,
-	obj self, uint32_t args_node, obj *res)
+func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -157,12 +143,10 @@ func_module_python_find_installation(struct workspace *wk,
 		kw_disabler,
 		kw_modules,
 	};
-	struct args_kw akw[] = {
-		[kw_required] = { "required", tc_required_kw },
+	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_modules] = { "modules", TYPE_TAG_LISTIFY | obj_string },
-		0
-	};
+		0 };
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
@@ -182,7 +166,7 @@ func_module_python_find_installation(struct workspace *wk,
 	SBUF(cmd_path);
 	bool found = fs_find_cmd(wk, &cmd_path, cmd);
 	if (!found && (requirement == requirement_required)) {
-		vm_error_at(wk, args_node, "%s not found", cmd);
+		vm_error(wk, "%s not found", cmd);
 		return false;
 	}
 
@@ -195,12 +179,11 @@ func_module_python_find_installation(struct workspace *wk,
 		bool all_present = obj_array_foreach(wk,
 			akw[kw_modules].val,
 			&(struct iter_mod_ctx){
-			.pythonpath = cmd_path.buf,
-			.node = akw[kw_modules].node,
-			.requirement = requirement,
-		},
-			iterate_required_module_list
-			);
+				.pythonpath = cmd_path.buf,
+				.node = akw[kw_modules].node,
+				.requirement = requirement,
+			},
+			iterate_required_module_list);
 
 		if (!all_present) {
 			if (requirement == requirement_required) {
@@ -224,7 +207,7 @@ func_module_python_find_installation(struct workspace *wk,
 	obj_array_push(wk, ep->cmd_array, sbuf_into_str(wk, &cmd_path));
 
 	if (!introspect_python_interpreter(wk, cmd_path.buf, python)) {
-		vm_error_at(wk, args_node, "failed to introspect python");
+		vm_error(wk, "failed to introspect python");
 		return false;
 	}
 
@@ -232,8 +215,7 @@ func_module_python_find_installation(struct workspace *wk,
 }
 
 static bool
-func_python_installation_language_version(struct workspace *wk, obj self,
-	uint32_t args_node, obj *res)
+func_python_installation_language_version(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -244,7 +226,7 @@ func_python_installation_language_version(struct workspace *wk, obj self,
 }
 
 static bool
-func_module_python3_find_python(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
@@ -258,7 +240,7 @@ func_module_python3_find_python(struct workspace *wk, obj self, uint32_t args_no
 
 	SBUF(cmd_path);
 	if (!fs_find_cmd(wk, &cmd_path, cmd)) {
-		vm_error_at(wk, args_node, "python3 not found");
+		vm_error(wk, "python3 not found");
 		return false;
 	}
 
@@ -272,8 +254,7 @@ func_module_python3_find_python(struct workspace *wk, obj self, uint32_t args_no
 }
 
 static bool
-func_python_installation_get_path(struct workspace *wk, obj self,
-	uint32_t args_node, obj *res)
+func_python_installation_get_path(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
@@ -288,8 +269,7 @@ func_python_installation_get_path(struct workspace *wk, obj self,
 	}
 
 	if (!ao[0].set) {
-		vm_error_at(wk, args_node,
-			"path '%o' not found, no default specified", path);
+		vm_error(wk, "path '%o' not found, no default specified", path);
 		return false;
 	}
 
@@ -298,8 +278,7 @@ func_python_installation_get_path(struct workspace *wk, obj self,
 }
 
 static bool
-func_python_installation_get_var(struct workspace *wk, obj self,
-	uint32_t args_node, obj *res)
+func_python_installation_get_var(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
@@ -314,8 +293,7 @@ func_python_installation_get_var(struct workspace *wk, obj self,
 	}
 
 	if (!ao[0].set) {
-		vm_error_at(wk, args_node,
-			"variable '%o' not found, no default specified", var);
+		vm_error(wk, "variable '%o' not found, no default specified", var);
 		return false;
 	}
 
@@ -324,8 +302,7 @@ func_python_installation_get_var(struct workspace *wk, obj self,
 }
 
 static bool
-func_python_installation_has_path(struct workspace *wk, obj self,
-	uint32_t args_node, obj *res)
+func_python_installation_has_path(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -341,8 +318,7 @@ func_python_installation_has_path(struct workspace *wk, obj self,
 }
 
 static bool
-func_python_installation_has_var(struct workspace *wk, obj self,
-	uint32_t args_node, obj *res)
+func_python_installation_has_var(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -385,8 +361,7 @@ const struct func_impl impl_tbl_module_python3[] = {
 };
 
 struct func_impl impl_tbl_python_installation[] = {
-	[ARRAY_LEN(impl_tbl_external_program) - 1] =
-	{ "get_path", func_python_installation_get_path, tc_string },
+	[ARRAY_LEN(impl_tbl_external_program) - 1] = { "get_path", func_python_installation_get_path, tc_string },
 	{ "get_variable", func_python_installation_get_var, tc_string },
 	{ "has_path", func_python_installation_has_path, tc_bool },
 	{ "has_variable", func_python_installation_has_var, tc_bool },

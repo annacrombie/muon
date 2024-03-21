@@ -61,13 +61,9 @@ configure_var_len(const char *p)
 	uint32_t i = 0;
 
 	// Only allow (a-z, A-Z, 0-9, _, -) as valid characters for a define
-	while (p[i] &&
-	       (('a' <= p[i] && p[i] <= 'z')
-		|| ('A' <= p[i] && p[i] <= 'Z')
-		|| ('0' <= p[i] && p[i] <= '9')
-		|| '_' == p[i]
-		|| '-' == p[i]
-	       )) {
+	while (p[i]
+		&& (('a' <= p[i] && p[i] <= 'z') || ('A' <= p[i] && p[i] <= 'Z') || ('0' <= p[i] && p[i] <= '9')
+			|| '_' == p[i] || '-' == p[i])) {
 		++i;
 	}
 
@@ -82,7 +78,12 @@ enum configure_file_syntax {
 };
 
 static bool
-substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const char *in, obj out, enum configure_file_syntax syntax)
+substitute_config(struct workspace *wk,
+	uint32_t dict,
+	uint32_t in_node,
+	const char *in,
+	obj out,
+	enum configure_file_syntax syntax)
 {
 	const char *define;
 	if (syntax & configure_file_syntax_cmakedefine) {
@@ -100,8 +101,7 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 		varstart = "@";
 		varend = '@';
 	}
-	const uint32_t define_len = strlen(define),
-		       varstart_len = strlen(varstart);
+	const uint32_t define_len = strlen(define), varstart_len = strlen(varstart);
 
 	bool ret = true;
 	struct source src;
@@ -142,8 +142,8 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 			if (!(src.src[i] == '\n' || src.src[i] == 0)) {
 				if (syntax & configure_file_syntax_cmakedefine) {
 					if (src.src[i] == '@'
-					    && strncmp(&src.src[i + 1], &src.src[id_start], id_len) == 0
-					    && src.src[i + 1 + id_len] == '@') {
+						&& strncmp(&src.src[i + 1], &src.src[id_start], id_len) == 0
+						&& src.src[i + 1 + id_len] == '@') {
 						i += 2 + id_len;
 						configure_file_skip_whitespace(&src, &i);
 
@@ -151,24 +151,28 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 							goto extraneous_cmake_chars;
 						}
 					} else {
-extraneous_cmake_chars:
-						{
-							uint32_t orig_i = i;
+extraneous_cmake_chars: {
+	uint32_t orig_i = i;
 
-							while (src.src[i] && src.src[i] != '\n') {
-								++i;
-							}
+	while (src.src[i] && src.src[i] != '\n') {
+		++i;
+	}
 
-							id_location.col = orig_i - location.col + 1;
-							error_messagef(&src, id_location, log_warn,
-								"ignoring trailing characters (%.*s) in cmakedefine",
-								i - orig_i, &src.src[orig_i]
-								);
-						}
+	id_location.col = orig_i - location.col + 1;
+	error_messagef(&src,
+		id_location,
+		log_warn,
+		"ignoring trailing characters (%.*s) in cmakedefine",
+		i - orig_i,
+		&src.src[orig_i]);
+}
 					}
 				} else {
 					id_location.col = i - location.col + 1;
-					error_messagef(&src, id_location, log_error, "expected exactly one token on mesondefine line");
+					error_messagef(&src,
+						id_location,
+						log_error,
+						"expected exactly one token on mesondefine line");
 					return false;
 				}
 			}
@@ -198,7 +202,9 @@ extraneous_cmake_chars:
 				sub = tmp_buf;
 				break;
 			default:
-				error_messagef(&src, id_location, log_error,
+				error_messagef(&src,
+					id_location,
+					log_error,
 					"invalid type for %s: '%s'",
 					define,
 					obj_type_to_s(get_obj_type(wk, elem)));
@@ -341,7 +347,12 @@ generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 	case obj_number:
 		/* conf_data.set('FOO', 1)          => #define FOO 1 */
 		/* conf_data.set('FOO', 0)          => #define FOO 0 */
-		sbuf_pushf(wk, ctx->out_buf, "%cdefine %s %" PRId64 "\n", define_prefix, get_cstr(wk, key), get_obj_number(wk, val));
+		sbuf_pushf(wk,
+			ctx->out_buf,
+			"%cdefine %s %" PRId64 "\n",
+			define_prefix,
+			get_cstr(wk, key),
+			get_obj_number(wk, val));
 		break;
 	default:
 		vm_error_at(wk, ctx->node, "invalid type for config data value: '%s'", obj_type_to_s(t));
@@ -352,8 +363,7 @@ generate_config_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 }
 
 static bool
-generate_config(struct workspace *wk, enum configure_file_output_format format,
-	obj dict, uint32_t node, obj out_path)
+generate_config(struct workspace *wk, enum configure_file_output_format format, obj dict, uint32_t node, obj out_path)
 {
 	SBUF_manual(out_buf);
 
@@ -377,8 +387,12 @@ generate_config(struct workspace *wk, enum configure_file_output_format format,
 }
 
 static bool
-configure_file_with_command(struct workspace *wk, uint32_t node,
-	obj command, obj input, obj out_path, obj depfile,
+configure_file_with_command(struct workspace *wk,
+	uint32_t node,
+	obj command,
+	obj input,
+	obj out_path,
+	obj depfile,
 	bool capture)
 {
 	obj args, output_arr;
@@ -401,10 +415,10 @@ configure_file_with_command(struct workspace *wk, uint32_t node,
 	}
 
 	struct process_custom_target_commandline_opts opts = {
-		.err_node   = node,
-		.input      = input,
-		.output     = output_arr,
-		.depfile    = depfile,
+		.err_node = node,
+		.input = input,
+		.output = output_arr,
+		.depfile = depfile,
 	};
 	make_obj(wk, &opts.depends, obj_array);
 
@@ -540,7 +554,7 @@ exclusive_or(bool *vals, uint32_t len)
 }
 
 bool
-func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_configure_file(struct workspace *wk, obj _, obj *res)
 {
 	obj input_arr = 0, output_str;
 	enum kwargs {
@@ -574,7 +588,7 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_output_format] = { "output_format", obj_string },
 		[kw_encoding] = { "encoding", obj_string },
 		[kw_depfile] = { "depfile", obj_string },
-		0
+		0,
 	};
 
 	if (!pop_args(wk, NULL, akw)) {
@@ -589,7 +603,8 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		} else if (str_eql(output_format_str, &WKSTR("nasm"))) {
 			output_format = configure_file_output_format_nasm;
 		} else {
-			vm_error_at(wk, akw[kw_output_format].node, "invalid output format %o", akw[kw_output_format].val);
+			vm_error_at(
+				wk, akw[kw_output_format].node, "invalid output format %o", akw[kw_output_format].val);
 			return false;
 		}
 	}
@@ -598,15 +613,12 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		if (!coerce_files(wk, akw[kw_input].node, akw[kw_input].val, &input_arr)) {
 			return false;
 		}
-	} else {
-		// set this so we can use it in error handling later
-		akw[kw_input].node = args_node;
 	}
 
-	{       /* setup out file */
+	{ /* setup out file */
 		obj subd;
-		if (!perform_output_string_substitutions(wk, akw[kw_output].node,
-			akw[kw_output].val, input_arr, &subd)) {
+		if (!perform_output_string_substitutions(
+			    wk, akw[kw_output].node, akw[kw_output].val, input_arr, &subd)) {
 			return false;
 		}
 
@@ -630,17 +642,21 @@ func_configure_file(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		*get_obj_file(wk, *res) = output_str;
 	}
 
-	if (!exclusive_or((bool []) { akw[kw_command].set, akw[kw_configuration].set, akw[kw_copy].set }, 3)) {
-		vm_error_at(wk, args_node, "you must pass either command:, configuration:, or copy:");
+	if (!exclusive_or((bool[]){ akw[kw_command].set, akw[kw_configuration].set, akw[kw_copy].set }, 3)) {
+		vm_error(wk, "you must pass either command:, configuration:, or copy:");
 		return false;
 	}
 
 	if (akw[kw_command].set) {
 		bool capture = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val);
 
-		if (!configure_file_with_command(wk, akw[kw_command].node,
-			akw[kw_command].val, input_arr, output_str,
-			akw[kw_depfile].val, capture)) {
+		if (!configure_file_with_command(wk,
+			    akw[kw_command].node,
+			    akw[kw_command].val,
+			    input_arr,
+			    output_str,
+			    akw[kw_depfile].val,
+			    capture)) {
 			return false;
 		}
 	} else if (akw[kw_copy].set) {
@@ -679,14 +695,12 @@ copy_err:
 
 		enum obj_type t = get_obj_type(wk, conf);
 		switch (t) {
-		case obj_dict:
-			dict = conf;
-			break;
-		case obj_configuration_data:
-			dict = get_obj_configuration_data(wk, conf)->dict;
-			break;
+		case obj_dict: dict = conf; break;
+		case obj_configuration_data: dict = get_obj_configuration_data(wk, conf)->dict; break;
 		default:
-			vm_error_at(wk, akw[kw_configuration].node, "invalid type for configuration data '%s'",
+			vm_error_at(wk,
+				akw[kw_configuration].node,
+				"invalid type for configuration data '%s'",
 				obj_type_to_s(t));
 			return false;
 		}
@@ -705,41 +719,36 @@ copy_err:
 			workspace_add_regenerate_deps(wk, *get_obj_file(wk, input));
 			const char *path = get_file_path(wk, input);
 
-			enum configure_file_syntax syntax =
-				configure_file_syntax_mesondefine
-				| configure_file_syntax_mesonvar;
+			enum configure_file_syntax syntax = configure_file_syntax_mesondefine
+							    | configure_file_syntax_mesonvar;
 
 			if (akw[kw_format].set) {
 				const struct str *fmt = get_str(wk, akw[kw_format].val);
 				if (str_eql(fmt, &WKSTR("meson"))) {
-					syntax = configure_file_syntax_mesondefine
-						 | configure_file_syntax_mesonvar;
+					syntax = configure_file_syntax_mesondefine | configure_file_syntax_mesonvar;
 				} else if (str_eql(fmt, &WKSTR("cmake"))) {
-					syntax = configure_file_syntax_cmakedefine
-						 | configure_file_syntax_cmakevar;
+					syntax = configure_file_syntax_cmakedefine | configure_file_syntax_cmakevar;
 				} else if (str_eql(fmt, &WKSTR("cmake@"))) {
-					syntax = configure_file_syntax_cmakedefine
-						 | configure_file_syntax_mesonvar;
+					syntax = configure_file_syntax_cmakedefine | configure_file_syntax_mesonvar;
 				} else {
-					vm_error_at(wk, akw[kw_format].node, "invalid format type %o", akw[kw_format].val);
+					vm_error_at(
+						wk, akw[kw_format].node, "invalid format type %o", akw[kw_format].val);
 					return false;
 				}
 			}
 
-			if (!substitute_config(wk, dict, akw[kw_input].node,
-				path, output_str, syntax)) {
+			if (!substitute_config(wk, dict, akw[kw_input].node, path, output_str, syntax)) {
 				return false;
 			}
 		} else {
-			if (!generate_config(wk, output_format, dict,
-				akw[kw_configuration].node, output_str)) {
+			if (!generate_config(wk, output_format, dict, akw[kw_configuration].node, output_str)) {
 				return false;
 			}
 		}
 	}
 
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
-	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
+		|| (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set) {
 			vm_error_at(wk, akw[kw_install].node, "configure_file installation requires install_dir");
 			return false;

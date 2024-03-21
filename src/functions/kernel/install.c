@@ -17,7 +17,7 @@
 #include "platform/path.h"
 
 bool
-func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+func_install_subdir(struct workspace *wk, obj _, obj *ret)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -35,15 +35,13 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_exclude_directories] = { "exclude_directories", TYPE_TAG_LISTIFY | obj_string },
 		[kw_exclude_files] = { "exclude_files", TYPE_TAG_LISTIFY | obj_string },
 		[kw_strip_directory] = { "strip_directory", obj_bool },
-		0
+		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
-	bool strip_directory = akw[kw_strip_directory].set
-		? get_obj_bool(wk, akw[kw_strip_directory].val)
-		: false;
+	bool strip_directory = akw[kw_strip_directory].set ? get_obj_bool(wk, akw[kw_strip_directory].val) : false;
 
 	obj dest = akw[kw_install_dir].val;
 	if (!strip_directory) {
@@ -135,7 +133,7 @@ install_man_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+func_install_man(struct workspace *wk, obj _, obj *ret)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -147,7 +145,7 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_locale] = { "locale", obj_string },
-		0
+		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -184,7 +182,7 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 }
 
 bool
-func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+func_install_symlink(struct workspace *wk, obj _, obj *ret)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -196,7 +194,7 @@ func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_install_dir] = { "install_dir", obj_string, .required = true },
 		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		[kw_pointing_to] = { "pointing_to", obj_string, .required = true },
-		0
+		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -233,18 +231,16 @@ install_emptydir_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-func_install_emptydir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+func_install_emptydir(struct workspace *wk, obj _, obj *ret)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_install_mode,
 		kw_install_tag,
 	};
-	struct args_kw akw[] = {
-		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
+	struct args_kw akw[] = { [kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_install_tag] = { "install_tag", obj_string }, // TODO
-		0
-	};
+		0 };
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
@@ -286,7 +282,7 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_install_data(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -305,7 +301,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_rename] = { "rename", TYPE_TAG_LISTIFY | obj_string },
 		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_file | tc_string },
 		[kw_preserve_path] = { "preserve_path", obj_bool },
-		0
+		0,
 	};
 
 	if (!pop_args(wk, an, akw)) {
@@ -328,7 +324,6 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		path_join(wk, &buf, get_cstr(wk, install_dir_base), get_cstr(wk, current_project(wk)->cfg.name));
 
 		install_dir = sbuf_into_str(wk, &buf);
-
 	}
 
 	obj sources = an[0].val;
@@ -340,8 +335,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_rename].set) {
-		if (get_obj_array(wk, akw[kw_rename].val)->len !=
-		    get_obj_array(wk, sources)->len) {
+		if (get_obj_array(wk, akw[kw_rename].val)->len != get_obj_array(wk, sources)->len) {
 			vm_error_at(wk, akw[kw_rename].node, "number of elements in rename != number of sources");
 			return false;
 		}
@@ -360,17 +354,15 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 		return obj_array_foreach(wk, coerced, &ctx, install_data_rename_iter);
 	} else {
-		bool preserve_path =
-			akw[kw_preserve_path].set
-			&& get_obj_bool(wk, akw[kw_preserve_path].val);
+		bool preserve_path = akw[kw_preserve_path].set && get_obj_bool(wk, akw[kw_preserve_path].val);
 
-		return push_install_targets(wk, err_node, sources, install_dir,
-			akw[kw_install_mode].val, preserve_path);
+		return push_install_targets(
+			wk, err_node, sources, install_dir, akw[kw_install_mode].val, preserve_path);
 	}
 }
 
 bool
-func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
+func_install_headers(struct workspace *wk, obj _, obj *ret)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -384,7 +376,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_subdir] = { "subdir", obj_string },
 		[kw_preserve_path] = { "preserve_path", obj_bool },
-		0
+		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -411,10 +403,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		install_dir = install_dir_base;
 	}
 
-	bool preserve_path =
-		akw[kw_preserve_path].set
-		&& get_obj_bool(wk, akw[kw_preserve_path].val);
+	bool preserve_path = akw[kw_preserve_path].set && get_obj_bool(wk, akw[kw_preserve_path].val);
 
-	return push_install_targets(wk, an[0].node, an[0].val,
-		install_dir, akw[kw_install_mode].val, preserve_path);
+	return push_install_targets(wk, an[0].node, an[0].val, install_dir, akw[kw_install_mode].val, preserve_path);
 }

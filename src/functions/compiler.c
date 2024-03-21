@@ -104,7 +104,11 @@ add_extra_compiler_check_args(struct workspace *wk, struct obj_compiler *comp, o
 }
 
 static bool
-add_include_directory_args(struct workspace *wk, struct args_kw *inc, struct build_dep *dep, obj comp_id, obj compiler_args)
+add_include_directory_args(struct workspace *wk,
+	struct args_kw *inc,
+	struct build_dep *dep,
+	obj comp_id,
+	obj compiler_args)
 {
 	obj include_dirs;
 	make_obj(wk, &include_dirs, obj_array);
@@ -126,9 +130,14 @@ add_include_directory_args(struct workspace *wk, struct args_kw *inc, struct bui
 }
 
 static bool
-compiler_check_cache(struct workspace *wk, struct obj_compiler *comp,
-	const char *argstr, uint32_t argc, const char *src,
-	uint8_t sha_res[32], bool *res, obj *res_val)
+compiler_check_cache(struct workspace *wk,
+	struct obj_compiler *comp,
+	const char *argstr,
+	uint32_t argc,
+	const char *src,
+	uint8_t sha_res[32],
+	bool *res,
+	obj *res_val)
 {
 	uint32_t argstr_len;
 	{
@@ -173,8 +182,7 @@ compiler_check_cache(struct workspace *wk, struct obj_compiler *comp,
 	/* log_plain("\n"); */
 
 	obj arr;
-	if (obj_dict_index_strn(wk, wk->compiler_check_cache,
-		(const char *)sha_res, 32, &arr)) {
+	if (obj_dict_index_strn(wk, wk->compiler_check_cache, (const char *)sha_res, 32, &arr)) {
 		obj cache_res;
 		obj_array_index(wk, arr, 0, &cache_res);
 		*res = get_obj_bool(wk, cache_res);
@@ -211,8 +219,7 @@ set_compiler_cache(struct workspace *wk, obj key, bool res, obj val)
 }
 
 static bool
-compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
-	const char *src, uint32_t err_node, bool *res)
+compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const char *src, uint32_t err_node, bool *res)
 {
 	enum requirement_type req = requirement_auto;
 	if (opts->required && opts->required->set) {
@@ -240,14 +247,11 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 
 	switch (opts->mode) {
 	case compile_mode_run:
-	case compile_mode_link:
-		get_option_link_args(wk, current_project(wk), NULL, compiler_args, comp->lang);
+	case compile_mode_link: get_option_link_args(wk, current_project(wk), NULL, compiler_args, comp->lang);
 	/* fallthrough */
-	case compile_mode_compile:
-		get_option_compile_args(wk, current_project(wk), NULL, compiler_args, comp->lang);
+	case compile_mode_compile: get_option_compile_args(wk, current_project(wk), NULL, compiler_args, comp->lang);
 	/* fallthrough */
-	case compile_mode_preprocess:
-		break;
+	case compile_mode_preprocess: break;
 	}
 
 	bool have_dep = false;
@@ -259,23 +263,15 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 		obj_array_extend_nodup(wk, compiler_args, dep.compile_args);
 	}
 
-	if (!add_include_directory_args(wk, opts->inc, have_dep ? &dep : NULL,
-		opts->comp_id, compiler_args)) {
+	if (!add_include_directory_args(wk, opts->inc, have_dep ? &dep : NULL, opts->comp_id, compiler_args)) {
 		return false;
 	}
 
 	switch (opts->mode) {
-	case compile_mode_preprocess:
-		push_args(wk, compiler_args, compilers[t].args.preprocess_only());
-		break;
-	case compile_mode_compile:
-		push_args(wk, compiler_args, compilers[t].args.compile_only());
-		break;
-	case compile_mode_run:
-		break;
-	case compile_mode_link:
-		push_args(wk, compiler_args, linkers[comp->linker_type].args.fatal_warnings());
-		break;
+	case compile_mode_preprocess: push_args(wk, compiler_args, compilers[t].args.preprocess_only()); break;
+	case compile_mode_compile: push_args(wk, compiler_args, compilers[t].args.compile_only()); break;
+	case compile_mode_run: break;
+	case compile_mode_link: push_args(wk, compiler_args, linkers[comp->linker_type].args.fatal_warnings()); break;
 	}
 
 	obj source_path;
@@ -307,11 +303,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 	push_args(wk, compiler_args, compilers[t].args.output(output_path));
 
 	if (have_dep) {
-		struct setup_linker_args_ctx sctx = {
-			.linker = comp->linker_type,
-			.link_lang = comp->lang,
-			.args = &dep
-		};
+		struct setup_linker_args_ctx sctx
+			= { .linker = comp->linker_type, .link_lang = comp->lang, .args = &dep };
 
 		setup_linker_args(wk, NULL, NULL, &sctx);
 		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
@@ -366,7 +359,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts,
 			}
 		}
 
-		if (!run_cmd_argv(&opts->cmd_ctx, (char *const []){ (char *)output_path, NULL }, NULL, 0)) {
+		if (!run_cmd_argv(&opts->cmd_ctx, (char *const[]){ (char *)output_path, NULL }, NULL, 0)) {
 			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
 			run_cmd_ctx_destroy(&opts->cmd_ctx);
 			goto ret;
@@ -456,8 +449,11 @@ compiler_opts_init(obj self, struct args_kw *akw, struct compiler_check_opts *op
 }
 
 static bool
-func_compiler_check_args_common(struct workspace *wk, obj self, uint32_t args_node,
-	struct args_norm *an, struct args_kw **kw_res, struct compiler_check_opts *opts,
+func_compiler_check_args_common(struct workspace *wk,
+	obj self,
+	struct args_norm *an,
+	struct args_kw **kw_res,
+	struct compiler_check_opts *opts,
 	enum cc_kwargs args_mask)
 {
 	static struct args_kw akw[cc_kwargs_count + 1] = { 0 };
@@ -521,7 +517,7 @@ compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
 }
 
 static bool
-func_compiler_sizeof(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_sizeof(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -530,19 +526,23 @@ func_compiler_sizeof(struct workspace *wk, obj self, uint32_t args_node, obj *re
 		.skip_run_check = true,
 	};
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
 		return false;
 	}
 
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"#include <stdio.h>\n"
 		"%s\n"
 		"int main(void) { printf(\"%%ld\", (long)(sizeof(%s))); return 0; }\n",
 		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val)
-		);
+		get_cstr(wk, an[0].val));
 
 	bool ok;
 	if (compiler_check(wk, &opts, src, an[0].node, &ok) && ok) {
@@ -564,17 +564,13 @@ func_compiler_sizeof(struct workspace *wk, obj self, uint32_t args_node, obj *re
 		set_compiler_cache(wk, opts.cache_key, true, *res);
 	}
 
-	compiler_check_log(wk, &opts,
-		"sizeof %s: %" PRId64,
-		get_cstr(wk, an[0].val),
-		get_obj_number(wk, *res)
-		);
+	compiler_check_log(wk, &opts, "sizeof %s: %" PRId64, get_cstr(wk, an[0].val), get_obj_number(wk, *res));
 
 	return true;
 }
 
 static bool
-func_compiler_alignment(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_alignment(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -582,21 +578,21 @@ func_compiler_alignment(struct workspace *wk, obj self, uint32_t args_node, obj 
 		.mode = compile_mode_run,
 	};
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix)) {
+	if (!func_compiler_check_args_common(
+		    wk, self, an, &akw, &opts, cm_kw_args | cm_kw_dependencies | cm_kw_prefix)) {
 		return false;
 	}
 
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"#include <stdio.h>\n"
 		"#include <stddef.h>\n"
 		"%s\n"
 		"struct tmp { char c; %s target; };\n"
 		"int main(void) { printf(\"%%d\", (int)(offsetof(struct tmp, target))); return 0; }\n",
 		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val)
-		);
+		get_cstr(wk, an[0].val));
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
@@ -612,17 +608,13 @@ func_compiler_alignment(struct workspace *wk, obj self, uint32_t args_node, obj 
 		set_compiler_cache(wk, opts.cache_key, true, *res);
 	}
 
-	compiler_check_log(wk, &opts,
-		"alignment of %s: %" PRId64,
-		get_cstr(wk, an[0].val),
-		get_obj_number(wk, *res)
-		);
+	compiler_check_log(wk, &opts, "alignment of %s: %" PRId64, get_cstr(wk, an[0].val), get_obj_number(wk, *res));
 
 	return true;
 }
 
 static bool
-func_compiler_compute_int(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_compute_int(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -630,22 +622,26 @@ func_compiler_compute_int(struct workspace *wk, obj self, uint32_t args_node, ob
 		.mode = compile_mode_run,
 	};
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories
-		| cm_kw_guess | cm_kw_high | cm_kw_low)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories | cm_kw_guess
+			    | cm_kw_high | cm_kw_low)) {
 		return false;
 	}
 
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"#include <stdio.h>\n"
 		"%s\n"
 		"int main(void) {\n"
 		"printf(\"%%ld\", (long)(%s));\n"
 		"}\n",
 		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val)
-		);
+		get_cstr(wk, an[0].val));
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
@@ -661,11 +657,7 @@ func_compiler_compute_int(struct workspace *wk, obj self, uint32_t args_node, ob
 		set_compiler_cache(wk, opts.cache_key, true, *res);
 	}
 
-	compiler_check_log(wk, &opts,
-		"%s computed to %" PRId64,
-		get_cstr(wk, an[0].val),
-		get_obj_number(wk, *res)
-		);
+	compiler_check_log(wk, &opts, "%s computed to %" PRId64, get_cstr(wk, an[0].val), get_obj_number(wk, *res));
 	return true;
 }
 
@@ -683,127 +675,85 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 	 *   and this notice are preserved.  This file is offered as-is, without any
 	 *   warranty.
 	 */
-	struct { const char *name, *src; } tests[] = {
-		{ "alias",
-		  "#ifdef __cplusplus\n"
-		  "extern \"C\" {\n"
-		  "#endif\n"
-		  "int foo(void) { return 0; }\n"
-		  "int bar(void) __attribute__((alias(\"foo\")));\n"
-		  "#ifdef __cplusplus\n"
-		  "}\n"
-		  "#endif\n" },
-		{ "aligned",
-		  "int foo(void) __attribute__((aligned(32)));\n" },
-		{ "alloc_size",
-		  "void *foo(int a) __attribute__((alloc_size(1)));\n" },
-		{ "always_inline",
-		  "inline __attribute__((always_inline)) int foo(void) { return 0; }\n" },
-		{ "artificial",
-		  "inline __attribute__((artificial)) int foo(void) { return 0; }\n" },
-		{ "cold",
-		  "int foo(void) __attribute__((cold));\n" },
-		{ "const",
-		  "int foo(void) __attribute__((const));\n" },
-		{ "constructor",
-		  "int foo(void) __attribute__((constructor));\n" },
-		{ "constructor_priority",
-		  "int foo( void ) __attribute__((__constructor__(65535/2)));\n" },
-		{ "deprecated",
-		  "int foo(void) __attribute__((deprecated(\"\")));\n" },
-		{ "destructor",
-		  "int foo(void) __attribute__((destructor));\n" },
-		{ "dllexport",
-		  "__declspec(dllexport) int foo(void) { return 0; }\n" },
-		{ "dllimport",
-		  "__declspec(dllimport) int foo(void);\n" },
-		{ "error",
-		  "int foo(void) __attribute__((error(\"\")));\n" },
-		{ "externally_visible",
-		  "int foo(void) __attribute__((externally_visible));\n" },
+	struct {
+		const char *name, *src;
+	} tests[] = { { "alias",
+			      "#ifdef __cplusplus\n"
+			      "extern \"C\" {\n"
+			      "#endif\n"
+			      "int foo(void) { return 0; }\n"
+			      "int bar(void) __attribute__((alias(\"foo\")));\n"
+			      "#ifdef __cplusplus\n"
+			      "}\n"
+			      "#endif\n" },
+		{ "aligned", "int foo(void) __attribute__((aligned(32)));\n" },
+		{ "alloc_size", "void *foo(int a) __attribute__((alloc_size(1)));\n" },
+		{ "always_inline", "inline __attribute__((always_inline)) int foo(void) { return 0; }\n" },
+		{ "artificial", "inline __attribute__((artificial)) int foo(void) { return 0; }\n" },
+		{ "cold", "int foo(void) __attribute__((cold));\n" },
+		{ "const", "int foo(void) __attribute__((const));\n" },
+		{ "constructor", "int foo(void) __attribute__((constructor));\n" },
+		{ "constructor_priority", "int foo( void ) __attribute__((__constructor__(65535/2)));\n" },
+		{ "deprecated", "int foo(void) __attribute__((deprecated(\"\")));\n" },
+		{ "destructor", "int foo(void) __attribute__((destructor));\n" },
+		{ "dllexport", "__declspec(dllexport) int foo(void) { return 0; }\n" },
+		{ "dllimport", "__declspec(dllimport) int foo(void);\n" },
+		{ "error", "int foo(void) __attribute__((error(\"\")));\n" },
+		{ "externally_visible", "int foo(void) __attribute__((externally_visible));\n" },
 		{ "fallthrough",
-		  "int foo( void ) {\n"
-		  "  switch (0) {\n"
-		  "    case 1: __attribute__((fallthrough));\n"
-		  "    case 2: break;\n"
-		  "  }\n"
-		  "  return 0;\n"
-		  "};\n" },
-		{ "flatten",
-		  "int foo(void) __attribute__((flatten));\n" },
-		{ "format",
-		  "int foo(const char * p, ...) __attribute__((format(printf, 1, 2)));\n" },
-		{ "format_arg",
-		  "char * foo(const char * p) __attribute__((format_arg(1)));\n" },
-		{ "force_align_arg_pointer",
-		  "__attribute__((force_align_arg_pointer)) int foo(void) { return 0; }\n" },
-		{ "gnu_inline",
-		  "inline __attribute__((gnu_inline)) int foo(void) { return 0; }\n" },
-		{ "hot",
-		  "int foo(void) __attribute__((hot));\n" },
+			"int foo( void ) {\n"
+			"  switch (0) {\n"
+			"    case 1: __attribute__((fallthrough));\n"
+			"    case 2: break;\n"
+			"  }\n"
+			"  return 0;\n"
+			"};\n" },
+		{ "flatten", "int foo(void) __attribute__((flatten));\n" },
+		{ "format", "int foo(const char * p, ...) __attribute__((format(printf, 1, 2)));\n" },
+		{ "format_arg", "char * foo(const char * p) __attribute__((format_arg(1)));\n" },
+		{ "force_align_arg_pointer", "__attribute__((force_align_arg_pointer)) int foo(void) { return 0; }\n" },
+		{ "gnu_inline", "inline __attribute__((gnu_inline)) int foo(void) { return 0; }\n" },
+		{ "hot", "int foo(void) __attribute__((hot));\n" },
 		{ "ifunc",
-		  "('int my_foo(void) { return 0; }'\n"
-		  " static int (*resolve_foo(void))(void) { return my_foo; }'\n"
-		  " int foo(void) __attribute__((ifunc(\"resolve_foo\")));'),\n" },
-		{ "leaf",
-		  "__attribute__((leaf)) int foo(void) { return 0; }\n" },
-		{ "malloc",
-		  "int *foo(void) __attribute__((malloc));\n" },
-		{ "noclone",
-		  "int foo(void) __attribute__((noclone));\n" },
-		{ "noinline",
-		  "__attribute__((noinline)) int foo(void) { return 0; }\n" },
-		{ "nonnull",
-		  "int foo(char * p) __attribute__((nonnull(1)));\n" },
-		{ "noreturn",
-		  "int foo(void) __attribute__((noreturn));\n" },
-		{ "nothrow",
-		  "int foo(void) __attribute__((nothrow));\n" },
-		{ "optimize",
-		  "__attribute__((optimize(3))) int foo(void) { return 0; }\n" },
-		{ "packed",
-		  "struct __attribute__((packed)) foo { int bar; };\n" },
-		{ "pure",
-		  "int foo(void) __attribute__((pure));\n" },
-		{ "returns_nonnull",
-		  "int *foo(void) __attribute__((returns_nonnull));\n" },
+			"('int my_foo(void) { return 0; }'\n"
+			" static int (*resolve_foo(void))(void) { return my_foo; }'\n"
+			" int foo(void) __attribute__((ifunc(\"resolve_foo\")));'),\n" },
+		{ "leaf", "__attribute__((leaf)) int foo(void) { return 0; }\n" },
+		{ "malloc", "int *foo(void) __attribute__((malloc));\n" },
+		{ "noclone", "int foo(void) __attribute__((noclone));\n" },
+		{ "noinline", "__attribute__((noinline)) int foo(void) { return 0; }\n" },
+		{ "nonnull", "int foo(char * p) __attribute__((nonnull(1)));\n" },
+		{ "noreturn", "int foo(void) __attribute__((noreturn));\n" },
+		{ "nothrow", "int foo(void) __attribute__((nothrow));\n" },
+		{ "optimize", "__attribute__((optimize(3))) int foo(void) { return 0; }\n" },
+		{ "packed", "struct __attribute__((packed)) foo { int bar; };\n" },
+		{ "pure", "int foo(void) __attribute__((pure));\n" },
+		{ "returns_nonnull", "int *foo(void) __attribute__((returns_nonnull));\n" },
 		{ "section",
-		  "#if defined(__APPLE__) && defined(__MACH__)\n"
-		  "    extern int foo __attribute__((section(\"__BAR,__bar\")));\n"
-		  "#else\n"
-		  "    extern int foo __attribute__((section(\".bar\")));\n"
-		  "#endif\n" },
-		{ "sentinel",
-		  "int foo(const char *bar, ...) __attribute__((sentinel));" },
-		{ "unused",
-		  "int foo(void) __attribute__((unused));\n" },
-		{ "used",
-		  "int foo(void) __attribute__((used));\n" },
-		{ "vector_size",
-		  "__attribute__((vector_size(32))); int foo(void) { return 0; }\n" },
+			"#if defined(__APPLE__) && defined(__MACH__)\n"
+			"    extern int foo __attribute__((section(\"__BAR,__bar\")));\n"
+			"#else\n"
+			"    extern int foo __attribute__((section(\".bar\")));\n"
+			"#endif\n" },
+		{ "sentinel", "int foo(const char *bar, ...) __attribute__((sentinel));" },
+		{ "unused", "int foo(void) __attribute__((unused));\n" },
+		{ "used", "int foo(void) __attribute__((used));\n" },
+		{ "vector_size", "__attribute__((vector_size(32))); int foo(void) { return 0; }\n" },
 		{ "visibility",
-		  "int foo_def(void) __attribute__((visibility(\"default\")));\n"
-		  "int foo_hid(void) __attribute__((visibility(\"hidden\")));\n"
-		  "int foo_int(void) __attribute__((visibility(\"internal\")));\n" },
-		{ "visibility:default",
-		  "int foo(void) __attribute__((visibility(\"default\")));\n" },
-		{ "visibility:hidden",
-		  "int foo(void) __attribute__((visibility(\"hidden\")));\n" },
-		{ "visibility:internal",
-		  "int foo(void) __attribute__((visibility(\"internal\")));\n" },
-		{ "visibility:protected",
-		  "int foo(void) __attribute__((visibility(\"protected\")));\n" },
-		{ "warning",
-		  "int foo(void) __attribute__((warning(\"\")));\n" },
-		{ "warn_unused_result",
-		  "int foo(void) __attribute__((warn_unused_result));\n" },
-		{ "weak",
-		  "int foo(void) __attribute__((weak));\n" },
+			"int foo_def(void) __attribute__((visibility(\"default\")));\n"
+			"int foo_hid(void) __attribute__((visibility(\"hidden\")));\n"
+			"int foo_int(void) __attribute__((visibility(\"internal\")));\n" },
+		{ "visibility:default", "int foo(void) __attribute__((visibility(\"default\")));\n" },
+		{ "visibility:hidden", "int foo(void) __attribute__((visibility(\"hidden\")));\n" },
+		{ "visibility:internal", "int foo(void) __attribute__((visibility(\"internal\")));\n" },
+		{ "visibility:protected", "int foo(void) __attribute__((visibility(\"protected\")));\n" },
+		{ "warning", "int foo(void) __attribute__((warning(\"\")));\n" },
+		{ "warn_unused_result", "int foo(void) __attribute__((warn_unused_result));\n" },
+		{ "weak", "int foo(void) __attribute__((weak));\n" },
 		{ "weakref",
-		  "static int foo(void) { return 0; }\n"
-		  "static int var(void) __attribute__((weakref(\"foo\")));\n" },
-		{ 0 }
-	};
+			"static int foo(void) { return 0; }\n"
+			"static int var(void) __attribute__((weakref(\"foo\")));\n" },
+		{ 0 } };
 
 	uint32_t i;
 	for (i = 0; tests[i].name; ++i) {
@@ -834,17 +784,13 @@ compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_
 		return false;
 	}
 
-	compiler_check_log(wk, &opts,
-		"has attribute %s: %s",
-		get_cstr(wk, arg),
-		bool_to_yn(*has_fattr)
-		);
+	compiler_check_log(wk, &opts, "has attribute %s: %s", get_cstr(wk, arg), bool_to_yn(*has_fattr));
 
 	return true;
 }
 
 static bool
-func_compiler_has_function_attribute(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_function_attribute(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -884,7 +830,7 @@ func_compiler_get_supported_function_attributes_iter(struct workspace *wk, void 
 }
 
 static bool
-func_compiler_get_supported_function_attributes(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_get_supported_function_attributes(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -894,16 +840,18 @@ func_compiler_get_supported_function_attributes(struct workspace *wk, obj self, 
 
 	make_obj(wk, res, obj_array);
 
-	return obj_array_foreach_flat(wk, an[0].val,
-		&(struct func_compiler_get_supported_function_attributes_iter_ctx) {
-		.compiler = self,
-		.arr = *res,
-		.node = an[0].node,
-	}, func_compiler_get_supported_function_attributes_iter);
+	return obj_array_foreach_flat(wk,
+		an[0].val,
+		&(struct func_compiler_get_supported_function_attributes_iter_ctx){
+			.compiler = self,
+			.arr = *res,
+			.node = an[0].node,
+		},
+		func_compiler_get_supported_function_attributes_iter);
 }
 
 static bool
-func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_function(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -911,20 +859,23 @@ func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, o
 		.mode = compile_mode_link,
 	};
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
 		return false;
 	}
 
-	const char *prefix = compiler_check_prefix(wk, akw),
-		   *func = get_cstr(wk, an[0].val);
+	const char *prefix = compiler_check_prefix(wk, akw), *func = get_cstr(wk, an[0].val);
 
 	bool prefix_contains_include = strstr(prefix, "#include") != NULL;
 
 	char src[BUF_SIZE_4k];
 	if (prefix_contains_include) {
-		snprintf(src, BUF_SIZE_4k,
+		snprintf(src,
+			BUF_SIZE_4k,
 			"%s\n"
 			"#include <limits.h>\n"
 			"#if defined __stub_%s || defined __stub___%s\n"
@@ -936,11 +887,12 @@ func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, o
 			"return (int) b;\n"
 			"}\n",
 			prefix,
-			func, func,
-			func
-			);
+			func,
+			func,
+			func);
 	} else {
-		snprintf(src, BUF_SIZE_4k,
+		snprintf(src,
+			BUF_SIZE_4k,
 			"#define %s muon_disable_define_of_%s\n"
 			"%s\n"
 			"#include <limits.h>\n"
@@ -953,13 +905,14 @@ func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, o
 			"fail fail fail this function is not going to work\n"
 			"#endif\n"
 			"int main(void) { return %s(); }\n",
-			func, func,
+			func,
+			func,
 			prefix,
 			func,
 			func,
-			func, func,
-			func
-			);
+			func,
+			func,
+			func);
 	}
 
 	bool ok;
@@ -978,7 +931,8 @@ func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, o
 		 * the header didn't lead to the function being defined, and the
 		 * function we are checking isn't a builtin itself we assume the
 		 * builtin is not functional and we just error out. */
-		snprintf(src, BUF_SIZE_4k,
+		snprintf(src,
+			BUF_SIZE_4k,
 			"%s\n"
 			"int main(void) {\n"
 			"#if !%d && !defined(%s) && !%d\n"
@@ -994,13 +948,18 @@ func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, o
 			"return 0;\n"
 			"}\n",
 			prefix,
-			!prefix_contains_include, func, is_builtin,
-			__builtin_, func,
-			__builtin_, func,
-			__builtin_, func,
+			!prefix_contains_include,
 			func,
-			__builtin_, func
-			);
+			is_builtin,
+			__builtin_,
+			func,
+			__builtin_,
+			func,
+			__builtin_,
+			func,
+			func,
+			__builtin_,
+			func);
 
 		if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 			return false;
@@ -1010,22 +969,23 @@ func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, o
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
 
-	compiler_check_log(wk, &opts,
-		"has function %s: %s",
-		get_cstr(wk, an[0].val),
-		bool_to_yn(ok)
-		);
+	compiler_check_log(wk, &opts, "has function %s: %s", get_cstr(wk, an[0].val), bool_to_yn(ok));
 
 	return true;
 }
 
 static bool
-compiler_has_header_symbol_c(struct workspace *wk, uint32_t node,
-	struct compiler_check_opts *opts, const char *prefix,
-	obj header, obj symbol, bool *res)
+compiler_has_header_symbol_c(struct workspace *wk,
+	uint32_t node,
+	struct compiler_check_opts *opts,
+	const char *prefix,
+	obj header,
+	obj symbol,
+	bool *res)
 {
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"%s\n"
 		"#include <%s>\n"
 		"int main(void) {\n"
@@ -1038,8 +998,7 @@ compiler_has_header_symbol_c(struct workspace *wk, uint32_t node,
 		prefix,
 		get_cstr(wk, header),
 		get_cstr(wk, symbol),
-		get_cstr(wk, symbol)
-		);
+		get_cstr(wk, symbol));
 
 	if (!compiler_check(wk, opts, src, node, res)) {
 		return false;
@@ -1049,12 +1008,17 @@ compiler_has_header_symbol_c(struct workspace *wk, uint32_t node,
 }
 
 static bool
-compiler_has_header_symbol_cpp(struct workspace *wk, uint32_t node,
-	struct compiler_check_opts *opts, const char *prefix,
-	obj header, obj symbol, bool *res)
+compiler_has_header_symbol_cpp(struct workspace *wk,
+	uint32_t node,
+	struct compiler_check_opts *opts,
+	const char *prefix,
+	obj header,
+	obj symbol,
+	bool *res)
 {
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"%s\n"
 		"#include <%s>\n"
 		"using %s;\n"
@@ -1063,8 +1027,7 @@ compiler_has_header_symbol_cpp(struct workspace *wk, uint32_t node,
 		"}\n",
 		prefix,
 		get_cstr(wk, header),
-		get_cstr(wk, symbol)
-		);
+		get_cstr(wk, symbol));
 
 	if (!compiler_check(wk, opts, src, node, res)) {
 		return false;
@@ -1074,7 +1037,7 @@ compiler_has_header_symbol_cpp(struct workspace *wk, uint32_t node,
 }
 
 static bool
-func_compiler_has_header_symbol(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_header_symbol(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1082,53 +1045,59 @@ func_compiler_has_header_symbol(struct workspace *wk, obj self, uint32_t args_no
 		.mode = compile_mode_compile,
 	};
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required | cm_kw_include_directories)) {
 		return false;
 	}
 
 	bool ok;
 	switch (get_obj_compiler(wk, self)->lang) {
 	case compiler_language_c:
-		if (!compiler_has_header_symbol_c(wk, an[0].node, &opts,
-			compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+		if (!compiler_has_header_symbol_c(
+			    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
 			return false;
 		}
 		break;
 	case compiler_language_cpp:
-		if (!compiler_has_header_symbol_c(wk, an[0].node, &opts,
-			compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+		if (!compiler_has_header_symbol_c(
+			    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
 			return false;
 		}
 
 		if (!ok) {
-			if (!compiler_has_header_symbol_cpp(wk, an[0].node, &opts,
-				compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+			if (!compiler_has_header_symbol_cpp(
+				    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
 				return false;
 			}
 		}
 		break;
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
 
-	compiler_check_log(wk, &opts,
+	compiler_check_log(wk,
+		&opts,
 		"header %s has symbol %s: %s",
 		get_cstr(wk, an[0].val),
 		get_cstr(wk, an[1].val),
-		bool_to_yn(ok)
-		);
+		bool_to_yn(ok));
 
 	return true;
 }
 
 static bool
-compiler_get_define(struct workspace *wk, uint32_t err_node,
-	struct compiler_check_opts *opts, const char *prefix, const char *def, obj *res)
+compiler_get_define(struct workspace *wk,
+	uint32_t err_node,
+	struct compiler_check_opts *opts,
+	const char *prefix,
+	const char *def,
+	obj *res)
 {
 	SBUF(output_path);
 	path_join(wk, &output_path, wk->muon_private, "get_define_output");
@@ -1139,7 +1108,8 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 	char src[BUF_SIZE_4k];
 	const char *delim = "MUON_GET_DEFINE_DELIMITER\n";
 	const uint32_t delim_len = strlen(delim);
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"%s\n"
 		"#ifndef %s\n"
 		"#define %s\n"
@@ -1149,8 +1119,7 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 		def,
 		def,
 		delim,
-		def
-		);
+		def);
 
 	struct source output = { 0 };
 	bool ok;
@@ -1214,9 +1183,7 @@ compiler_get_define(struct workspace *wk, uint32_t err_node,
 				}
 			}
 			break;
-		case '\\':
-			esc = true;
-			break;
+		case '\\': esc = true; break;
 		}
 
 		if (output.src[i] == '\n') {
@@ -1241,16 +1208,19 @@ failed:
 }
 
 static bool
-func_compiler_get_define(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_get_define(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 
 	struct compiler_check_opts opts = { 0 };
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
 		return false;
 	}
 
@@ -1261,7 +1231,7 @@ func_compiler_get_define(struct workspace *wk, obj self, uint32_t args_node, obj
 }
 
 static bool
-func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, obj *res)
 {
 	struct compiler_check_opts opts = { .comp_id = self };
 
@@ -1270,7 +1240,7 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, uin
 	}
 
 	obj pre;
-	if (!compiler_get_define(wk, args_node, &opts, "", "__USER_LABEL_PREFIX__", &pre)) {
+	if (!compiler_get_define(wk, 0, &opts, "", "__USER_LABEL_PREFIX__", &pre)) {
 		return false;
 	}
 
@@ -1280,16 +1250,19 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, uin
 }
 
 static bool
-func_compiler_check_common(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
+func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
 		.mode = mode,
 	};
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_name
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_name | cm_kw_include_directories)) {
 		return false;
 	}
 
@@ -1298,17 +1271,13 @@ func_compiler_check_common(struct workspace *wk, obj self, uint32_t args_node, o
 	const char *src;
 
 	switch (t) {
-	case obj_string:
-		src = get_cstr(wk, an[0].val);
-		break;
+	case obj_string: src = get_cstr(wk, an[0].val); break;
 	case obj_file: {
-		src  = get_file_path(wk, an[0].val);
+		src = get_file_path(wk, an[0].val);
 		opts.src_is_path = true;
 		break;
 	}
-	default:
-		vm_error_at(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
-		return false;
+	default: vm_error_at(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t)); return false;
 	}
 
 	bool ok;
@@ -1322,54 +1291,46 @@ func_compiler_check_common(struct workspace *wk, obj self, uint32_t args_node, o
 	if (akw[cc_kw_name].set) {
 		const char *mode_s = NULL;
 		switch (mode) {
-		case compile_mode_run:
-			mode_s = "runs";
-			break;
-		case compile_mode_link:
-			mode_s = "links";
-			break;
-		case compile_mode_compile:
-			mode_s = "compiles";
-			break;
-		case compile_mode_preprocess:
-			mode_s = "preprocesses";
-			break;
+		case compile_mode_run: mode_s = "runs"; break;
+		case compile_mode_link: mode_s = "links"; break;
+		case compile_mode_compile: mode_s = "compiles"; break;
+		case compile_mode_preprocess: mode_s = "preprocesses"; break;
 		}
 
-		compiler_check_log(wk, &opts,
-			"%s %s: %s",
-			get_cstr(wk, akw[cc_kw_name].val),
-			mode_s,
-			bool_to_yn(ok)
-			);
+		compiler_check_log(wk, &opts, "%s %s: %s", get_cstr(wk, akw[cc_kw_name].val), mode_s, bool_to_yn(ok));
 	}
 
 	return true;
 }
 
 static bool
-func_compiler_compiles(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_compiles(struct workspace *wk, obj self, obj *res)
 {
-	return func_compiler_check_common(wk, self, args_node, res, compile_mode_compile);
+	return func_compiler_check_common(wk, self, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_links(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_links(struct workspace *wk, obj self, obj *res)
 {
-	return func_compiler_check_common(wk, self, args_node, res, compile_mode_link);
+	return func_compiler_check_common(wk, self, res, compile_mode_link);
 }
 
 static bool
-compiler_check_header(struct workspace *wk, uint32_t err_node, struct compiler_check_opts *opts, const char *prefix, const char *hdr, obj *res)
+compiler_check_header(struct workspace *wk,
+	uint32_t err_node,
+	struct compiler_check_opts *opts,
+	const char *prefix,
+	const char *hdr,
+	obj *res)
 {
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"%s\n"
 		"#include <%s>\n"
 		"int main(void) {}\n",
 		prefix,
-		hdr
-		);
+		hdr);
 
 	bool ok;
 	if (!compiler_check(wk, opts, src, err_node, &ok)) {
@@ -1378,31 +1339,21 @@ compiler_check_header(struct workspace *wk, uint32_t err_node, struct compiler_c
 
 	const char *mode_s = NULL;
 	switch (opts->mode) {
-	case compile_mode_compile:
-		mode_s = "is usable";
-		break;
-	case compile_mode_preprocess:
-		mode_s = "found";
-		break;
-	default:
-		abort();
+	case compile_mode_compile: mode_s = "is usable"; break;
+	case compile_mode_preprocess: mode_s = "found"; break;
+	default: abort();
 	}
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
 
-	compiler_check_log(wk, opts,
-		"header %s %s: %s",
-		hdr,
-		mode_s,
-		bool_to_yn(ok)
-		);
+	compiler_check_log(wk, opts, "header %s %s: %s", hdr, mode_s, bool_to_yn(ok));
 
 	return true;
 }
 
 static bool
-compiler_check_header_common(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1410,30 +1361,33 @@ compiler_check_header_common(struct workspace *wk, obj self, uint32_t args_node,
 		.mode = mode,
 	};
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required | cm_kw_include_directories)) {
 		return false;
 	}
 
-	return compiler_check_header(wk, an[0].node, &opts,
-		compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res);
+	return compiler_check_header(
+		wk, an[0].node, &opts, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res);
 }
 
 static bool
-func_compiler_has_header(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_header(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_check_header_common(wk, self, args_node, res, compile_mode_preprocess);
+	return compiler_check_header_common(wk, self, res, compile_mode_preprocess);
 }
 
 static bool
-func_compiler_check_header(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_check_header(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_check_header_common(wk, self, args_node, res, compile_mode_compile);
+	return compiler_check_header_common(wk, self, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_has_type(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_type(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1441,19 +1395,22 @@ func_compiler_has_type(struct workspace *wk, obj self, uint32_t args_node, obj *
 		.mode = compile_mode_compile,
 	};
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
 		return false;
 	}
 
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"%s\n"
 		"void bar(void) { sizeof(%s); }\n",
 		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val)
-		);
+		get_cstr(wk, an[0].val));
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
@@ -1463,23 +1420,25 @@ func_compiler_has_type(struct workspace *wk, obj self, uint32_t args_node, obj *
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ok);
 
-	compiler_check_log(wk, &opts,
-		"has type %s: %s",
-		get_cstr(wk, an[0].val),
-		bool_to_yn(ok)
-		);
+	compiler_check_log(wk, &opts, "has type %s: %s", get_cstr(wk, an[0].val), bool_to_yn(ok));
 
 	return true;
 }
 
 static bool
-compiler_has_member(struct workspace *wk, struct compiler_check_opts *opts,
-	uint32_t err_node, const char *prefix, obj target, obj member, bool *res)
+compiler_has_member(struct workspace *wk,
+	struct compiler_check_opts *opts,
+	uint32_t err_node,
+	const char *prefix,
+	obj target,
+	obj member,
+	bool *res)
 {
 	opts->mode = compile_mode_compile;
 
 	char src[BUF_SIZE_4k];
-	snprintf(src, BUF_SIZE_4k,
+	snprintf(src,
+		BUF_SIZE_4k,
 		"%s\n"
 		"void bar(void) {\n"
 		"%s foo;\n"
@@ -1487,39 +1446,36 @@ compiler_has_member(struct workspace *wk, struct compiler_check_opts *opts,
 		"}\n",
 		prefix,
 		get_cstr(wk, target),
-		get_cstr(wk, member)
-		);
+		get_cstr(wk, member));
 
 	if (!compiler_check(wk, opts, src, err_node, res)) {
 		return false;
 	}
 
-	compiler_check_log(wk, opts,
-		"struct %s has member %s: %s",
-		get_cstr(wk, target),
-		get_cstr(wk, member),
-		bool_to_yn(*res)
-		);
+	compiler_check_log(
+		wk, opts, "struct %s has member %s: %s", get_cstr(wk, target), get_cstr(wk, member), bool_to_yn(*res));
 
 	return true;
 }
 
 static bool
-func_compiler_has_member(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_member(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = { 0 };
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
 		return false;
 	}
 
 	bool ok;
-	if (!compiler_has_member(wk, &opts, an[0].node,
-		compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+	if (!compiler_has_member(wk, &opts, an[0].node, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
 		return false;
 	}
 
@@ -1546,8 +1502,7 @@ compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	bool ok;
-	if (!compiler_has_member(wk, ctx->opts, ctx->node,
-		ctx->prefix, ctx->target, val, &ok)) {
+	if (!compiler_has_member(wk, ctx->opts, ctx->node, ctx->prefix, ctx->target, val, &ok)) {
 		return ir_err;
 	}
 
@@ -1560,15 +1515,18 @@ compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_compiler_has_members(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_members(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = { 0 };
 
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
-		| cm_kw_include_directories)) {
+	if (!func_compiler_check_args_common(wk,
+		    self,
+		    an,
+		    &akw,
+		    &opts,
+		    cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
 		return false;
 	}
 
@@ -1592,11 +1550,10 @@ func_compiler_has_members(struct workspace *wk, obj self, uint32_t args_node, ob
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ctx.ok);
 	return true;
-
 }
 
 static bool
-func_compiler_run(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_run(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1604,8 +1561,7 @@ func_compiler_run(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 		.mode = compile_mode_run,
 		.skip_run_check = true,
 	};
-	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
-		cm_kw_args | cm_kw_dependencies | cm_kw_name)) {
+	if (!func_compiler_check_args_common(wk, self, an, &akw, &opts, cm_kw_args | cm_kw_dependencies | cm_kw_name)) {
 		return false;
 	}
 
@@ -1619,17 +1575,13 @@ func_compiler_run(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 	const char *src;
 
 	switch (t) {
-	case obj_string:
-		src = get_cstr(wk, an[0].val);
-		break;
+	case obj_string: src = get_cstr(wk, an[0].val); break;
 	case obj_file: {
-		src  = get_file_path(wk, an[0].val);
+		src = get_file_path(wk, an[0].val);
 		opts.src_is_path = true;
 		break;
 	}
-	default:
-		vm_error_at(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t));
-		return false;
+	default: vm_error_at(wk, an[0].node, "expected file or string, got %s", obj_type_to_s(t)); return false;
 	}
 
 	bool ok;
@@ -1638,11 +1590,7 @@ func_compiler_run(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 	}
 
 	if (akw[cc_kw_name].set) {
-		compiler_check_log(wk, &opts,
-			"runs %s: %s",
-			get_cstr(wk, akw[cc_kw_name].val),
-			bool_to_yn(ok)
-			);
+		compiler_check_log(wk, &opts, "runs %s: %s", get_cstr(wk, akw[cc_kw_name].val), bool_to_yn(ok));
 	}
 
 	if (opts.from_cache) {
@@ -1667,7 +1615,12 @@ func_compiler_run(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 }
 
 static bool
-compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_argument, enum compile_mode mode)
+compiler_has_argument(struct workspace *wk,
+	obj comp_id,
+	uint32_t err_node,
+	obj arg,
+	bool *has_argument,
+	enum compile_mode mode)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	enum compiler_type t = comp->type;
@@ -1697,11 +1650,7 @@ compiler_has_argument(struct workspace *wk, obj comp_id, uint32_t err_node, obj 
 		return false;
 	}
 
-	compiler_check_log(wk, &opts,
-		"supports argument '%s': %s",
-		get_cstr(wk, arg),
-		bool_to_yn(*has_argument)
-		);
+	compiler_check_log(wk, &opts, "supports argument '%s': %s", get_cstr(wk, arg), bool_to_yn(*has_argument));
 
 	return true;
 }
@@ -1730,7 +1679,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, obj
 }
 
 static bool
-compiler_has_argument_common(struct workspace *wk, obj self, uint32_t args_node, type_tag glob, obj *res, enum compile_mode mode)
+compiler_has_argument_common(struct workspace *wk, obj self, type_tag glob, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { glob | obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -1748,31 +1697,31 @@ compiler_has_argument_common(struct workspace *wk, obj self, uint32_t args_node,
 }
 
 static bool
-func_compiler_has_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, args_node, 0, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, self, 0, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_has_link_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_link_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, args_node, 0, res, compile_mode_link);
+	return compiler_has_argument_common(wk, self, 0, res, compile_mode_link);
 }
 
 static bool
-func_compiler_has_multi_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_multi_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, args_node, TYPE_TAG_GLOB, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_has_multi_link_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_has_multi_link_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_has_argument_common(wk, self, args_node, TYPE_TAG_GLOB, res, compile_mode_link);
+	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compile_mode_link);
 }
 
 static bool
-compiler_get_supported_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1782,25 +1731,27 @@ compiler_get_supported_arguments(struct workspace *wk, obj self, uint32_t args_n
 
 	make_obj(wk, res, obj_array);
 
-	return obj_array_foreach_flat(wk, an[0].val,
-		&(struct func_compiler_get_supported_arguments_iter_ctx) {
-		.compiler = self,
-		.arr = *res,
-		.node = an[0].node,
-		.mode = mode,
-	}, func_compiler_get_supported_arguments_iter);
+	return obj_array_foreach_flat(wk,
+		an[0].val,
+		&(struct func_compiler_get_supported_arguments_iter_ctx){
+			.compiler = self,
+			.arr = *res,
+			.node = an[0].node,
+			.mode = mode,
+		},
+		func_compiler_get_supported_arguments_iter);
 }
 
 static bool
-func_compiler_get_supported_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_get_supported_arguments(wk, self, args_node, res, compile_mode_compile);
+	return compiler_get_supported_arguments(wk, self, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_get_supported_link_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_get_supported_link_arguments(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_get_supported_arguments(wk, self, args_node, res, compile_mode_link);
+	return compiler_get_supported_arguments(wk, self, res, compile_mode_link);
 }
 
 static enum iteration_result
@@ -1823,7 +1774,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 }
 
 static bool
-compiler_first_supported_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_first_supported_argument(struct workspace *wk, obj self, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1833,29 +1784,31 @@ compiler_first_supported_argument(struct workspace *wk, obj self, uint32_t args_
 
 	make_obj(wk, res, obj_array);
 
-	return obj_array_foreach_flat(wk, an[0].val,
-		&(struct func_compiler_get_supported_arguments_iter_ctx) {
-		.compiler = self,
-		.arr = *res,
-		.node = an[0].node,
-		.mode = mode,
-	}, func_compiler_first_supported_argument_iter);
+	return obj_array_foreach_flat(wk,
+		an[0].val,
+		&(struct func_compiler_get_supported_arguments_iter_ctx){
+			.compiler = self,
+			.arr = *res,
+			.node = an[0].node,
+			.mode = mode,
+		},
+		func_compiler_first_supported_argument_iter);
 }
 
 static bool
-func_compiler_first_supported_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_first_supported_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_first_supported_argument(wk, self, args_node, res, compile_mode_compile);
+	return compiler_first_supported_argument(wk, self, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_first_supported_link_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_first_supported_link_argument(struct workspace *wk, obj self, obj *res)
 {
-	return compiler_first_supported_argument(wk, self, args_node, res, compile_mode_link);
+	return compiler_first_supported_argument(wk, self, res, compile_mode_link);
 }
 
 static bool
-func_compiler_get_id(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_get_id(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -1866,7 +1819,7 @@ func_compiler_get_id(struct workspace *wk, obj self, uint32_t args_node, obj *re
 }
 
 static bool
-func_compiler_get_linker_id(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_get_linker_id(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -1877,7 +1830,7 @@ func_compiler_get_linker_id(struct workspace *wk, obj self, uint32_t args_node, 
 }
 
 static bool
-func_compiler_get_argument_syntax(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_get_argument_syntax(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -1890,12 +1843,8 @@ func_compiler_get_argument_syntax(struct workspace *wk, obj self, uint32_t args_
 	case compiler_posix:
 	case compiler_gcc:
 	case compiler_clang:
-	case compiler_apple_clang:
-		syntax = "gcc";
-		break;
-	default:
-		syntax = "other";
-		break;
+	case compiler_apple_clang: syntax = "gcc"; break;
+	default: syntax = "other"; break;
 	}
 
 	*res = make_str(wk, syntax);
@@ -1962,7 +1911,7 @@ compiler_find_library_check_headers_iter(struct workspace *wk, void *_ctx, obj h
 }
 
 static bool
-func_compiler_find_library(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -2004,7 +1953,8 @@ func_compiler_find_library(struct workspace *wk, obj self, uint32_t args_node, o
 		uint32_t i;
 		for (i = kw_header_required; i <= kw_header_prefix; ++i) {
 			if (akw[i].set) {
-				vm_error_at(wk, akw[i].node,
+				vm_error_at(wk,
+					akw[i].node,
 					"header_ keywords are invalid without "
 					"also specifying the has_headers keyword");
 				return false;
@@ -2070,7 +2020,8 @@ func_compiler_find_library(struct workspace *wk, obj self, uint32_t args_node, o
 			.opts = &header_check_opts,
 			.prefix = compiler_check_prefix(wk, header_kwargs),
 		};
-		obj_array_foreach(wk, akw[kw_has_headers].val, &check_headers_ctx, compiler_find_library_check_headers_iter);
+		obj_array_foreach(
+			wk, akw[kw_has_headers].val, &check_headers_ctx, compiler_find_library_check_headers_iter);
 
 		if (!check_headers_ctx.ok) {
 			ctx.found = false;
@@ -2126,12 +2077,12 @@ compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
 	obj_array_push(wk, cmd, make_str(wk, "@INPUT@"));
 
 	struct make_custom_target_opts opts = {
-		.input_node   = ctx->input_node,
-		.output_node  = ctx->output_node,
+		.input_node = ctx->input_node,
+		.output_node = ctx->output_node,
 		.command_node = 0,
-		.input_orig   = val,
-		.output_orig  = ctx->output,
-		.output_dir   = ctx->output_dir,
+		.input_orig = val,
+		.output_orig = ctx->output,
+		.output_dir = ctx->output_dir,
 		.command_orig = cmd,
 		.extra_args_valid = true,
 	};
@@ -2156,22 +2107,21 @@ compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_compiler_preprocess(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
+	struct args_norm an[]
+		= { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_compile_args,
 		kw_include_directories,
 		kw_output,
 		kw_dependencies,
 	};
-	struct args_kw akw[] = {
-		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | tc_string },
+	struct args_kw akw[] = { [kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | tc_string },
 		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
 		[kw_output] = { "output", tc_string, .required = true },
 		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
-		0
-	};
+		0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -2218,15 +2168,13 @@ func_compiler_preprocess(struct workspace *wk, obj self, uint32_t args_node, obj
 		return false;
 	}
 
-	struct compiler_preprocess_create_tgt_ctx ctx = {
-		.output = akw[kw_output].val,
+	struct compiler_preprocess_create_tgt_ctx ctx = { .output = akw[kw_output].val,
 		.cmd = cmd,
 		.res = *res,
 		.input_node = an[0].node,
 		.output_node = akw[kw_output].node,
 		.output_dir = output_dir.buf,
-		.t = comp->type
-	};
+		.t = comp->type };
 
 	obj_array_foreach(wk, an[0].val, &ctx, compiler_preprocess_create_tgt_iter);
 
@@ -2234,7 +2182,7 @@ func_compiler_preprocess(struct workspace *wk, obj self, uint32_t args_node, obj
 }
 
 static bool
-func_compiler_cmd_array(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_cmd_array(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2245,7 +2193,7 @@ func_compiler_cmd_array(struct workspace *wk, obj self, uint32_t args_node, obj 
 }
 
 static bool
-func_compiler_version(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_compiler_version(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

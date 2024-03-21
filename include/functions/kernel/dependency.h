@@ -14,6 +14,6 @@ void dep_process_includes(struct workspace *wk, obj arr, enum include_type inclu
 
 void build_dep_init(struct workspace *wk, struct build_dep *dep);
 
-bool func_dependency(struct workspace *wk, obj self, uint32_t args_node, obj *res);
-bool func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *res);
+bool func_dependency(struct workspace *wk, obj self, obj *res);
+bool func_declare_dependency(struct workspace *wk, obj _, obj *res);
 #endif

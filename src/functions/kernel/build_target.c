@@ -213,8 +213,7 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	enum compiler_language lang;
-	if (!filename_to_compiler_language(get_file_path(wk, val), &lang)
-	    || languages[lang].is_header) {
+	if (!filename_to_compiler_language(get_file_path(wk, val), &lang) || languages[lang].is_header) {
 		// process every file that is either a header, or isn't
 		// recognized, as a header
 		if (!process_source_include(wk, ctx, val)) {
@@ -265,13 +264,34 @@ static bool
 type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 {
 	const char *tgt_type = get_cstr(wk, t);
-	struct { char *name; enum tgt_type type; } tgt_tbl[] = {
-		{ "executable", tgt_executable, },
-		{ "shared_library", tgt_dynamic_library, },
-		{ "shared_module", tgt_shared_module, },
-		{ "static_library", tgt_static_library, },
-		{ "both_libraries", tgt_dynamic_library | tgt_static_library, },
-		{ "library", get_option_default_library(wk), },
+	struct {
+		char *name;
+		enum tgt_type type;
+	} tgt_tbl[] = {
+		{
+			"executable",
+			tgt_executable,
+		},
+		{
+			"shared_library",
+			tgt_dynamic_library,
+		},
+		{
+			"shared_module",
+			tgt_shared_module,
+		},
+		{
+			"static_library",
+			tgt_static_library,
+		},
+		{
+			"both_libraries",
+			tgt_dynamic_library | tgt_static_library,
+		},
+		{
+			"library",
+			get_option_default_library(wk),
+		},
 		{ 0 },
 	};
 	uint32_t i;
@@ -334,8 +354,11 @@ setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *pl
 }
 
 static bool
-setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
-	const char *plain_name, obj *plain_name_install, obj *soname_install)
+setup_shared_object_symlinks(struct workspace *wk,
+	struct obj_build_target *tgt,
+	const char *plain_name,
+	obj *plain_name_install,
+	obj *soname_install)
 {
 	SBUF(soname_symlink);
 	SBUF(plain_name_symlink);
@@ -368,8 +391,13 @@ setup_shared_object_symlinks(struct workspace *wk, struct obj_build_target *tgt,
 }
 
 static bool
-determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, obj sover, obj ver,
-	obj name_pre, obj name_suff, char plain_name[BUF_SIZE_2k])
+determine_target_build_name(struct workspace *wk,
+	struct obj_build_target *tgt,
+	obj sover,
+	obj ver,
+	obj name_pre,
+	obj name_suff,
+	char plain_name[BUF_SIZE_2k])
 {
 	char ver_dll[BUF_SIZE_1k];
 	const char *pref, *suff, *ver_suff = NULL;
@@ -425,9 +453,7 @@ determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, 
 			}
 		}
 		break;
-	default:
-		assert(false && "unreachable");
-		return false;
+	default: assert(false && "unreachable"); return false;
 	}
 
 	if (name_pre) {
@@ -440,9 +466,21 @@ determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, 
 
 	if (sys == machine_system_windows || sys == machine_system_cygwin) {
 		snprintf(plain_name, BUF_SIZE_2k, "%s%s", pref, get_cstr(wk, tgt->name));
-		tgt->build_name = make_strf(wk, "%s%s%s%s%s", plain_name, *ver_dll ? "-" : "", *ver_dll ? ver_dll : "", suff ? "." : "", suff ? suff : "");
+		tgt->build_name = make_strf(wk,
+			"%s%s%s%s%s",
+			plain_name,
+			*ver_dll ? "-" : "",
+			*ver_dll ? ver_dll : "",
+			suff ? "." : "",
+			suff ? suff : "");
 	} else {
-		snprintf(plain_name, BUF_SIZE_2k, "%s%s%s%s", pref, get_cstr(wk, tgt->name), suff ? "." : "", suff ? suff : "");
+		snprintf(plain_name,
+			BUF_SIZE_2k,
+			"%s%s%s%s",
+			pref,
+			get_cstr(wk, tgt->name),
+			suff ? "." : "",
+			suff ? suff : "");
 		tgt->build_name = make_strf(wk, "%s%s%s", plain_name, ver_suff ? "." : "", ver_suff ? ver_suff : "");
 	}
 
@@ -450,8 +488,12 @@ determine_target_build_name(struct workspace *wk, struct obj_build_target *tgt, 
 }
 
 static bool
-create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
-	enum tgt_type type, bool ignore_sources, obj *res)
+create_target(struct workspace *wk,
+	struct args_norm *an,
+	struct args_kw *akw,
+	enum tgt_type type,
+	bool ignore_sources,
+	obj *res)
 {
 	char plain_name[BUF_SIZE_2k + 1] = { 0 };
 	make_obj(wk, res, obj_build_target);
@@ -467,15 +509,15 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 
 	{ // linker args (process before dependencies so link_with libs come first on link line
 		if (akw[bt_kw_link_with].set) {
-			if (!dep_process_link_with(wk, akw[bt_kw_link_with].node,
-				akw[bt_kw_link_with].val, &tgt->dep_internal)) {
+			if (!dep_process_link_with(
+				    wk, akw[bt_kw_link_with].node, akw[bt_kw_link_with].val, &tgt->dep_internal)) {
 				return false;
 			}
 		}
 
 		if (akw[bt_kw_link_whole].set) {
-			if (!dep_process_link_whole(wk, akw[bt_kw_link_whole].node,
-				akw[bt_kw_link_whole].val, &tgt->dep_internal)) {
+			if (!dep_process_link_whole(
+				    wk, akw[bt_kw_link_whole].node, akw[bt_kw_link_whole].val, &tgt->dep_internal)) {
 				return false;
 			}
 		}
@@ -487,9 +529,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 
 	if (akw[bt_kw_override_options].set) { // override options
 		if (!parse_and_set_override_options(wk,
-			akw[bt_kw_override_options].node,
-			akw[bt_kw_override_options].val,
-			&tgt->override_options)) {
+			    akw[bt_kw_override_options].node,
+			    akw[bt_kw_override_options].val,
+			    &tgt->override_options)) {
 			return false;
 		}
 	}
@@ -501,7 +543,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 				pic = get_obj_bool(wk, akw[bt_kw_pic].val);
 
 				if (!pic && tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
-					vm_error_at(wk, akw[bt_kw_pic].node, "shared libraries must be compiled as pic");
+					vm_error_at(
+						wk, akw[bt_kw_pic].node, "shared libraries must be compiled as pic");
 					return false;
 				}
 			} else {
@@ -575,8 +618,13 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		}
 	}
 
-	if (!determine_target_build_name(wk, tgt, sover, akw[bt_kw_version].val,
-		akw[bt_kw_name_prefix].val, akw[bt_kw_name_suffix].val, plain_name)) {
+	if (!determine_target_build_name(wk,
+		    tgt,
+		    sover,
+		    akw[bt_kw_version].val,
+		    akw[bt_kw_name_prefix].val,
+		    akw[bt_kw_name_suffix].val,
+		    plain_name)) {
 		return false;
 	}
 
@@ -591,10 +639,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		tgt->private_path = sbuf_into_str(wk, &path);
 	}
 
-	bool implicit_include_directories =
-		akw[bt_kw_implicit_include_directories].set
-				? get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val)
-				: true;
+	bool implicit_include_directories = akw[bt_kw_implicit_include_directories].set ?
+						    get_obj_bool(wk, akw[bt_kw_implicit_include_directories].val) :
+						    true;
 
 	{ // sources
 		if (akw[bt_kw_objects].set) {
@@ -637,11 +684,9 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			tgt->src = deduped;
 		}
 
-		if (!get_obj_array(wk, tgt->src)->len &&
-		    !get_obj_array(wk, tgt->objects)->len &&
-		    !akw[bt_kw_link_whole].set
-		    && tgt->type != tgt_static_library) {
-			uint32_t node = akw[bt_kw_sources].set? akw[bt_kw_sources].node : an[1].node;
+		if (!get_obj_array(wk, tgt->src)->len && !get_obj_array(wk, tgt->objects)->len
+			&& !akw[bt_kw_link_whole].set && tgt->type != tgt_static_library) {
+			uint32_t node = akw[bt_kw_sources].set ? akw[bt_kw_sources].node : an[1].node;
 
 			vm_error_at(wk, node, "target declared with no linkable sources");
 			return false;
@@ -711,8 +756,8 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			setup_soname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
 
 			if (type == tgt_dynamic_library) {
-				if (!setup_shared_object_symlinks(wk, tgt, plain_name,
-					&plain_name_install, &soname_install)) {
+				if (!setup_shared_object_symlinks(
+					    wk, tgt, plain_name, &plain_name_install, &soname_install)) {
 					return false;
 				}
 			}
@@ -737,9 +782,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 			install_dir = akw[bt_kw_install_dir].val;
 		} else {
 			switch (type) {
-			case tgt_executable:
-				get_option_value(wk, current_project(wk), "bindir", &install_dir);
-				break;
+			case tgt_executable: get_option_value(wk, current_project(wk), "bindir", &install_dir); break;
 			case tgt_static_library:
 				get_option_value(wk, current_project(wk), "libdir", &install_dir);
 				break;
@@ -754,9 +797,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 				}
 				break;
 			}
-			default:
-				assert(false && "unreachable");
-				break;
+			default: assert(false && "unreachable"); break;
 			}
 		}
 
@@ -767,21 +808,22 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		path_join(wk, &install_dest, get_cstr(wk, install_dir), get_cstr(wk, tgt->build_name));
 
 		struct obj_install_target *install_tgt;
-		if (!(install_tgt = push_install_target(wk, sbuf_into_str(wk, &install_src),
-			sbuf_into_str(wk, &install_dest), akw[bt_kw_install_mode].val))) {
+		if (!(install_tgt = push_install_target(wk,
+			      sbuf_into_str(wk, &install_src),
+			      sbuf_into_str(wk, &install_dest),
+			      akw[bt_kw_install_mode].val))) {
 			return false;
 		}
 
 		install_tgt->build_target = true;
 
 		if (soname_install) {
-			push_install_target_install_dir(wk, soname_install,
-				install_dir, akw[bt_kw_install_mode].val);
+			push_install_target_install_dir(wk, soname_install, install_dir, akw[bt_kw_install_mode].val);
 		}
 
 		if (plain_name_install) {
-			push_install_target_install_dir(wk, plain_name_install,
-				install_dir, akw[bt_kw_install_mode].val);
+			push_install_target_install_dir(
+				wk, plain_name_install, install_dir, akw[bt_kw_install_mode].val);
 		}
 	}
 
@@ -799,7 +841,7 @@ create_target(struct workspace *wk, struct args_norm *an, struct args_kw *akw,
 		}
 	}
 
-	tgt->dep = (struct build_dep) {
+	tgt->dep = (struct build_dep){
 		.link_language = tgt->dep_internal.link_language,
 		.include_directories = tgt->dep_internal.include_directories,
 		.order_deps = tgt->dep_internal.order_deps,
@@ -844,9 +886,10 @@ typecheck_string_or_empty_array(struct workspace *wk, struct args_kw *kw)
 }
 
 static bool
-tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type type, enum tgt_type argtype, bool tgt_type_from_kw)
+tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type argtype, bool tgt_type_from_kw)
 {
-	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | tc_coercible_files | tc_generated_list }, ARG_TYPE_NULL };
+	struct args_norm an[]
+		= { { obj_string }, { TYPE_TAG_GLOB | tc_coercible_files | tc_generated_list }, ARG_TYPE_NULL };
 
 	struct args_kw akw[] = {
 		[bt_kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
@@ -900,7 +943,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 
 	if (tgt_type_from_kw) {
 		if (!akw[bt_kw_target_type].set) {
-			vm_error_at(wk, args_node, "missing required kwarg: %s", akw[bt_kw_target_type].key);
+			vm_error(wk, "missing required kwarg: %s", akw[bt_kw_target_type].key);
 			return false;
 		}
 
@@ -922,9 +965,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 
 	uint32_t i;
 	for (i = 0; i < bt_kwargs_count; ++i) {
-		if (keyword_validity[i]
-		    && akw[i].set
-		    && !(keyword_validity[i] & argtype)) {
+		if (keyword_validity[i] && akw[i].set && !(keyword_validity[i] & argtype)) {
 			vm_error_at(wk, akw[i].node, "invalid kwarg");
 			return false;
 		}
@@ -936,8 +977,7 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 		return false;
 	}
 
-	if (type == (tgt_static_library | tgt_dynamic_library)
-	    && !akw[bt_kw_pic].set) {
+	if (type == (tgt_static_library | tgt_dynamic_library) && !akw[bt_kw_pic].set) {
 		make_obj(wk, &akw[bt_kw_pic].val, obj_bool);
 		set_obj_bool(wk, akw[bt_kw_pic].val, true);
 		akw[bt_kw_pic].set = true;
@@ -1003,47 +1043,44 @@ tgt_common(struct workspace *wk, uint32_t args_node, obj *res, enum tgt_type typ
 }
 
 bool
-func_executable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_executable(struct workspace *wk, obj _, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_executable, tgt_executable, false);
+	return tgt_common(wk, res, tgt_executable, tgt_executable, false);
 }
 
 bool
-func_static_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_static_library(struct workspace *wk, obj _, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_static_library, tgt_static_library, false);
+	return tgt_common(wk, res, tgt_static_library, tgt_static_library, false);
 }
 
 bool
-func_shared_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_shared_library(struct workspace *wk, obj _, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_dynamic_library, tgt_dynamic_library, false);
+	return tgt_common(wk, res, tgt_dynamic_library, tgt_dynamic_library, false);
 }
 
 bool
-func_both_libraries(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_both_libraries(struct workspace *wk, obj _, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_static_library | tgt_dynamic_library,
-		tgt_static_library | tgt_dynamic_library, false);
+	return tgt_common(
+		wk, res, tgt_static_library | tgt_dynamic_library, tgt_static_library | tgt_dynamic_library, false);
 }
 
 bool
-func_library(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_library(struct workspace *wk, obj _, obj *res)
 {
-	return tgt_common(wk, args_node, res, get_option_default_library(wk),
-		tgt_static_library | tgt_dynamic_library, false);
+	return tgt_common(wk, res, get_option_default_library(wk), tgt_static_library | tgt_dynamic_library, false);
 }
 
 bool
-func_shared_module(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_shared_module(struct workspace *wk, obj _, obj *res)
 {
-	return tgt_common(wk, args_node, res, tgt_shared_module,
-		tgt_shared_module, false);
+	return tgt_common(wk, res, tgt_shared_module, tgt_shared_module, false);
 }
 
 bool
-func_build_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+func_build_target(struct workspace *wk, obj _, obj *res)
 {
-	return tgt_common(wk, args_node, res, 0,
-		tgt_executable | tgt_static_library | tgt_dynamic_library, true);
+	return tgt_common(wk, res, 0, tgt_executable | tgt_static_library | tgt_dynamic_library, true);
 }

@@ -12,5 +12,5 @@
 
 bool subproject(struct workspace *wk, obj name, enum requirement_type req, struct args_kw *default_options,
 	struct args_kw *versions, obj *res);
-bool func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res);
+bool func_subproject(struct workspace *wk, obj _, obj *res);
 #endif

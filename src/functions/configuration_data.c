@@ -13,7 +13,7 @@
 #include "log.h"
 
 static bool
-func_configuration_data_set_quoted(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_set_quoted(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -48,7 +48,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj self, uint32_t args
 }
 
 static bool
-func_configuration_data_set(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_set(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { tc_string | tc_number | tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -70,7 +70,7 @@ func_configuration_data_set(struct workspace *wk, obj self, uint32_t args_node, 
 }
 
 static bool
-func_configuration_data_set10(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_set10(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -114,7 +114,7 @@ configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf,
 }
 
 static bool
-func_configuration_data_get(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_get(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -127,7 +127,7 @@ func_configuration_data_get(struct workspace *wk, obj self, uint32_t args_node, 
 }
 
 static bool
-func_configuration_data_get_unquoted(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_get_unquoted(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -164,7 +164,7 @@ obj_dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj _v)
 }
 
 static bool
-func_configuration_data_keys(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_keys(struct workspace *wk, obj self, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -178,7 +178,7 @@ func_configuration_data_keys(struct workspace *wk, obj self, uint32_t args_node,
 }
 
 static bool
-func_configuration_data_has(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_has(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -193,7 +193,7 @@ func_configuration_data_has(struct workspace *wk, obj self, uint32_t args_node, 
 }
 
 static bool
-func_configuration_data_merge_from(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+func_configuration_data_merge_from(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_configuration_data }, ARG_TYPE_NULL };
 
