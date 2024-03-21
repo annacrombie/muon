@@ -39,7 +39,7 @@ func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node,
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -53,7 +53,7 @@ func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node,
 static bool
 func_subproject_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

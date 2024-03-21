@@ -247,8 +247,8 @@ typecheck_function_arg(struct workspace *wk, uint32_t ip, obj *val, type_tag typ
 	return typecheck(wk, ip, *val, type);
 }
 
-static bool
-pop_args(struct workspace *wk, struct args_norm an[], struct args_norm ao[], struct args_kw akw[])
+bool
+pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 {
 	const char *kw;
 	struct obj_stack_entry *entry;
@@ -333,16 +333,6 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_norm ao[], str
 	L("discarding %d", argi);
 	object_stack_discard(&wk->vm.stack, argi);
 	return true;
-}
-
-bool
-interp_args(struct workspace *wk,
-	uint32_t args_node,
-	struct args_norm positional_args[],
-	struct args_norm optional_positional_args[],
-	struct args_kw keyword_args[])
-{
-	return pop_args(wk, positional_args, optional_positional_args, keyword_args);
 }
 
 /******************************************************************************
@@ -492,9 +482,8 @@ void
 vm_execute(struct workspace *wk)
 {
 	struct obj_stack_entry *entry;
-	uint32_t a_ip, b_ip;
+	uint32_t b_ip;
 	obj a, b;
-	/* vm_dis(wk); */
 
 	while (!wk->vm.error) {
 		if (log_should_print(log_debug)) {
@@ -869,7 +858,7 @@ op_add_store_type_err:
 			int64_t i;
 			obj res = 0;
 			vm_pop(b);
-			vm_pop(a);
+			a = object_stack_pop(&wk->vm.stack);
 			binop_disabler_check(a, b);
 
 			switch (get_obj_type(wk, a)) {
@@ -945,7 +934,7 @@ op_add_store_type_err:
 
 			capture = get_obj_capture(wk, a);
 
-			if (!pop_args(wk, capture->func->an, 0, capture->func->akw)) {
+			if (!pop_args(wk, capture->func->an, capture->func->akw)) {
 				break;
 			}
 

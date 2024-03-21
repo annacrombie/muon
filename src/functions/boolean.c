@@ -16,7 +16,7 @@ static bool
 func_boolean_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -32,7 +32,7 @@ func_boolean_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 static bool
 func_boolean_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

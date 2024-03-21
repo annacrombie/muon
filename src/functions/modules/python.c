@@ -163,7 +163,7 @@ func_module_python_find_installation(struct workspace *wk,
 		[kw_modules] = { "modules", TYPE_TAG_LISTIFY | obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, NULL, ao, akw)) {
+	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
@@ -235,7 +235,7 @@ static bool
 func_python_installation_language_version(struct workspace *wk, obj rcvr,
 	uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -247,7 +247,7 @@ static bool
 func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -277,7 +277,7 @@ func_python_installation_get_path(struct workspace *wk, obj rcvr,
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -303,7 +303,7 @@ func_python_installation_get_var(struct workspace *wk, obj rcvr,
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -328,7 +328,7 @@ func_python_installation_has_path(struct workspace *wk, obj rcvr,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -345,7 +345,7 @@ func_python_installation_has_var(struct workspace *wk, obj rcvr,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 

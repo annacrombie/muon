@@ -29,7 +29,7 @@ custom_target_is_linkable(struct workspace *wk, obj ct)
 static bool
 func_custom_target_to_list(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -40,7 +40,7 @@ func_custom_target_to_list(struct workspace *wk, obj rcvr, uint32_t args_node, o
 static bool
 func_custom_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

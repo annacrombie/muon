@@ -31,7 +31,7 @@ func_meson_get_compiler(struct workspace *wk, obj _, uint32_t args_node, obj *re
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -48,7 +48,7 @@ func_meson_get_compiler(struct workspace *wk, obj _, uint32_t args_node, obj *re
 static bool
 func_meson_project_name(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -59,7 +59,7 @@ func_meson_project_name(struct workspace *wk, obj _, uint32_t args_node, obj *re
 static bool
 func_meson_project_license(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -73,7 +73,7 @@ func_meson_project_license(struct workspace *wk, obj _, uint32_t args_node, obj 
 static bool
 func_meson_project_license_files(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -87,7 +87,7 @@ func_meson_project_license_files(struct workspace *wk, obj _, uint32_t args_node
 static bool
 func_meson_project_version(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -98,7 +98,7 @@ func_meson_project_version(struct workspace *wk, obj _, uint32_t args_node, obj 
 static bool
 func_meson_version(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -109,7 +109,7 @@ func_meson_version(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_meson_current_source_dir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -120,7 +120,7 @@ func_meson_current_source_dir(struct workspace *wk, obj _, uint32_t args_node, o
 static bool
 func_meson_current_build_dir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -131,7 +131,7 @@ func_meson_current_build_dir(struct workspace *wk, obj _, uint32_t args_node, ob
 static bool
 func_meson_project_source_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -142,7 +142,7 @@ func_meson_project_source_root(struct workspace *wk, obj _, uint32_t args_node, 
 static bool
 func_meson_project_build_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -153,7 +153,7 @@ func_meson_project_build_root(struct workspace *wk, obj _, uint32_t args_node, o
 static bool
 func_meson_global_source_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -164,7 +164,7 @@ func_meson_global_source_root(struct workspace *wk, obj _, uint32_t args_node, o
 static bool
 func_meson_global_build_root(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -175,7 +175,7 @@ func_meson_global_build_root(struct workspace *wk, obj _, uint32_t args_node, ob
 static bool
 func_meson_build_options(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -191,7 +191,7 @@ func_meson_build_options(struct workspace *wk, obj _, uint32_t args_node, obj *r
 static bool
 func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -203,7 +203,7 @@ func_meson_is_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *r
 static bool
 func_meson_backend(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -214,7 +214,7 @@ func_meson_backend(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_meson_is_cross_build(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -226,7 +226,7 @@ func_meson_is_cross_build(struct workspace *wk, obj _, uint32_t args_node, obj *
 static bool
 func_meson_is_unity(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -249,7 +249,7 @@ func_meson_override_dependency(struct workspace *wk, obj _, uint32_t args_node, 
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -283,7 +283,7 @@ func_meson_override_find_program(struct workspace *wk, obj _, uint32_t args_node
 			      | tc_custom_target | tc_python_installation;
 	struct args_norm an[] = { { obj_string }, { tc_allowed }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -416,7 +416,7 @@ func_meson_add_install_script(struct workspace *wk, obj _, uint32_t args_node, o
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -448,7 +448,7 @@ static bool
 func_meson_add_postconf_script(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_exe }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -470,7 +470,7 @@ func_meson_add_dist_script(struct workspace *wk, obj _, uint32_t args_node, obj 
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_exe }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -495,7 +495,7 @@ func_meson_get_cross_property(struct workspace *wk, obj _, uint32_t args_node, o
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -520,7 +520,7 @@ func_meson_get_external_property(struct workspace *wk, obj _, uint32_t args_node
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, ao, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -537,7 +537,7 @@ func_meson_get_external_property(struct workspace *wk, obj _, uint32_t args_node
 static bool
 func_meson_can_run_host_binaries(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -550,7 +550,7 @@ static bool
 func_meson_add_devenv(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -610,7 +610,7 @@ compiler_dict_to_str_dict(struct workspace *wk, obj d)
 static bool
 func_meson_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

@@ -836,7 +836,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	struct analyze_function_opts old_opts = analyze_function_opts;
 	analyze_function_opts = (struct analyze_function_opts) { 0 };
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		analyze_function_opts = old_opts;
 		return false;
 	}

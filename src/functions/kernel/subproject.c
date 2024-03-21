@@ -189,7 +189,7 @@ func_subproject(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 

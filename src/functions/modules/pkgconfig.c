@@ -757,7 +757,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_nod
 		[kw_conflicts] = { "conflicts", TYPE_TAG_LISTIFY | obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, NULL, ao, akw)) {
+	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 

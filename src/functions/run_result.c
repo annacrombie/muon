@@ -27,7 +27,7 @@ ensure_valid_run_result(struct workspace *wk, uint32_t node, obj rcvr)
 static bool
 func_run_result_returncode(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -43,7 +43,7 @@ func_run_result_returncode(struct workspace *wk, obj rcvr, uint32_t args_node, o
 static bool
 func_run_result_stdout(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -58,7 +58,7 @@ func_run_result_stdout(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 static bool
 func_run_result_stderr(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -73,7 +73,7 @@ func_run_result_stderr(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 static bool
 func_run_result_compiled(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

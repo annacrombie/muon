@@ -147,7 +147,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		0,
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -318,7 +318,7 @@ add_arguments_common(struct workspace *wk, uint32_t args_node, obj args_dict, ob
 		0,
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -411,7 +411,7 @@ func_add_project_dependencies(struct workspace *wk, obj _, uint32_t args_node, o
 		0,
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -441,7 +441,7 @@ func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		0,
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -467,7 +467,7 @@ func_files(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -760,7 +760,7 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
 		0 };
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -813,7 +813,7 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 		kw_is_system,
 	};
 	struct args_kw akw[] = { [kw_is_system] = { "is_system", obj_bool }, 0 };
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -844,7 +844,7 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_depends] = { "depends", tc_depends_kw },
 		0 };
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -878,7 +878,7 @@ func_assert(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_norm an[] = { { obj_bool }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -906,7 +906,7 @@ func_debug(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -923,7 +923,7 @@ func_message(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -940,7 +940,7 @@ func_error(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -957,7 +957,7 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -983,7 +983,7 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_capture] = { "capture", obj_bool },
 		0 };
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -1084,7 +1084,7 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_depends] = { "depends", tc_depends_kw },
 		[kw_env] = { "env", tc_coercible_env },
 		0 };
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -1143,7 +1143,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	};
 	type_tag if_found_type = wk->vm.in_analyzer ? tc_any : TYPE_TAG_LISTIFY | tc_dependency;
 	struct args_kw akw[] = { [kw_if_found] = { "if_found", if_found_type }, 0 };
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -1189,7 +1189,7 @@ static bool
 func_configuration_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1228,7 +1228,7 @@ func_add_test_setup(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -1353,7 +1353,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		};
 	}
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -1476,7 +1476,7 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1510,7 +1510,7 @@ static bool
 func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1541,7 +1541,7 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_kw akw[]
 		= { [kw_required] = { "required", tc_required_kw }, [kw_disabler] = { "disabler", obj_bool }, 0 };
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -1592,7 +1592,7 @@ func_is_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 
 	disabler_among_args_immunity = true;
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 	disabler_among_args_immunity = false;
@@ -1605,7 +1605,7 @@ func_is_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_disabler(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1618,7 +1618,7 @@ func_set_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any }, ARG_TYPE_NULL };
 	disabler_among_args_immunity = true;
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 	disabler_among_args_immunity = false;
@@ -1631,7 +1631,7 @@ static bool
 func_unset_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1654,7 +1654,7 @@ func_get_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 	disabler_among_args_immunity = true;
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 	disabler_among_args_immunity = false;
@@ -1683,7 +1683,7 @@ func_is_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	disabler_among_args_immunity = true;
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 	disabler_among_args_immunity = false;
@@ -1698,7 +1698,7 @@ func_is_variable(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_subdir_done(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1721,7 +1721,7 @@ func_summary(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_list_sep] = { "list_sep", obj_string, },
 		0
 	};
-	if (!interp_args(wk, args_node, an, ao, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -1797,7 +1797,7 @@ func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_norm an[] = { { obj_string },
 		{ TYPE_TAG_GLOB | tc_build_target | tc_custom_target | tc_alias_target | tc_both_libs },
 		ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1825,7 +1825,7 @@ func_range_common(struct workspace *wk, uint32_t args_node, struct range_params 
 {
 	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { obj_number }, { obj_number }, { obj_number }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1888,7 +1888,7 @@ static bool
 func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_VOID }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1900,7 +1900,7 @@ func_p(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_dbg(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1914,7 +1914,7 @@ static bool
 func_serial_load(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1946,7 +1946,7 @@ static bool
 func_serial_dump(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_any }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1976,7 +1976,7 @@ static bool
 func_is_void(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_ALLOW_VOID | tc_any }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1993,7 +1993,7 @@ static bool
 func_typeof(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_ALLOW_VOID | tc_any }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 

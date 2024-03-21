@@ -484,7 +484,7 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 		use_akw = NULL;
 	}
 
-	if (!interp_args(wk, args_node, an, NULL, use_akw)) {
+	if (!pop_args(wk, an, use_akw)) {
 		return false;
 	}
 
@@ -847,7 +847,7 @@ static bool
 func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -888,7 +888,7 @@ func_compiler_get_supported_function_attributes(struct workspace *wk, obj rcvr, 
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1265,7 +1265,7 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj rcvr, uin
 {
 	struct compiler_check_opts opts = { .comp_id = rcvr };
 
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1733,7 +1733,7 @@ static bool
 compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node, type_tag glob, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { glob | obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1776,7 +1776,7 @@ compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_n
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1827,7 +1827,7 @@ compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1857,7 +1857,7 @@ func_compiler_first_supported_link_argument(struct workspace *wk, obj rcvr, uint
 static bool
 func_compiler_get_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1868,7 +1868,7 @@ func_compiler_get_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 static bool
 func_compiler_get_linker_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1879,7 +1879,7 @@ func_compiler_get_linker_id(struct workspace *wk, obj rcvr, uint32_t args_node, 
 static bool
 func_compiler_get_argument_syntax(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -1996,7 +1996,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -2173,7 +2173,7 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -2236,7 +2236,7 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 static bool
 func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -2247,7 +2247,7 @@ func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 static bool
 func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

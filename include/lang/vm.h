@@ -139,6 +139,8 @@ void vm_dis(struct workspace *wk);
 void vm_init(struct workspace *wk);
 void vm_destroy(struct workspace *wk);
 
+bool pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
+
 MUON_ATTR_FORMAT(printf, 4, 5)
 void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);

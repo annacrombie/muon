@@ -37,7 +37,7 @@ func_install_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_strip_directory] = { "strip_directory", obj_bool },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -149,7 +149,7 @@ func_install_man(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_locale] = { "locale", obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -198,7 +198,7 @@ func_install_symlink(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_pointing_to] = { "pointing_to", obj_string, .required = true },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -245,7 +245,7 @@ func_install_emptydir(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_install_tag] = { "install_tag", obj_string }, // TODO
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -308,7 +308,7 @@ func_install_data(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -386,7 +386,7 @@ func_install_headers(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 		[kw_preserve_path] = { "preserve_path", obj_bool },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 

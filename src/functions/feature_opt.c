@@ -14,7 +14,7 @@ static bool
 feature_opt_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 	obj *res, enum feature_opt_state state)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -44,7 +44,7 @@ func_feature_opt_enabled(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 static bool
 func_feature_opt_allowed(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -59,7 +59,7 @@ static bool
 func_feature_opt_disable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -82,7 +82,7 @@ static bool
 func_feature_opt_enable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -112,7 +112,7 @@ func_feature_opt_enable_if(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		[kw_error_message] = { "error_message", obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -148,7 +148,7 @@ func_feature_opt_disable_if(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		[kw_error_message] = { "error_message", obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -185,7 +185,7 @@ func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 

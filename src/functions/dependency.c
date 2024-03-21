@@ -22,7 +22,7 @@
 static bool
 func_dependency_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -59,7 +59,7 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, obj rcvr,
 		[kw_default] = { "default", obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -119,7 +119,7 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 		[kw_default_value] = { "default_value", obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, NULL, ao, akw)) {
+	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
@@ -179,7 +179,7 @@ func_dependency_get_variable(struct workspace *wk, obj rcvr,
 static bool
 func_dependency_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -197,7 +197,7 @@ func_dependency_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 static bool
 func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -235,7 +235,7 @@ func_dependency_type_name(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 static bool
 func_dependency_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -268,7 +268,7 @@ func_dependency_partial_dependency(struct workspace *wk, obj rcvr, uint32_t args
 		[kw_sources] = { "sources", obj_bool },
 		0
 	};
-	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
@@ -310,7 +310,7 @@ static bool
 func_dependency_as_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -339,7 +339,7 @@ func_dependency_as_system(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 static bool
 func_dependency_include_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

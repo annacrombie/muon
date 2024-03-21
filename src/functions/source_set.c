@@ -87,7 +87,7 @@ func_source_set_add(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -112,7 +112,7 @@ func_source_set_add_all(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -297,7 +297,7 @@ source_set_collect(struct workspace *wk, uint32_t err_node, obj rcvr,
 static bool
 func_source_set_all_sources(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -307,7 +307,7 @@ func_source_set_all_sources(struct workspace *wk, obj rcvr, uint32_t args_node, 
 static bool
 func_source_set_all_dependencies(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -326,7 +326,7 @@ func_source_set_apply(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 

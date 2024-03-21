@@ -24,7 +24,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -58,7 +58,7 @@ func_configuration_data_set(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		[kw_description] = { "description", obj_string, },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -81,7 +81,7 @@ func_configuration_data_set10(struct workspace *wk, obj rcvr, uint32_t args_node
 		0
 	};
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -119,7 +119,7 @@ func_configuration_data_get(struct workspace *wk, obj rcvr, uint32_t args_node, 
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -132,7 +132,7 @@ func_configuration_data_get_unquoted(struct workspace *wk, obj rcvr, uint32_t ar
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, ao, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -166,7 +166,7 @@ obj_dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj _v)
 static bool
 func_configuration_data_keys(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -182,7 +182,7 @@ func_configuration_data_has(struct workspace *wk, obj rcvr, uint32_t args_node, 
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -197,7 +197,7 @@ func_configuration_data_merge_from(struct workspace *wk, obj rcvr, uint32_t args
 {
 	struct args_norm an[] = { { obj_configuration_data }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 

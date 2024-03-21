@@ -104,7 +104,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		akw[kw_kind] = (struct args_kw) { "kind", tc_string };
 	}
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -238,7 +238,7 @@ func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 

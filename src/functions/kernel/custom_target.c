@@ -640,7 +640,7 @@ func_custom_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		0
 	};
 
-	if (!interp_args(wk, args_node, NULL, ao, akw)) {
+	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
@@ -775,7 +775,7 @@ func_vcs_tag(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		0
 	};
 
-	if (!interp_args(wk, args_node, NULL, NULL, akw)) {
+	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 

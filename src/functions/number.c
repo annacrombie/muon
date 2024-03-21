@@ -15,7 +15,7 @@
 static bool
 func_number_is_odd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -27,7 +27,7 @@ func_number_is_odd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 static bool
 func_number_is_even(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -39,7 +39,7 @@ func_number_is_even(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 static bool
 func_number_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

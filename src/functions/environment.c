@@ -144,7 +144,7 @@ func_environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		[kw_separator] = { "separator", obj_string },
 		0
 	};
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 

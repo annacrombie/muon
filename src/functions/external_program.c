@@ -37,7 +37,7 @@ find_program_guess_version(struct workspace *wk, obj cmd_array, obj *ver)
 static bool
 func_external_program_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -49,7 +49,7 @@ func_external_program_found(struct workspace *wk, obj rcvr, uint32_t args_node, 
 static bool
 func_external_program_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -66,7 +66,7 @@ func_external_program_path(struct workspace *wk, obj rcvr, uint32_t args_node, o
 static bool
 func_external_program_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

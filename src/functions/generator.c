@@ -200,7 +200,7 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 		[kw_preserve_path_from] = { "preserve_path_from", obj_string },
 		0 };
 
-	if (!interp_args(wk, args_node, an, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 

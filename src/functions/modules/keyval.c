@@ -32,7 +32,7 @@ func_module_keyval_load(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 {
 	bool ret = false;
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, an, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 

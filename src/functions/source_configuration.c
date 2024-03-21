@@ -13,7 +13,7 @@
 static bool
 func_source_configuration_sources(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -24,7 +24,7 @@ func_source_configuration_sources(struct workspace *wk, obj rcvr, uint32_t args_
 static bool
 func_source_configuration_dependencies(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 

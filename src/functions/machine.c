@@ -141,7 +141,7 @@ machine_system(void)
 static bool
 func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -152,7 +152,7 @@ func_machine_system(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 static bool
 func_machine_endian(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -285,7 +285,7 @@ done:
 static bool
 func_machine_cpu_family(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
@@ -328,7 +328,7 @@ func_machine_cpu(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
 	const char *machine_cstr, *norm;
 
-	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
