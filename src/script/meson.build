@@ -11,6 +11,7 @@ foreach s : [
     'vcs_tagger.meson',
 
     'modules/_test.meson',
+    'modules/gnome.meson',
 ]
     scripts_input += s
     scripts_cmdline += files(s) + [s]
