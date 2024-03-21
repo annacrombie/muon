@@ -148,6 +148,7 @@ func_module_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	return true;
 }
 
+// clang-format off
 struct func_impl_group module_func_impl_groups[module_count][language_mode_count] = {
 	[module_fs]        = { { impl_tbl_module_fs },        { impl_tbl_module_fs_internal } },
 	[module_keyval]    = { { impl_tbl_module_keyval },    { 0 }                           },
@@ -159,8 +160,9 @@ struct func_impl_group module_func_impl_groups[module_count][language_mode_count
 
 const struct func_impl impl_tbl_module[] = {
 	{ "found", func_module_found, tc_bool, },
-	{ NULL, NULL },
+	{ 0 },
 };
+// clang-format on
 
 bool
 module_func_lookup(struct workspace *wk, const char *name, enum module mod, uint32_t *idx)

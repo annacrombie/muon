@@ -23,14 +23,12 @@
 static bool
 func_strip(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	*res = str_strip(wk,
-		get_str(wk, rcvr),
-		ao[0].set ? get_str(wk, ao[0].val) : NULL);
+	*res = str_strip(wk, get_str(wk, rcvr), an[0].set ? get_str(wk, an[0].val) : NULL);
 	return true;
 }
 
@@ -107,8 +105,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 					vm_error_at(wk, err_node, "key '%.*s' not found", key.len, key.s);
 					return false;
 				}
-				case format_cb_error:
-					return false;
+				case format_cb_error: return false;
 				case format_cb_found: {
 					obj coerced;
 					if (!coerce_string(wk, err_node, elem, &coerced)) {
@@ -224,9 +221,8 @@ func_underscorify(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	uint32_t i;
 	for (i = 0; i < ss->len; ++i) {
-		if (!(('a' <= ss->s[i] && ss->s[i] <= 'z')
-		      || ('A' <= ss->s[i] && ss->s[i] <= 'Z')
-		      || ('0' <= ss->s[i] && ss->s[i] <= '9'))) {
+		if (!(('a' <= ss->s[i] && ss->s[i] <= 'z') || ('A' <= ss->s[i] && ss->s[i] <= 'Z')
+			    || ('0' <= ss->s[i] && ss->s[i] <= '9'))) {
 			((char *)ss->s)[i] = '_';
 		}
 	}
@@ -237,14 +233,13 @@ func_underscorify(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 static bool
 func_split(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 
-	if (!interp_args(wk, args_node, NULL, ao, NULL)) {
+	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
 
-	const struct str *split = ao[0].set ? get_str(wk, ao[0].val) : NULL,
-			 *ss = get_str(wk, rcvr);
+	const struct str *split = an[0].set ? get_str(wk, an[0].val) : NULL, *ss = get_str(wk, rcvr);
 
 	*res = str_split(wk, ss, split);
 	return true;
@@ -283,14 +278,38 @@ version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 	};
 	enum op_type op = op_eq;
 
-	struct { const struct str name; enum op_type op; } ops[] = {
-		{ WKSTR(">="), op_ge, },
-		{ WKSTR(">"),  op_gt, },
-		{ WKSTR("=="), op_eq, },
-		{ WKSTR("!="), op_ne, },
-		{ WKSTR("<="), op_le, },
-		{ WKSTR("<"),  op_lt, },
-		{ WKSTR("="), op_eq, },
+	struct {
+		const struct str name;
+		enum op_type op;
+	} ops[] = {
+		{
+			WKSTR(">="),
+			op_ge,
+		},
+		{
+			WKSTR(">"),
+			op_gt,
+		},
+		{
+			WKSTR("=="),
+			op_eq,
+		},
+		{
+			WKSTR("!="),
+			op_ne,
+		},
+		{
+			WKSTR("<="),
+			op_le,
+		},
+		{
+			WKSTR("<"),
+			op_lt,
+		},
+		{
+			WKSTR("="),
+			op_eq,
+		},
 	};
 
 	uint32_t i;
@@ -306,24 +325,12 @@ version_compare_iter(struct workspace *wk, void *_ctx, obj s2)
 	int8_t cmp = rpmvercmp(ctx->ver1, &ver2);
 
 	switch (op) {
-	case op_eq:
-		ctx->res = cmp == 0;
-		break;
-	case op_ne:
-		ctx->res = cmp != 0;
-		break;
-	case op_gt:
-		ctx->res = cmp == 1;
-		break;
-	case op_ge:
-		ctx->res = cmp >= 0;
-		break;
-	case op_lt:
-		ctx->res = cmp == -1;
-		break;
-	case op_le:
-		ctx->res = cmp <= 0;
-		break;
+	case op_eq: ctx->res = cmp == 0; break;
+	case op_ne: ctx->res = cmp != 0; break;
+	case op_gt: ctx->res = cmp == 1; break;
+	case op_ge: ctx->res = cmp >= 0; break;
+	case op_lt: ctx->res = cmp == -1; break;
+	case op_le: ctx->res = cmp <= 0; break;
 	}
 
 	if (!ctx->res) {
@@ -473,7 +480,7 @@ func_string_replace(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 
 	uint32_t i;
 	for (i = 0; i < s->len; ++i) {
-		tmp = (struct str) {
+		tmp = (struct str){
 			.s = &s->s[i],
 			.len = s->len - i,
 		};
@@ -511,7 +518,7 @@ func_string_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 	bool found = false;
 	uint32_t i;
 	for (i = 0; i < s->len; ++i) {
-		tmp = (struct str) {
+		tmp = (struct str){
 			.s = &s->s[i],
 			.len = s->len - i,
 		};

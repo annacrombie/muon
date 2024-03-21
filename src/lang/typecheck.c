@@ -26,7 +26,7 @@ make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type
 {
 	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	uint32_t idx = typeinfo_arr->len;
-	bucket_arr_push(typeinfo_arr, &(struct obj_typeinfo) { .type = type, .subtype = subtype });
+	bucket_arr_push(typeinfo_arr, &(struct obj_typeinfo){ .type = type, .subtype = subtype });
 	return COMPLEX_TYPE(idx, t);
 }
 
@@ -56,9 +56,9 @@ simple_type_to_arr(struct workspace *wk, type_tag t)
 		t &= ~tc_exe;
 	}
 
-	uint32_t ot;
+	type_tag ot;
 	for (ot = 1; ot <= tc_type_count; ++ot) {
-		uint32_t tc = obj_type_to_tc_type(ot);
+		type_tag tc = obj_type_to_tc_type(ot);
 		if ((t & tc) != tc) {
 			continue;
 		}
@@ -140,7 +140,6 @@ typechecking_type_to_str(struct workspace *wk, type_tag t)
 		typestr = make_strf(wk, "%s[%s]", modifier, get_cstr(wk, typestr));
 	}
 
-
 	return typestr;
 }
 
@@ -213,8 +212,7 @@ obj_type_to_typestr(struct workspace *wk, obj o)
 		str_appf(wk, &str, "[%s]", get_cstr(wk, subtypestr));
 		break;
 	}
-	default:
-		break;
+	default: break;
 	}
 
 	return str;
@@ -332,7 +330,9 @@ typecheck_custom(struct workspace *wk, uint32_t ip, obj got_obj, type_tag type, 
 
 	if (!typecheck_complex_type(wk, got_obj, got_type, type)) {
 		if (fmt) {
-			vm_error_at(wk, ip, fmt,
+			vm_error_at(wk,
+				ip,
+				fmt,
 				typechecking_type_to_s(wk, type),
 				get_cstr(wk, obj_type_to_typestr(wk, got_obj)));
 		}
@@ -371,7 +371,6 @@ bounds_adjust(uint32_t len, int64_t *i)
 	return *i < len;
 }
 
-
 bool
 boundscheck(struct workspace *wk, uint32_t ip, uint32_t len, int64_t *i)
 {
@@ -393,4 +392,3 @@ rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int64_t 
 
 	return true;
 }
-

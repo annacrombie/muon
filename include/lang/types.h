@@ -16,7 +16,7 @@ struct args_norm {
 	const char *name;
 	obj val;
 	uint32_t node;
-	bool set;
+	bool set, optional;
 };
 
 struct args_kw {

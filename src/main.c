@@ -22,6 +22,7 @@
 #include "external/samurai.h"
 #include "functions/common.h"
 #include "lang/analyze.h"
+#include "lang/compiler.h"
 #include "lang/fmt.h"
 #include "lang/serial.h"
 #include "machine_file.h"
@@ -82,29 +83,21 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	} opts = { 0 };
 
 	OPTSTART("f:c:e:a:R:") {
-		case 'f':
-			opts.feed = optarg;
-			break;
-		case 'c':
-			opts.capture = optarg;
-			break;
-		case 'e':
-			opts.environment = optarg;
-			break;
-		case 'a':
-			opts.args = optarg;
-			break;
-		case 'R':
-			opts.remove_before_running = optarg;
-			break;
-	} OPTEND(argv[argi],
+	case 'f': opts.feed = optarg; break;
+	case 'c': opts.capture = optarg; break;
+	case 'e': opts.environment = optarg; break;
+	case 'a': opts.args = optarg; break;
+	case 'R': opts.remove_before_running = optarg; break;
+	}
+	OPTEND(argv[argi],
 		" <cmd> [arg1[ arg2[...]]]",
 		"  -f <file> - feed file to input\n"
 		"  -c <file> - capture output to file\n"
 		"  -e <file> - load environment from data file\n"
 		"  -a <file> - load arguments from data file\n"
 		"  -R <file> - remove file if it exists before executing the command\n",
-		NULL, -1)
+		NULL,
+		-1)
 
 	if (argi >= argc && !opts.args) {
 		LOG_E("missing command");
@@ -132,8 +125,7 @@ cmd_exe(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	struct workspace wk;
-	bool initialized_workspace = false,
-	     allocated_argv = false;
+	bool initialized_workspace = false, allocated_argv = false;
 
 	const char *envstr = NULL;
 	uint32_t envc = 0;
@@ -201,56 +193,67 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *filename;
-		bool print_ast;
+		bool print_ast, print_dis;
 		uint32_t parse_mode;
 	} opts = { 0 };
 
-	OPTSTART("pm:") {
-		case 'p':
-			opts.print_ast = true;
-			break;
-		case 'm':
-			if (strcmp(optarg, "fmt") == 0) {
-				opts.parse_mode |= pm_keep_formatting;
-			} else if (strcmp(optarg, "functions") == 0) {
-				opts.parse_mode |= pm_functions;
-			} else {
-				LOG_E("invalid parse mode '%s'", optarg);
-				return false;
-			}
-			break;
-	} OPTEND(argv[argi],
+	OPTSTART("pdm:") {
+	case 'p': opts.print_ast = true; break;
+	case 'd': opts.print_dis = true; break;
+	case 'm':
+		if (strcmp(optarg, "fmt") == 0) {
+			opts.parse_mode |= pm_keep_formatting;
+		} else if (strcmp(optarg, "functions") == 0) {
+			opts.parse_mode |= pm_functions;
+		} else {
+			LOG_E("invalid parse mode '%s'", optarg);
+			return false;
+		}
+		break;
+	}
+	OPTEND(argv[argi],
 		" <filename>",
 		"  -p - print parsed ast\n"
 		"  -m <mode> - parse with parse mode <mode>\n",
-		NULL, 1)
+		NULL,
+		1)
 
 	opts.filename = argv[argi];
 
 	bool ret = false;
 
-	struct source src = { 0 };
-
-	if (!fs_read_entire_file(opts.filename, &src)) {
-		goto ret;
-	}
-
 	struct workspace wk;
 	workspace_init_bare(&wk);
 
-	struct node *n;
-	if (!(n = parse(&wk, &src, &wk.vm.compiler_state.nodes))) {
+	arr_push(&wk.vm.src, &(struct source){ 0 });
+	struct source *src = arr_get(&wk.vm.src, 0);
+
+	if (!fs_read_entire_file(opts.filename, src)) {
 		goto ret;
 	}
 
 	if (opts.print_ast) {
+		struct node *n;
+		if (!(n = parse(&wk, src, &wk.vm.compiler_state.nodes))) {
+			goto ret;
+		}
+
 		print_ast(&wk, n);
+	} else {
+		uint32_t _entry;
+		if (!compile(&wk, src, 0, &_entry)) {
+			goto ret;
+		}
+
+		if (opts.print_dis) {
+			vm_dis(&wk);
+		}
 	}
 
 	ret = true;
 ret:
+	fs_source_destroy(src);
 	workspace_destroy(&wk);
-	fs_source_destroy(&src);
 	return ret;
 }
 
@@ -259,60 +262,51 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct analyze_opts opts = {
 		.replay_opts = error_diagnostic_store_replay_include_sources,
-		.enabled_diagnostics = analyze_diagnostic_unused_variable
-				       | analyze_diagnostic_dead_code
+		.enabled_diagnostics = analyze_diagnostic_unused_variable | analyze_diagnostic_dead_code
 				       | analyze_diagnostic_redirect_script_error,
 	};
 
 	OPTSTART("luqO:W:i:td:") {
-		case 'i':
-			opts.internal_file = optarg;
-			break;
-		case 'l':
-			opts.subdir_error = true;
-			opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
-			break;
-		case 'O':
-			opts.file_override = optarg;
-			break;
-		case 'q':
-			opts.replay_opts |= error_diagnostic_store_replay_errors_only;
-			break;
-		case 't':
-			opts.eval_trace = true;
-			break;
-		case 'd':
-			opts.get_definition_for = optarg;
-			break;
-		case 'W': {
-			/* bool enable = true; */
-			/* const char *name = optarg; */
-			/* if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) { */
-			/* 	enable = false; */
-			/* 	name += 3; */
-			/* } */
+	case 'i': opts.internal_file = optarg; break;
+	case 'l':
+		opts.subdir_error = true;
+		opts.replay_opts &= ~error_diagnostic_store_replay_include_sources;
+		break;
+	case 'O': opts.file_override = optarg; break;
+	case 'q': opts.replay_opts |= error_diagnostic_store_replay_errors_only; break;
+	case 't': opts.eval_trace = true; break;
+	case 'd': opts.get_definition_for = optarg; break;
+	case 'W': {
+		/* bool enable = true; */
+		/* const char *name = optarg; */
+		/* if (str_startswith(&WKSTR(optarg), &WKSTR("no-"))) { */
+		/* 	enable = false; */
+		/* 	name += 3; */
+		/* } */
 
-			/* if (strcmp(name, "list") == 0) { */
-			/* 	analyze_print_diagnostic_names(); */
-			/* 	return true; */
-			/* } else if (strcmp(name, "error") == 0) { */
-			/* 	opts.replay_opts |= error_diagnostic_store_replay_werror; */
-			/* } else { */
-			/* 	enum analyze_diagnostic d; */
-			/* 	if (!analyze_diagnostic_name_to_enum(name, &d)) { */
-			/* 		LOG_E("invalid diagnostic name '%s'", name); */
-			/* 		return false; */
-			/* 	} */
+		/* if (strcmp(name, "list") == 0) { */
+		/* 	analyze_print_diagnostic_names(); */
+		/* 	return true; */
+		/* } else if (strcmp(name, "error") == 0) { */
+		/* 	opts.replay_opts |= error_diagnostic_store_replay_werror; */
+		/* } else { */
+		/* 	enum analyze_diagnostic d; */
+		/* 	if (!analyze_diagnostic_name_to_enum(name, &d)) { */
+		/* 		LOG_E("invalid diagnostic name '%s'", name); */
+		/* 		return false; */
+		/* 	} */
 
-			/* 	if (enable) { */
-			/* 		opts.enabled_diagnostics |= d; */
-			/* 	} else { */
-			/* 		opts.enabled_diagnostics &= ~d; */
-			/* 	} */
-			/* } */
-			break;
-		}
-	} OPTEND(argv[argi], "",
+		/* 	if (enable) { */
+		/* 		opts.enabled_diagnostics |= d; */
+		/* 	} else { */
+		/* 		opts.enabled_diagnostics &= ~d; */
+		/* 	} */
+		/* } */
+		break;
+	}
+	}
+	OPTEND(argv[argi],
+		"",
 		"  -l - optimize output for editor linter plugins\n"
 		"  -q - only report errors\n"
 		"  -O <path> - read project file with matching path from stdin\n"
@@ -321,9 +315,9 @@ cmd_analyze(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -d <var> - print the location of the definition of <var>\n"
 		"  -W [no-]<diagnostic> - enable or disable diagnostics\n"
 		"  -W list - list available diagnostics\n"
-		"  -W error - turn all warnings into errors\n"
-		,
-		NULL, 0)
+		"  -W error - turn all warnings into errors\n",
+		NULL,
+		0)
 
 	if (opts.internal_file && opts.file_override) {
 		LOG_E("-i and -O are mutually exclusive");
@@ -350,17 +344,15 @@ cmd_options(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct list_options_opts opts = { 0 };
 	OPTSTART("am") {
-		case 'a':
-			opts.list_all = true;
-			break;
-		case 'm':
-			opts.only_modified = true;
-			break;
-	} OPTEND(argv[argi], "",
+	case 'a': opts.list_all = true; break;
+	case 'm': opts.only_modified = true; break;
+	}
+	OPTEND(argv[argi],
+		"",
 		"  -a - list all options\n"
-		"  -m - list only modified options\n"
-		,
-		NULL, 0)
+		"  -m - list only modified options\n",
+		NULL,
+		0)
 
 	return list_options(&opts);
 }
@@ -369,7 +361,8 @@ static bool
 cmd_summary(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
-	} OPTEND(argv[argi], "", "", NULL, 0)
+	}
+	OPTEND(argv[argi], "", "", NULL, 0)
 
 	if (!ensure_in_build_dir()) {
 		return false;
@@ -405,9 +398,11 @@ cmd_info(uint32_t argc, uint32_t argi, char *const argv[])
 	};
 
 	OPTSTART("") {
-	} OPTEND(argv[argi], "", "", commands, -1);
+	}
+	OPTEND(argv[argi], "", "", commands, -1);
 
-	cmd_func cmd = NULL;;
+	cmd_func cmd = NULL;
+	;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
 		return false;
 	}
@@ -426,10 +421,8 @@ cmd_subprojects_check_wrap(uint32_t argc, uint32_t argi, char *const argv[])
 	} opts = { 0 };
 
 	OPTSTART("") {
-	} OPTEND(argv[argi],
-		" <filename>",
-		"",
-		NULL, 1)
+	}
+	OPTEND(argv[argi], " <filename>", "", NULL, 1)
 
 	opts.filename = argv[argi];
 
@@ -485,7 +478,8 @@ cmd_subprojects_download(uint32_t argc, uint32_t argi, char *const argv[])
 	bool res = false;
 
 	OPTSTART("") {
-	} OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
+	}
+	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
 	SBUF_manual(path);
 	path_make_absolute(NULL, &path, cmd_subprojects_subprojects_dir);
@@ -533,12 +527,9 @@ cmd_subprojects(uint32_t argc, uint32_t argi, char *const argv[])
 	};
 
 	OPTSTART("d:") {
-		case 'd':
-			cmd_subprojects_subprojects_dir = optarg;
-			break;
-	} OPTEND(argv[0], "",
-		"  -d <directory> - use an alternative subprojects directory\n",
-		commands, -1)
+	case 'd': cmd_subprojects_subprojects_dir = optarg; break;
+	}
+	OPTEND(argv[0], "", "  -d <directory> - use an alternative subprojects directory\n", commands, -1)
 
 	cmd_func cmd;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
@@ -608,16 +599,15 @@ cmd_eval(uint32_t argc, uint32_t argi, char *const argv[])
 	bool embedded = false;
 
 	OPTSTART("es") {
-		case 'e':
-			embedded = true;
-			break;
-		case 's':
-			disable_fuzz_unsafe_functions = true;
-			break;
-	} OPTEND(argv[argi], " <filename> [args]",
+	case 'e': embedded = true; break;
+	case 's': disable_fuzz_unsafe_functions = true; break;
+	}
+	OPTEND(argv[argi],
+		" <filename> [args]",
 		"  -e - lookup <filename> as an embedded script\n"
 		"  -s - disable functions that are unsafe to be called at random\n",
-		NULL, -1)
+		NULL,
+		-1)
 
 	if (argi >= argc) {
 		LOG_E("missing required filename argument");
@@ -649,7 +639,8 @@ static bool
 cmd_dump_signatures(uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
-	} OPTEND(argv[argi], "", "", NULL, 0)
+	}
+	OPTEND(argv[argi], "", "", NULL, 0)
 
 	struct workspace wk;
 	workspace_init(&wk);
@@ -678,9 +669,11 @@ cmd_internal(uint32_t argc, uint32_t argi, char *const argv[])
 	};
 
 	OPTSTART("") {
-	} OPTEND(argv[argi], "", "", commands, -1);
+	}
+	OPTEND(argv[argi], "", "", commands, -1);
 
-	cmd_func cmd = NULL;;
+	cmd_func cmd = NULL;
+	;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {
 		return false;
 	}
@@ -706,57 +699,47 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	OPTSTART("s:d:Sfj:lvRe:") {
-		case 'l':
-			test_opts.list = true;
-			break;
-		case 'e':
-			test_opts.setup = optarg;
-			break;
-		case 's':
-			if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
-				LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
-				return false;
-			}
-			test_opts.suites[test_opts.suites_len] = optarg;
-			++test_opts.suites_len;
-			break;
-		case 'd':
-			if (strcmp(optarg, "auto") == 0) {
-				test_opts.display = test_display_auto;
-			} else if (strcmp(optarg, "dots") == 0) {
-				test_opts.display = test_display_dots;
-			} else if (strcmp(optarg, "bar") == 0) {
-				test_opts.display = test_display_bar;
-			} else {
-				LOG_E("invalid progress display mode '%s'", optarg);
-				return false;
-			}
-			break;
-		case 'f':
-			test_opts.fail_fast = true;
-			break;
-		case 'S':
-			test_opts.print_summary = true;
-			break;
-		case 'j': {
-			char *endptr;
-			unsigned long n = strtoul(optarg, &endptr, 10);
-
-			if (n > UINT32_MAX || !*optarg || *endptr) {
-				LOG_E("invalid number of jobs: %s", optarg);
-				return false;
-			}
-
-			test_opts.jobs = n;
-			break;
+	case 'l': test_opts.list = true; break;
+	case 'e': test_opts.setup = optarg; break;
+	case 's':
+		if (test_opts.suites_len > MAX_CMDLINE_TEST_SUITES) {
+			LOG_E("too many -s options (max: %d)", MAX_CMDLINE_TEST_SUITES);
+			return false;
 		}
-		case 'v':
-			++test_opts.verbosity;
-			break;
-		case 'R':
-			test_opts.no_rebuild = true;
-			break;
-	} OPTEND(argv[argi], " [test [test [...]]]",
+		test_opts.suites[test_opts.suites_len] = optarg;
+		++test_opts.suites_len;
+		break;
+	case 'd':
+		if (strcmp(optarg, "auto") == 0) {
+			test_opts.display = test_display_auto;
+		} else if (strcmp(optarg, "dots") == 0) {
+			test_opts.display = test_display_dots;
+		} else if (strcmp(optarg, "bar") == 0) {
+			test_opts.display = test_display_bar;
+		} else {
+			LOG_E("invalid progress display mode '%s'", optarg);
+			return false;
+		}
+		break;
+	case 'f': test_opts.fail_fast = true; break;
+	case 'S': test_opts.print_summary = true; break;
+	case 'j': {
+		char *endptr;
+		unsigned long n = strtoul(optarg, &endptr, 10);
+
+		if (n > UINT32_MAX || !*optarg || *endptr) {
+			LOG_E("invalid number of jobs: %s", optarg);
+			return false;
+		}
+
+		test_opts.jobs = n;
+		break;
+	}
+	case 'v': ++test_opts.verbosity; break;
+	case 'R': test_opts.no_rebuild = true; break;
+	}
+	OPTEND(argv[argi],
+		" [test [test [...]]]",
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
 		"  -e <setup> - use test setup <setup>\n"
 		"  -f - fail fast; exit after first failure\n"
@@ -766,7 +749,8 @@ cmd_test(uint32_t argc, uint32_t argi, char *const argv[])
 		"  -S - print a summary with elapsed time\n"
 		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"
 		"  -v - increase verbosity, may be passed twice\n",
-		NULL, -1)
+		NULL,
+		-1)
 
 	if (!ensure_in_build_dir()) {
 		return false;
@@ -786,16 +770,15 @@ cmd_install(uint32_t argc, uint32_t argi, char *const argv[])
 	};
 
 	OPTSTART("nd:") {
-		case 'n':
-			opts.dry_run = true;
-			break;
-		case 'd':
-			opts.destdir = optarg;
-			break;
-	} OPTEND(argv[argi], "",
+	case 'n': opts.dry_run = true; break;
+	case 'd': opts.destdir = optarg; break;
+	}
+	OPTEND(argv[argi],
+		"",
 		"  -n - dry run\n"
 		"  -d <destdir> - set destdir\n",
-		NULL, 0)
+		NULL,
+		0)
 
 	if (!ensure_in_build_dir()) {
 		return false;
@@ -815,39 +798,37 @@ cmd_setup(uint32_t argc, uint32_t argi, char *const argv[])
 	uint32_t original_argi = argi + 1;
 
 	OPTSTART("D:c:b") {
-		case 'D':
-			if (!parse_and_set_cmdline_option(&wk, optarg)) {
-				goto ret;
-			}
-			break;
-		case 'c': {
-			FILE *f;
-			if (!(f = fs_fopen(optarg, "rb"))) {
-				goto ret;
-			} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
-				LOG_E("failed to load compiler check cache");
-				goto ret;
-			} else if (!fs_fclose(f)) {
-				goto ret;
-			}
-			break;
+	case 'D':
+		if (!parse_and_set_cmdline_option(&wk, optarg)) {
+			goto ret;
 		}
-		case 'b':
-			wk.vm.dbg_state.break_on_err = true;
-			break;
-	} OPTEND(argv[argi],
+		break;
+	case 'c': {
+		FILE *f;
+		if (!(f = fs_fopen(optarg, "rb"))) {
+			goto ret;
+		} else if (!serial_load(&wk, &wk.compiler_check_cache, f)) {
+			LOG_E("failed to load compiler check cache");
+			goto ret;
+		} else if (!fs_fclose(f)) {
+			goto ret;
+		}
+		break;
+	}
+	case 'b': wk.vm.dbg_state.break_on_err = true; break;
+	}
+	OPTEND(argv[argi],
 		" <build dir>",
 		"  -D <option>=<value> - set project options\n"
 		"  -c <compiler_check_cache.dat> - path to compiler check cache dump\n"
 		"  -b - break on errors\n",
-		NULL, 1)
+		NULL,
+		1)
 
 	const char *build = argv[argi];
 	++argi;
 
-	if (!workspace_setup_paths(&wk, build, argv[0],
-		argc - original_argi,
-		&argv[original_argi])) {
+	if (!workspace_setup_paths(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
 		goto ret;
 	}
 
@@ -887,24 +868,19 @@ cmd_format(uint32_t argc, uint32_t argi, char *const argv[])
 	} opts = { 0 };
 
 	OPTSTART("ic:qe") {
-		case 'i':
-			opts.in_place = true;
-			break;
-		case 'c':
-			opts.cfg_path = optarg;
-			break;
-		case 'q':
-			opts.check_only = true;
-			break;
-		case 'e':
-			opts.editorconfig = true;
-			break;
-	} OPTEND(argv[argi], " <file>[ <file>[...]]",
+	case 'i': opts.in_place = true; break;
+	case 'c': opts.cfg_path = optarg; break;
+	case 'q': opts.check_only = true; break;
+	case 'e': opts.editorconfig = true; break;
+	}
+	OPTEND(argv[argi],
+		" <file>[ <file>[...]]",
 		"  -q - exit with 1 if files would be modified by muon fmt\n"
 		"  -i - format files in-place\n"
 		"  -c <muon_fmt.ini> - read configuration from muon_fmt.ini\n"
 		"  -e - try to read configuration from .editorconfig\n",
-		NULL, -1)
+		NULL,
+		-1)
 
 	if (opts.in_place && opts.check_only) {
 		LOG_E("-q and -i are mutually exclusive");
@@ -963,8 +939,7 @@ cmd_version(uint32_t argc, uint32_t argi, char *const argv[])
 		muon_version.version,
 		*muon_version.vcs_tag ? "-" : "",
 		muon_version.vcs_tag,
-		muon_version.meson_compat
-		);
+		muon_version.meson_compat);
 
 	const struct {
 		const char *name;
@@ -1043,26 +1018,27 @@ cmd_main(uint32_t argc, uint32_t argi, char *argv[])
 	SBUF_manual(argv0);
 
 	OPTSTART("vC:") {
-		case 'v':
-			log_set_lvl(log_debug);
-			break;
-		case 'C': {
-			// fix argv0 here since if it is a relative path it will be
-			// wrong after chdir
-			if (!path_is_basename(argv[0])) {
-				path_make_absolute(NULL, &argv0, argv[0]);
-				argv[0] = argv0.buf;
-			}
-
-			if (!path_chdir(optarg)) {
-				return false;
-			}
-			break;
+	case 'v': log_set_lvl(log_debug); break;
+	case 'C': {
+		// fix argv0 here since if it is a relative path it will be
+		// wrong after chdir
+		if (!path_is_basename(argv[0])) {
+			path_make_absolute(NULL, &argv0, argv[0]);
+			argv[0] = argv0.buf;
 		}
-	} OPTEND(argv[0], "",
+
+		if (!path_chdir(optarg)) {
+			return false;
+		}
+		break;
+	}
+	}
+	OPTEND(argv[0],
+		"",
 		"  -v - turn on debug messages\n"
 		"  -C <path> - chdir to path\n",
-		commands, -1)
+		commands,
+		-1)
 
 	cmd_func cmd;
 	if (!find_cmd(commands, &cmd, argc, argi, argv, false)) {

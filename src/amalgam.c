@@ -25,6 +25,7 @@
 #include "datastructures/arr.c"
 #include "datastructures/bucket_arr.c"
 #include "datastructures/hash.c"
+#include "datastructures/stack.c"
 #include "embedded.c"
 #include "error.c"
 #include "external/bestline_null.c"

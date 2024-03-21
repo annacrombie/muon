@@ -10,6 +10,7 @@
 #include "datastructures/arr.h"
 #include "datastructures/bucket_arr.h"
 #include "datastructures/hash.h"
+#include "datastructures/stack.h"
 #include "lang/eval.h"
 #include "lang/object.h"
 #include "lang/source.h"
@@ -23,7 +24,9 @@ struct project {
 	obj source_root, build_root, cwd, build_dir, subproject_name;
 	obj opts, compilers, targets, tests, test_setups, summary;
 	obj args, link_args, include_dirs;
-	struct { obj static_deps, shared_deps; } dep_cache;
+	struct {
+		obj static_deps, shared_deps;
+	} dep_cache;
 	obj wrap_provides_deps, wrap_provides_exes;
 
 	// string
@@ -78,6 +81,7 @@ struct workspace {
 	/* ----------------- */
 
 	struct vm vm;
+	struct stack stack;
 
 	struct arr projects;
 	struct arr option_overrides;
@@ -95,12 +99,12 @@ void workspace_init_bare(struct workspace *wk);
 void workspace_init(struct workspace *wk);
 void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
-bool workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
-	uint32_t argc, char *const argv[]);
+bool
+workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
 void workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr);
 
-struct project *make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
-	const char *cwd, const char *build_dir);
+struct project *
+make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);
 
 void workspace_print_summaries(struct workspace *wk, FILE *out);

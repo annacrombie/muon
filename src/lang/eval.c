@@ -22,8 +22,11 @@
 #include "wrap.h"
 
 bool
-eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
-	const char *build_dir, uint32_t *proj_id)
+eval_project(struct workspace *wk,
+	const char *subproject_name,
+	const char *cwd,
+	const char *build_dir,
+	uint32_t *proj_id)
 {
 	SBUF(src);
 	path_join(wk, &src, cwd, "meson.build");
@@ -39,12 +42,8 @@ eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	const char *parent_prefix = log_get_prefix();
 	char log_prefix[256] = { 0 };
 	if (wk->cur_project > 0) {
-		const char *clr = log_clr() ? "\033[35m" : "",
-			   *no_clr = log_clr() ? "\033[0m" : "";
-		snprintf(log_prefix, 255, "[%s%s%s]",
-			clr,
-			subproject_name,
-			no_clr);
+		const char *clr = log_clr() ? "\033[35m" : "", *no_clr = log_clr() ? "\033[0m" : "";
+		snprintf(log_prefix, 255, "[%s%s%s]", clr, subproject_name, no_clr);
 		log_set_prefix(log_prefix);
 	}
 	if (subproject_name) {
@@ -128,10 +127,11 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		return false;
 	}
 
-	arr_push(&wk->vm.call_stack, &(struct call_frame) {
-		.return_ip = wk->vm.ip,
-		.scope_stack = 0,
-	});
+	arr_push(&wk->vm.call_stack,
+		&(struct call_frame){
+			.return_ip = wk->vm.ip,
+			.scope_stack = 0,
+		});
 
 	wk->vm.ip = entry;
 
@@ -183,11 +183,11 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	/* wk->src = old_src; */
 	/* wk->ast = old_ast; */
-/* ret: */
+	/* ret: */
 	/* TracyCZoneAutoE; */
 	/* return ret; */
 
-	return false;
+	return true;
 }
 
 bool
@@ -254,8 +254,7 @@ repl(struct workspace *wk, bool dbg)
 		enum repl_cmd cmd;
 		bool valid, has_arg;
 		const char *help_text;
-	} repl_cmds[] = {
-		{ { "abort", 0 }, repl_cmd_abort, dbg },
+	} repl_cmds[] = { { { "abort", 0 }, repl_cmd_abort, dbg },
 		{ { "c", "continue", 0 }, repl_cmd_exit, dbg },
 		{ { "exit", 0 }, repl_cmd_exit, !dbg },
 		{ { "h", "help", 0 }, repl_cmd_help, true },
@@ -264,8 +263,7 @@ repl(struct workspace *wk, bool dbg)
 		{ { "s", "step", 0 }, repl_cmd_step, dbg },
 		{ { "w", "watch", 0 }, repl_cmd_watch, dbg, true },
 		{ { "uw", "unwatch", 0 }, repl_cmd_unwatch, dbg, true },
-		0
-	};
+		0 };
 
 	if (dbg) {
 		/* list_line_range(wk->src, get_node(wk->ast, wk->vm.dbg_state.node)->location.line, 1, 0); */
@@ -275,8 +273,7 @@ repl(struct workspace *wk, bool dbg)
 		}
 	}
 
-	const char *prompt = "> ",
-		   cmd_char = '\\';
+	const char *prompt = "> ", cmd_char = '\\';
 
 	while (loop && (line = muon_bestline(prompt))) {
 		muon_bestline_history_add(line);
@@ -305,7 +302,8 @@ repl(struct workspace *wk, bool dbg)
 								}
 							} else {
 								if (arg) {
-									fprintf(out, "this command does not take an argument\n");
+									fprintf(out,
+										"this command does not take an argument\n");
 									goto cont;
 								}
 							}
@@ -321,9 +319,7 @@ repl(struct workspace *wk, bool dbg)
 			goto cont;
 cmd_found:
 			switch (cmd) {
-			case repl_cmd_abort:
-				exit(1);
-				break;
+			case repl_cmd_abort: exit(1); break;
 			case repl_cmd_exit:
 				wk->vm.dbg_state.stepping = false;
 				loop = false;
@@ -379,8 +375,7 @@ cmd_found:
 					}
 				}
 				break;
-			case repl_cmd_noop:
-				break;
+			case repl_cmd_noop: break;
 			}
 		} else {
 			cmd = repl_cmd_noop;

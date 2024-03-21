@@ -40,9 +40,8 @@ generated_list_process_for_target_result_iter(struct workspace *wk, void *_ctx, 
 		const char *generated_path = get_cstr(wk, *get_obj_file(wk, file));
 
 		enum compiler_language l;
-		if (!ctx->generated_include
-		    && filename_to_compiler_language(generated_path, &l)
-		    && languages[l].is_header) {
+		if (!ctx->generated_include && filename_to_compiler_language(generated_path, &l)
+			&& languages[l].is_header) {
 			ctx->generated_include = true;
 		}
 
@@ -65,8 +64,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 	const char *output_dir = ctx->dir;
 
 	if (ctx->gl->preserve_path_from) {
-		const char *src = get_file_path(wk, val),
-			   *base = get_cstr(wk, ctx->gl->preserve_path_from);
+		const char *src = get_file_path(wk, val), *base = get_cstr(wk, ctx->gl->preserve_path_from);
 		assert(path_is_subpath(base, src));
 
 		SBUF(dir);
@@ -78,18 +76,18 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 	}
 
 	struct make_custom_target_opts opts = {
-		.input_node   = ctx->node,
-		.output_node  = ctx->node,
+		.input_node = ctx->node,
+		.output_node = ctx->node,
 		.command_node = ctx->node,
-		.input_orig   = val,
-		.output_orig  = ctx->g->output,
-		.output_dir   = output_dir,
-		.build_dir    = ctx->dir,
+		.input_orig = val,
+		.output_orig = ctx->g->output,
+		.output_dir = output_dir,
+		.build_dir = ctx->dir,
 		.command_orig = ctx->g->raw_command,
 		.depfile_orig = ctx->g->depfile,
-		.capture      = ctx->g->capture,
-		.feed         = ctx->g->feed,
-		.extra_args   = ctx->gl->extra_arguments,
+		.capture = ctx->g->capture,
+		.feed = ctx->g->feed,
+		.extra_args = ctx->gl->extra_arguments,
 		.extra_args_valid = true,
 	};
 
@@ -125,8 +123,7 @@ generated_list_process_for_target_iter(struct workspace *wk, void *_ctx, obj val
 }
 
 bool
-generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
-	obj gl, obj tgt, bool add_targets, obj *res)
+generated_list_process_for_target(struct workspace *wk, uint32_t err_node, obj gl, obj tgt, bool add_targets, obj *res)
 {
 	struct obj_generated_list *list = get_obj_generated_list(wk, gl);
 
@@ -135,18 +132,14 @@ generated_list_process_for_target(struct workspace *wk, uint32_t err_node,
 	const char *private_path;
 
 	switch (t) {
-	case obj_both_libs:
-		tgt = get_obj_both_libs(wk, tgt)->dynamic_lib;
+	case obj_both_libs: tgt = get_obj_both_libs(wk, tgt)->dynamic_lib;
 	/* fallthrough */
-	case obj_build_target:
-		private_path = get_cstr(wk, get_obj_build_target(wk, tgt)->private_path);
-		break;
+	case obj_build_target: private_path = get_cstr(wk, get_obj_build_target(wk, tgt)->private_path); break;
 	case obj_custom_target: {
 		private_path = get_cstr(wk, get_obj_custom_target(wk, tgt)->private_path);
 		break;
 	}
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	make_obj(wk, res, obj_array);
@@ -181,13 +174,14 @@ check_preserve_path_from_iter(struct workspace *wk, void *_ctx, obj f)
 {
 	const struct check_preserve_path_from_ctx *ctx = _ctx;
 
-	const char *src = get_file_path(wk, f),
-		   *base = get_cstr(wk, ctx->gl->preserve_path_from);
+	const char *src = get_file_path(wk, f), *base = get_cstr(wk, ctx->gl->preserve_path_from);
 
 	if (!path_is_subpath(base, src)) {
-		vm_error_at(wk, ctx->err_node,
+		vm_error_at(wk,
+			ctx->err_node,
 			"source file '%s' is not a subdir of preserve_path_from path '%s'",
-			src, base);
+			src,
+			base);
 		return ir_err;
 	}
 
@@ -202,11 +196,9 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 		kw_extra_args,
 		kw_preserve_path_from,
 	};
-	struct args_kw akw[] = {
-		[kw_extra_args] = { "extra_args", TYPE_TAG_LISTIFY | obj_string },
+	struct args_kw akw[] = { [kw_extra_args] = { "extra_args", TYPE_TAG_LISTIFY | obj_string },
 		[kw_preserve_path_from] = { "preserve_path_from", obj_string },
-		0
-	};
+		0 };
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
@@ -228,10 +220,7 @@ func_generator_process(struct workspace *wk, obj gen, uint32_t args_node, obj *r
 			return false;
 		}
 
-		struct check_preserve_path_from_ctx ctx = {
-			.gl = gl,
-			.err_node = akw[kw_preserve_path_from].node
-		};
+		struct check_preserve_path_from_ctx ctx = { .gl = gl, .err_node = akw[kw_preserve_path_from].node };
 
 		if (!obj_array_foreach(wk, gl->input, &ctx, check_preserve_path_from_iter)) {
 			return false;

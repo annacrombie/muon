@@ -869,6 +869,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 }
 #endif
 
+// clang-format off
 struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 	[0]                        = { { impl_tbl_kernel },               { impl_tbl_kernel_internal },
 				       { impl_tbl_kernel_opts }                                            },
@@ -898,6 +899,7 @@ struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 	[obj_source_configuration] = { { impl_tbl_source_configuration }, { 0 }                            },
 	[obj_module]               = { { impl_tbl_module },               { 0 }                            },
 };
+// clang-format on
 
 struct func_impl native_funcs[512];
 
@@ -959,7 +961,10 @@ func_lookup_for_mode(const struct func_impl_group *impl_group, const char *name,
 }
 
 bool
-func_lookup_for_group(const struct func_impl_group impl_group[], enum language_mode mode, const char *name, uint32_t *idx)
+func_lookup_for_group(const struct func_impl_group impl_group[],
+	enum language_mode mode,
+	const char *name,
+	uint32_t *idx)
 {
 	if (mode == language_extended) {
 		if (func_lookup_for_mode(&impl_group[language_internal], name, idx)) {
@@ -1013,16 +1018,19 @@ func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj
 
 		if (!module_func_lookup(wk, name, m->module, idx)) {
 			if (!m->has_impl) {
-				vm_error(wk, "module '%s' is unimplemented,\n"
+				vm_error(wk,
+					"module '%s' is unimplemented,\n"
 					"  If you would like to make your build files portable to muon, use"
 					" `import('%s', required: false)`, and then check"
-					" the .found() method before use."
-					, module_names[m->module]
-					, module_names[m->module]
-					);
+					" the .found() method before use.",
+					module_names[m->module],
+					module_names[m->module]);
 				return false;
 			} else {
-				vm_error(wk, "%s not found in module %s", func_name_str(0, name), module_names[m->module]);
+				vm_error(wk,
+					"%s not found in module %s",
+					func_name_str(0, name),
+					module_names[m->module]);
 				return false;
 			}
 		}
@@ -1046,10 +1054,10 @@ func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj
 	/* } */
 
 	/* TracyCZoneC(tctx_func, 0xff5000, true); */
-/* #ifdef TRACY_ENABLE */
+	/* #ifdef TRACY_ENABLE */
 	/* const char *func_name = func_name_str(have_rcvr, rcvr_type, name); */
 	/* TracyCZoneName(tctx_func, func_name, strlen(func_name)); */
-/* #endif */
+	/* #endif */
 
 	/* bool func_res; */
 
@@ -1075,7 +1083,12 @@ func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj
 }
 
 bool
-analyze_function(struct workspace *wk, const struct func_impl *fi, uint32_t args_node, obj rcvr, obj *res, bool *was_pure)
+analyze_function(struct workspace *wk,
+	const struct func_impl *fi,
+	uint32_t args_node,
+	obj rcvr,
+	obj *res,
+	bool *was_pure)
 {
 #if 0
 	struct analyze_function_opts old_opts = analyze_function_opts;

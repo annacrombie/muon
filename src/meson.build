@@ -13,6 +13,7 @@ src = files(
     'datastructures/arr.c',
     'datastructures/bucket_arr.c',
     'datastructures/hash.c',
+    'datastructures/stack.c',
     'formats/editorconfig.c',
     'formats/ini.c',
     'formats/lines.c',

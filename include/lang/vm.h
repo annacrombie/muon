@@ -26,12 +26,15 @@ enum op {
 	op_gt,
 	op_lt,
 	op_negate,
+	op_stringify,
 	op_store,
 	op_add_store,
 	op_load,
 	op_return,
 	op_call,
+	op_call_method,
 	op_call_native,
+	op_index,
 	op_iterator,
 	op_iterator_next,
 	op_jmp_if_null,
@@ -39,6 +42,7 @@ enum op {
 	op_jmp,
 	op_pop,
 	op_eval_file,
+	op_typecheck,
 };
 
 struct workspace;
@@ -91,13 +95,17 @@ struct vm_dbg_state {
 };
 
 struct vm_behavior {
-	void ((*assign_variable)(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode));
-	void ((*unassign_variable)(struct workspace *wk, const char *name));
-	void ((*push_local_scope)(struct workspace *wk));
-	void ((*pop_local_scope)(struct workspace *wk));
+	void((*assign_variable)(struct workspace *wk,
+		const char *name,
+		obj o,
+		uint32_t n_id,
+		enum variable_assignment_mode mode));
+	void((*unassign_variable)(struct workspace *wk, const char *name));
+	void((*push_local_scope)(struct workspace *wk));
+	void((*pop_local_scope)(struct workspace *wk));
 	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
-	bool ((*get_variable)(struct workspace *wk, const char *name, obj *res));
-	bool ((*eval_project_file)(struct workspace *wk, const char *path, bool first));
+	bool((*get_variable)(struct workspace *wk, const char *name, obj *res));
+	bool((*eval_project_file)(struct workspace *wk, const char *path, bool first));
 };
 
 struct vm_objects {
@@ -131,7 +139,8 @@ void vm_dis(struct workspace *wk);
 void vm_init(struct workspace *wk);
 void vm_destroy(struct workspace *wk);
 
-MUON_ATTR_FORMAT(printf, 4, 5) void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...);
+MUON_ATTR_FORMAT(printf, 4, 5)
+void vm_diagnostic(struct workspace *wk, uint32_t ip, enum log_level lvl, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_error_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_error(struct workspace *wk, const char *fmt, ...);

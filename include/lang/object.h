@@ -14,7 +14,6 @@
 
 #include "compilers.h"
 #include "datastructures/bucket_arr.h"
-#include "datastructures/hash.h"
 #include "datastructures/iterator.h"
 #include "lang/types.h"
 
@@ -86,7 +85,6 @@ struct obj_func {
 	uint32_t entry;
 	struct args_norm an[32];
 	struct args_kw akw[64];
-
 };
 
 struct obj_capture {
@@ -100,7 +98,9 @@ enum tgt_type {
 	tgt_dynamic_library = 1 << 2,
 	tgt_shared_module = 1 << 3,
 };
-enum tgt_type_count { tgt_type_count = 4, }; // keep in sync
+enum tgt_type_count {
+	tgt_type_count = 4,
+}; // keep in sync
 
 enum feature_opt_state {
 	feature_opt_auto,
@@ -277,7 +277,7 @@ struct obj_custom_target {
 	enum custom_target_flags flags;
 };
 
-struct  obj_alias_target {
+struct obj_alias_target {
 	obj name; // obj_string
 	obj depends; // obj_array
 };
@@ -492,7 +492,7 @@ struct obj_iterator {
 		struct obj_array *array;
 		struct obj_dict_elem *dict_small;
 		struct {
-			struct obj_dict *d;
+			struct hash *h;
 			uint32_t i;
 		} dict_big;
 		struct range_params range;
@@ -523,7 +523,7 @@ const struct str *get_str(struct workspace *wk, obj s);
 enum feature_opt_state get_obj_feature_opt(struct workspace *wk, obj fo);
 void set_obj_feature_opt(struct workspace *wk, obj fo, enum feature_opt_state state);
 
-#define OBJ_GETTER(type) struct type *get_ ## type(struct workspace *wk, obj o)
+#define OBJ_GETTER(type) struct type *get_##type(struct workspace *wk, obj o)
 
 OBJ_GETTER(obj_array);
 OBJ_GETTER(obj_dict);
@@ -563,21 +563,23 @@ void obj_to_s(struct workspace *wk, obj o, struct sbuf *sb);
 bool obj_equal(struct workspace *wk, obj left, obj right);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);
 
-#define LO(...) if (log_should_print(log_debug)) { char buf[4096]; log_print_prefix(log_debug, buf, ARRAY_LEN(buf)); log_plain("%s", buf); obj_fprintf(wk, log_file(), __VA_ARGS__); }
+#define LO(...)                                                   \
+	if (log_should_print(log_debug)) {                        \
+		char buf[4096];                                   \
+		log_print_prefix(log_debug, buf, ARRAY_LEN(buf)); \
+		log_plain("%s", buf);                             \
+		obj_fprintf(wk, log_file(), __VA_ARGS__);         \
+	}
 #define LOBJ(object_id) LO("%s: %o\n", #object_id, object_id)
 
 bool obj_vasprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, va_list ap);
-bool obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
-MUON_ATTR_FORMAT(printf, 3, 4);
-bool obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
-MUON_ATTR_FORMAT(printf, 3, 0);
-bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...)
-MUON_ATTR_FORMAT(printf, 3, 4);
-bool obj_printf(struct workspace *wk, const char *fmt, ...)
-MUON_ATTR_FORMAT(printf, 2, 3);
+bool obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+bool obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap) MUON_ATTR_FORMAT(printf, 3, 0);
+bool obj_fprintf(struct workspace *wk, FILE *f, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+bool obj_printf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 uint32_t obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap);
 uint32_t obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...)
-MUON_ATTR_FORMAT(printf, 4, 5);
+	MUON_ATTR_FORMAT(printf, 4, 5);
 void obj_inspect(struct workspace *wk, FILE *out, obj val);
 
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);

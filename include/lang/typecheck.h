@@ -15,16 +15,16 @@ enum complex_type {
 
 #define ARG_TYPE_NULL (obj_type_count + 1)
 
+// clang-format off
 #define TYPE_TAG_ALLOW_VOID       (((type_tag)1) << 59)
 #define TYPE_TAG_COMPLEX          (((type_tag)1) << 60)
 #define TYPE_TAG_GLOB             (((type_tag)1) << 61)
 #define TYPE_TAG_LISTIFY          (((type_tag)1) << 62)
 #define obj_typechecking_type_tag (((type_tag)1) << 63)
+// clang-format on
 
 #define TYPE_TAG_MASK \
-	(TYPE_TAG_ALLOW_VOID | TYPE_TAG_COMPLEX \
-	 | TYPE_TAG_GLOB | TYPE_TAG_LISTIFY \
-	 | obj_typechecking_type_tag)
+	(TYPE_TAG_ALLOW_VOID | TYPE_TAG_COMPLEX | TYPE_TAG_GLOB | TYPE_TAG_LISTIFY | obj_typechecking_type_tag)
 
 /* complex types look like this:
  *
@@ -35,10 +35,12 @@ enum complex_type {
  *  obj_typechecking_type_tag (and potentially also
  *  TYPE_TAG_GLOB/TYPE_TAG_LISTIFY))
  */
-#define COMPLEX_TYPE(index, t) (((uint64_t)index) | (((uint64_t)t) << 48) | TYPE_TAG_COMPLEX | obj_typechecking_type_tag);
+#define COMPLEX_TYPE(index, t) \
+	(((uint64_t)index) | (((uint64_t)t) << 48) | TYPE_TAG_COMPLEX | obj_typechecking_type_tag);
 #define COMPLEX_TYPE_INDEX(t) (t & 0xffffffff)
 #define COMPLEX_TYPE_TYPE(t) ((t >> 48) & 0xff)
 
+// clang-format off
 #define tc_meson                (obj_typechecking_type_tag | (((type_tag)1) << 0))
 #define tc_disabler             (obj_typechecking_type_tag | (((type_tag)1) << 1))
 #define tc_machine              (obj_typechecking_type_tag | (((type_tag)1) << 2))
@@ -72,7 +74,8 @@ enum complex_type {
 #define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 30))
 #define tc_iterator             (obj_typechecking_type_tag | (((type_tag)1) << 31))
 #define tc_func                 (obj_typechecking_type_tag | (((type_tag)1) << 32))
-#define tc_type_count         33
+#define tc_capture              (obj_typechecking_type_tag | (((type_tag)1) << 33))
+#define tc_type_count         34
 
 #define tc_any                (tc_bool | tc_file | tc_number | tc_string | tc_array | tc_dict \
 			       | tc_compiler | tc_build_target | tc_custom_target \
@@ -83,7 +86,7 @@ enum complex_type {
 			       | tc_option | tc_generator | tc_generated_list \
 			       | tc_alias_target | tc_both_libs | tc_disabler \
 			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration | tc_func \
-			       | tc_iterator \
+			       | tc_iterator | tc_capture \
 			       )
 
 #define tc_exe                (tc_string | tc_file | tc_external_program | tc_python_installation \
@@ -103,11 +106,12 @@ enum complex_type {
 #define tc_link_with_kw       (TYPE_TAG_LISTIFY | tc_build_target | tc_custom_target | tc_file | tc_both_libs)
 #define tc_message            (TYPE_TAG_GLOB | tc_string | tc_bool | tc_number | tc_array | tc_dict) // doesn't handle nested types
 
+// clang-format on
+
 struct obj_typechecking_type_to_obj_type {
 	enum obj_type type;
 	type_tag tc;
 };
-
 
 bool typecheck(struct workspace *wk, uint32_t ip, obj obj_id, type_tag type);
 bool typecheck_custom(struct workspace *wk, uint32_t ip, obj obj_id, type_tag type, const char *fmt);

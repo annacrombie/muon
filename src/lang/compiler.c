@@ -23,11 +23,12 @@
 static void
 push_location(struct workspace *wk, struct node *n)
 {
-	arr_push(&wk->vm.locations, &(struct source_location_mapping) {
-		.ip = wk->vm.code.len,
-		.loc = n->location,
-		.src_idx = wk->vm.src.len - 1,
-	});
+	arr_push(&wk->vm.locations,
+		&(struct source_location_mapping){
+			.ip = wk->vm.code.len,
+			.loc = n->location,
+			.src_idx = wk->vm.src.len - 1,
+		});
 }
 
 static void
@@ -52,6 +53,19 @@ push_constant(struct workspace *wk, obj v)
 	push_code(wk, v & 0xff);
 }
 
+/* static void */
+/* push_constant64(struct workspace *wk, uint64_t v) */
+/* { */
+/* 	push_code(wk, (v >> 56) & 0xff); */
+/* 	push_code(wk, (v >> 48) & 0xff); */
+/* 	push_code(wk, (v >> 40) & 0xff); */
+/* 	push_code(wk, (v >> 32) & 0xff); */
+/* 	push_code(wk, (v >> 24) & 0xff); */
+/* 	push_code(wk, (v >> 16) & 0xff); */
+/* 	push_code(wk, (v >> 8) & 0xff); */
+/* 	push_code(wk, (v >> 0) & 0xff); */
+/* } */
+
 static void compile_block(struct workspace *wk, struct node *n);
 static void compile_expr(struct workspace *wk, struct node *n);
 
@@ -62,8 +76,29 @@ comp_node(struct workspace *wk, struct node *n)
 
 	push_location(wk, n);
 
-	/* L("%s", node_to_s(c->wk, n)); */
+	L("compiling %s", node_to_s(wk, n));
+
 	switch (n->type) {
+	case node_type_stmt: UNREACHABLE;
+
+	case node_type_id_lit:
+	case node_type_args:
+	case node_type_def_args:
+	case node_type_kw:
+	case node_type_list:
+	case node_type_foreach_args:
+		// Skipped
+		break;
+
+	case node_type_continue:
+	case node_type_break:
+	case node_type_ternary:
+		// Unimplemented
+		break;
+
+	case node_type_stringify: push_code(wk, op_stringify); break;
+	case node_type_index: push_code(wk, op_index); break;
+	case node_type_negate: push_code(wk, op_negate); break;
 	case node_type_add: push_code(wk, op_add); break;
 	case node_type_sub: push_code(wk, op_sub); break;
 	case node_type_mul: push_code(wk, op_mul); break;
@@ -73,13 +108,25 @@ comp_node(struct workspace *wk, struct node *n)
 	case node_type_and: push_code(wk, op_and); break;
 	case node_type_not: push_code(wk, op_not); break;
 	case node_type_eq: push_code(wk, op_eq); break;
-	case node_type_neq: push_code(wk, op_eq); push_code(wk, op_not); break;
+	case node_type_neq:
+		push_code(wk, op_eq);
+		push_code(wk, op_not);
+		break;
 	case node_type_in: push_code(wk, op_in); break;
-	case node_type_not_in: push_code(wk, op_in); push_code(wk, op_not); break;
+	case node_type_not_in:
+		push_code(wk, op_in);
+		push_code(wk, op_not);
+		break;
 	case node_type_lt: push_code(wk, op_lt); break;
 	case node_type_gt: push_code(wk, op_gt); break;
-	case node_type_leq: push_code(wk, op_gt); push_code(wk, op_not); break;
-	case node_type_geq: push_code(wk, op_lt); push_code(wk, op_not); break;
+	case node_type_leq:
+		push_code(wk, op_gt);
+		push_code(wk, op_not);
+		break;
+	case node_type_geq:
+		push_code(wk, op_lt);
+		push_code(wk, op_not);
+		break;
 	case node_type_id:
 		push_code(wk, op_load);
 		push_constant(wk, n->data.str);
@@ -115,14 +162,19 @@ comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_add_store);
 		push_constant(wk, n->l->data.str);
 		break;
+	case node_type_method: {
+		push_code(wk, op_call_method);
+		push_constant(wk, n->l->data.len.args);
+		push_constant(wk, n->l->data.len.kwargs);
+		push_constant(wk, n->r->data.str);
+		break;
+	}
 	case node_type_call: {
 		bool known = false;
 		uint32_t idx;
 
 		if (n->r->type == node_type_id_lit) {
 			known = func_lookup(wk, 0, get_str(wk, n->r->data.str)->s, &idx, 0);
-			L("got known func %s %d", get_str(wk, n->r->data.str)->s, idx);
-			L("%s", native_funcs[idx].name);
 			if (!known) {
 				n->r->type = node_type_id;
 				comp_node(wk, n->r);
@@ -151,9 +203,13 @@ comp_node(struct workspace *wk, struct node *n)
 	}
 	case node_type_foreach: {
 		uint32_t break_jmp_patch_tgt, loop_body_start;
-		struct node *ida = n->l->l->l; //, *idb = n->l->l->r;
+		struct node *ida = n->l->l->l, *idb = n->l->l->r;
 
 		compile_expr(wk, n->l->r);
+		if (idb) {
+			push_code(wk, op_typecheck);
+			push_constant(wk, obj_dict);
+		}
 		push_code(wk, op_iterator);
 
 		loop_body_start = wk->vm.code.len;
@@ -166,6 +222,12 @@ comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_store);
 		push_constant(wk, ida->data.str);
 		push_code(wk, op_pop);
+
+		if (idb) {
+			push_code(wk, op_store);
+			push_constant(wk, idb->data.str);
+			push_code(wk, op_pop);
+		}
 
 		compile_block(wk, n->r);
 
@@ -231,7 +293,7 @@ comp_node(struct workspace *wk, struct node *n)
 			/* 		vm_error_at(wk, arg_id, "non-kwarg after kwargs"); */
 			/* 	} */
 			if (arg->l) {
-				func->an[func->nargs] = (struct args_norm) {
+				func->an[func->nargs] = (struct args_norm){
 					.name = get_cstr(wk, arg->l->data.str),
 					.type = tc_any,
 				};
@@ -277,9 +339,6 @@ comp_node(struct workspace *wk, struct node *n)
 
 		break;
 	}
-	default:
-		L("skipping %s", node_to_s(wk, n));
-		break;
 	}
 }
 
@@ -300,7 +359,8 @@ compile_expr(struct workspace *wk, struct node *n)
 				n = n->l;
 			}
 		} else {
-			peek = *(struct node **)arr_get(&wk->vm.compiler_state.node_stack, wk->vm.compiler_state.node_stack.len - 1);
+			peek = *(struct node **)arr_get(
+				&wk->vm.compiler_state.node_stack, wk->vm.compiler_state.node_stack.len - 1);
 			if (peek->r && prev != peek->r) {
 				n = peek->r;
 			} else {
@@ -327,11 +387,12 @@ compile_block(struct workspace *wk, struct node *n)
 void
 compiler_write_initial_code_segment(struct workspace *wk)
 {
-	arr_push(&wk->vm.locations, &(struct source_location_mapping) {
-		.ip = 0,
-		.loc = { 0 },
-		.src_idx = UINT32_MAX,
-	});
+	arr_push(&wk->vm.locations,
+		&(struct source_location_mapping){
+			.ip = 0,
+			.loc = { 0 },
+			.src_idx = UINT32_MAX,
+		});
 
 	push_code(wk, op_return);
 }

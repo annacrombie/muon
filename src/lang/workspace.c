@@ -16,8 +16,7 @@
 #include "platform/path.h"
 
 struct project *
-make_project(struct workspace *wk, uint32_t *id, const char *subproject_name,
-	const char *cwd, const char *build_dir)
+make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir)
 {
 	*id = arr_push(&wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
@@ -59,8 +58,9 @@ current_project(struct workspace *wk)
 void
 workspace_init_bare(struct workspace *wk)
 {
-	*wk = (struct workspace) { 0 };
+	*wk = (struct workspace){ 0 };
 	vm_init(wk);
+	stack_init(&wk->stack, 4096);
 
 	{
 #ifdef TRACY_ENABLE
@@ -123,8 +123,7 @@ workspace_destroy(struct workspace *wk)
 }
 
 bool
-workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0,
-	uint32_t argc, char *const argv[])
+workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[])
 {
 	SBUF(build_root);
 	path_make_absolute(wk, &build_root, build);
@@ -246,8 +245,7 @@ void
 workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr)
 {
 	if (get_obj_type(wk, obj_or_arr) == obj_array) {
-		obj_array_foreach(wk, obj_or_arr, NULL,
-			workspace_add_regenerate_deps_iter);
+		obj_array_foreach(wk, obj_or_arr, NULL, workspace_add_regenerate_deps_iter);
 	} else {
 		workspace_add_regenerate_deps_iter(wk, NULL, obj_or_arr);
 	}

@@ -90,7 +90,7 @@ project_add_language(struct workspace *wk, uint32_t err_node, obj str, enum requ
 	if (l == compiler_language_nasm) {
 		obj c_compiler;
 		if (!obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_c, &c_compiler)
-		    && !obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &c_compiler)) {
+			&& !obj_dict_geti(wk, current_project(wk)->compilers, compiler_language_cpp, &c_compiler)) {
 			bool c_found;
 			if (!project_add_language(wk, err_node, make_str(wk, "c"), req, &c_found)) {
 				return false;
@@ -144,7 +144,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		[kw_meson_version] = { "meson_version", obj_string },
 		[kw_subproject_dir] = { "subproject_dir", obj_string },
 		[kw_version] = { "version", tc_string | tc_file },
-		0
+		0,
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -159,16 +159,20 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	current_project(wk)->cfg.name = an[0].val;
 #ifndef MUON_BOOTSTRAPPED
 	if (wk->cur_project == 0 && !str_eql(get_str(wk, an[0].val), &WKSTR("muon"))) {
-		vm_error_at(wk, an[0].node, "This muon has not been fully bootstrapped. It can only be used to setup muon itself.");
+		vm_error_at(wk,
+			an[0].node,
+			"This muon has not been fully bootstrapped. It can only be used to setup muon itself.");
 		return false;
 	}
 #endif
 
-	if (!obj_array_foreach_flat(wk, an[1].val,
-		&(struct project_add_language_iter_ctx) {
-		.err_node = an[1].node,
-		.req = requirement_required,
-	}, project_add_language_iter)) {
+	if (!obj_array_foreach_flat(wk,
+		    an[1].val,
+		    &(struct project_add_language_iter_ctx){
+			    .err_node = an[1].node,
+			    .req = requirement_required,
+		    },
+		    project_add_language_iter)) {
 		return false;
 	}
 
@@ -190,7 +194,9 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 			for (i = 0; ver_src.src[i]; ++i) {
 				if (ver_src.src[i] == '\n') {
 					if (ver_src.src[i + 1]) {
-						vm_error_at(wk, akw[kw_version].node, "version file is more than one line long");
+						vm_error_at(wk,
+							akw[kw_version].node,
+							"version file is more than one line long");
 						return false;
 					}
 					break;
@@ -207,7 +213,8 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	}
 
 	if (akw[kw_default_options].set) {
-		if (!parse_and_set_default_options(wk, akw[kw_default_options].node, akw[kw_default_options].val, 0, false)) {
+		if (!parse_and_set_default_options(
+			    wk, akw[kw_default_options].node, akw[kw_default_options].val, 0, false)) {
 			return false;
 		}
 	}
@@ -224,7 +231,8 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	{ // subprojects
 		SBUF(subprojects_path);
-		path_join(wk, &subprojects_path,
+		path_join(wk,
+			&subprojects_path,
 			get_cstr(wk, current_project(wk)->source_root),
 			get_cstr(wk, current_project(wk)->subprojects_dir));
 
@@ -236,8 +244,7 @@ func_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 
 	LOG_I("configuring '%s', version: %s",
 		get_cstr(wk, current_project(wk)->cfg.name),
-		get_cstr(wk, current_project(wk)->cfg.version)
-		);
+		get_cstr(wk, current_project(wk)->cfg.version));
 
 	current_project(wk)->initialized = true;
 	return true;
@@ -308,7 +315,7 @@ add_arguments_common(struct workspace *wk, uint32_t args_node, obj args_dict, ob
 	struct args_kw akw[] = {
 		[kw_language] = { "language", TYPE_TAG_LISTIFY | obj_string, .required = true },
 		[kw_native] = { "native", obj_bool },
-		0
+		0,
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -383,15 +390,10 @@ add_project_dependencies_iter(struct workspace *wk, void *_ctx, obj lang)
 		return ir_err;
 	}
 
-	obj_array_extend(wk,
-		get_project_argument_array(wk, current_project(wk)->args, l),
-		ctx->d->compile_args);
-	obj_array_extend(wk,
-		get_project_argument_array(wk, current_project(wk)->link_args, l),
-		ctx->d->link_args);
-	obj_array_extend(wk,
-		get_project_argument_array(wk, current_project(wk)->include_dirs, l),
-		ctx->d->include_directories);
+	obj_array_extend(wk, get_project_argument_array(wk, current_project(wk)->args, l), ctx->d->compile_args);
+	obj_array_extend(wk, get_project_argument_array(wk, current_project(wk)->link_args, l), ctx->d->link_args);
+	obj_array_extend(
+		wk, get_project_argument_array(wk, current_project(wk)->include_dirs, l), ctx->d->include_directories);
 	return ir_cont;
 }
 
@@ -406,7 +408,7 @@ func_add_project_dependencies(struct workspace *wk, obj _, uint32_t args_node, o
 	struct args_kw akw[] = {
 		[kw_language] = { "language", TYPE_TAG_LISTIFY | obj_string, .required = true },
 		[kw_native] = { "native", obj_bool },
-		0
+		0,
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -436,7 +438,7 @@ func_add_languages(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
-		0
+		0,
 	};
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -529,8 +531,7 @@ find_program_check_override(struct workspace *wk, struct find_program_iter_ctx *
 			find_program_guess_version(wk, ep->cmd_array, &over);
 		}
 		break;
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	if (ctx->version && over) {
@@ -566,7 +567,7 @@ find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *
 
 		obj subproj;
 		if (!subproject(wk, subproj_name, requirement_auto, NULL, NULL, &subproj)
-		    && get_obj_subproject(wk, subproj)->found) {
+			&& get_obj_subproject(wk, subproj)->found) {
 			return true;
 		}
 
@@ -575,7 +576,11 @@ find_program_check_fallback(struct workspace *wk, struct find_program_iter_ctx *
 		} else if (!ctx->found) {
 			obj _;
 			if (!obj_dict_index(wk, wk->find_program_overrides, prog, &_)) {
-				vm_warning_at(wk, 0, "subproject %o claims to provide %o, but did not override it", subproj_name, prog);
+				vm_warning_at(wk,
+					0,
+					"subproject %o claims to provide %o, but did not override it",
+					subproj_name,
+					prog);
 			}
 		}
 	}
@@ -590,22 +595,16 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	obj ver = 0;
 	bool guessed_ver = false;
 
-	type_tag tc_allowed = tc_file | tc_string | tc_external_program \
-			      | tc_python_installation;
+	type_tag tc_allowed = tc_file | tc_string | tc_external_program | tc_python_installation;
 	if (!typecheck(wk, ctx->node, prog, tc_allowed)) {
 		return false;
 	}
 
 	enum obj_type t = get_obj_type(wk, prog);
 	switch (t) {
-	case obj_file:
-		str = get_file_path(wk, prog);
-		break;
-	case obj_string:
-		str = get_cstr(wk, prog);
-		break;
-	case obj_python_installation:
-		prog = get_obj_python_installation(wk, prog)->prog;
+	case obj_file: str = get_file_path(wk, prog); break;
+	case obj_string: str = get_cstr(wk, prog); break;
+	case obj_python_installation: prog = get_obj_python_installation(wk, prog)->prog;
 	/* fallthrough */
 	case obj_external_program:
 		if (get_obj_external_program(wk, prog)->found) {
@@ -613,8 +612,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 			ctx->found = true;
 		}
 		return true;
-	default:
-		UNREACHABLE_RETURN;
+	default: UNREACHABLE_RETURN;
 	}
 
 	const char *path;
@@ -674,9 +672,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	}
 
 	/* 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
-	if (t == obj_string
-	    && wrap_mode != wrap_mode_nofallback
-	    && ctx->requirement == requirement_required) {
+	if (t == obj_string && wrap_mode != wrap_mode_nofallback && ctx->requirement == requirement_required) {
 		if (!find_program_check_fallback(wk, ctx, prog)) {
 			return false;
 		}
@@ -702,37 +698,37 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	}
 
 	return true;
-found:  {
-		obj cmd_array;
-		make_obj(wk, &cmd_array, obj_array);
-		obj_array_push(wk, cmd_array, make_str(wk, path));
+found: {
+	obj cmd_array;
+	make_obj(wk, &cmd_array, obj_array);
+	obj_array_push(wk, cmd_array, make_str(wk, path));
 
-		if (ctx->version) {
-			find_program_guess_version(wk, cmd_array, &ver);
-			guessed_ver = true;
+	if (ctx->version) {
+		find_program_guess_version(wk, cmd_array, &ver);
+		guessed_ver = true;
 
-			if (!ver) {
-				return true; // no version to check against
-			}
-
-			bool comparison_result;
-			if (!version_compare(wk, ctx->version_node, get_str(wk, ver), ctx->version, &comparison_result)) {
-				return false;
-			} else if (!comparison_result) {
-				return true;
-			}
+		if (!ver) {
+			return true; // no version to check against
 		}
 
-		make_obj(wk, ctx->res, obj_external_program);
-		struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
-		ep->found = true;
-		ep->cmd_array = cmd_array;
-		ep->guessed_ver = guessed_ver;
-		ep->ver = ver;
-
-		ctx->found = true;
-		return true;
+		bool comparison_result;
+		if (!version_compare(wk, ctx->version_node, get_str(wk, ver), ctx->version, &comparison_result)) {
+			return false;
+		} else if (!comparison_result) {
+			return true;
+		}
 	}
+
+	make_obj(wk, ctx->res, obj_external_program);
+	struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
+	ep->found = true;
+	ep->cmd_array = cmd_array;
+	ep->guessed_ver = guessed_ver;
+	ep->ver = ver;
+
+	ctx->found = true;
+	return true;
+}
 }
 
 static enum iteration_result
@@ -758,14 +754,12 @@ func_find_program(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_dirs,
 		kw_version,
 	};
-	struct args_kw akw[] = {
-		[kw_required] = { "required", tc_required_kw },
+	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
-		0
-	};
+		0 };
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
@@ -818,17 +812,12 @@ func_include_directories(struct workspace *wk, obj _, uint32_t args_node, obj *r
 	enum kwargs {
 		kw_is_system,
 	};
-	struct args_kw akw[] = {
-		[kw_is_system] = { "is_system", obj_bool },
-		0
-	};
+	struct args_kw akw[] = { [kw_is_system] = { "is_system", obj_bool }, 0 };
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
-	bool is_system = akw[kw_is_system].set
-		? get_obj_bool(wk, akw[kw_is_system].val)
-		: false;
+	bool is_system = akw[kw_is_system].set ? get_obj_bool(wk, akw[kw_is_system].val) : false;
 
 	if (!coerce_include_dirs(wk, an[0].node, an[0].val, is_system, res)) {
 		return false;
@@ -848,14 +837,12 @@ func_generator(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depfile,
 		kw_depends,
 	};
-	struct args_kw akw[] = {
-		[kw_output] = { "output", TYPE_TAG_LISTIFY | obj_string, .required = true },
+	struct args_kw akw[] = { [kw_output] = { "output", TYPE_TAG_LISTIFY | obj_string, .required = true },
 		[kw_arguments] = { "arguments", obj_array, .required = true },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_depfile] = { "depfile", obj_string },
 		[kw_depends] = { "depends", tc_depends_kw },
-		0
-	};
+		0 };
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
@@ -985,20 +972,17 @@ func_warning(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 static bool
 func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	type_tag tc_allowed_an = tc_string | tc_file | tc_external_program \
-				 | tc_compiler | tc_python_installation;
+	type_tag tc_allowed_an = tc_string | tc_file | tc_external_program | tc_compiler | tc_python_installation;
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_check,
 		kw_env,
 		kw_capture,
 	};
-	struct args_kw akw[] = {
-		[kw_check] = { "check", obj_bool },
+	struct args_kw akw[] = { [kw_check] = { "check", obj_bool },
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_capture] = { "capture", obj_bool },
-		0
-	};
+		0 };
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
@@ -1065,11 +1049,9 @@ func_run_command(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		goto ret;
 	}
 
-	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val)
-	    && cmd_ctx.status != 0) {
+	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val) && cmd_ctx.status != 0) {
 		vm_error_at(wk, an[0].node, "command failed: '%s'", cmd_ctx.err.buf);
 		return false;
-
 	}
 
 	make_obj(wk, res, obj_run_result);
@@ -1098,18 +1080,16 @@ func_run_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_depends,
 		kw_env,
 	};
-	struct args_kw akw[] = {
-		[kw_command] = { "command", tc_command_array, .required = true },
+	struct args_kw akw[] = { [kw_command] = { "command", tc_command_array, .required = true },
 		[kw_depends] = { "depends", tc_depends_kw },
 		[kw_env] = { "env", tc_coercible_env },
-		0
-	};
+		0 };
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
 
 	struct make_custom_target_opts opts = {
-		.name         = an[0].val,
+		.name = an[0].val,
 		.command_node = akw[kw_command].node,
 		.command_orig = akw[kw_command].val,
 	};
@@ -1162,10 +1142,7 @@ func_subdir(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_if_found,
 	};
 	type_tag if_found_type = wk->vm.in_analyzer ? tc_any : TYPE_TAG_LISTIFY | tc_dependency;
-	struct args_kw akw[] = {
-		[kw_if_found] = { "if_found", if_found_type },
-		0
-	};
+	struct args_kw akw[] = { [kw_if_found] = { "if_found", if_found_type }, 0 };
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
 	}
@@ -1264,9 +1241,11 @@ func_add_test_setup(struct workspace *wk, obj _, uint32_t args_node, obj *ret)
 	}
 
 	obj exe_wrapper = 0;
-	if (akw[kw_exe_wrapper].set && !arr_to_args(wk,
-		arr_to_args_build_target | arr_to_args_custom_target | arr_to_args_external_program,
-		akw[kw_exe_wrapper].val, &exe_wrapper)) {
+	if (akw[kw_exe_wrapper].set
+		&& !arr_to_args(wk,
+			arr_to_args_build_target | arr_to_args_custom_target | arr_to_args_external_program,
+			akw[kw_exe_wrapper].val,
+			&exe_wrapper)) {
 		return false;
 	}
 
@@ -1301,8 +1280,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 	switch (get_obj_type(wk, val)) {
 	case obj_string:
 	case obj_external_program:
-	case obj_python_installation:
-		break;
+	case obj_python_installation: break;
 
 	case obj_file:
 		if (!ctx->from_custom_tgt) {
@@ -1313,8 +1291,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 		obj_array_push(wk, ctx->t->depends, sbuf_into_str(wk, &rel));
 		break;
 
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
@@ -1330,8 +1307,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		ctx->from_custom_tgt = false;
 		break;
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	return ir_cont;
@@ -1340,8 +1316,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat)
 {
-	type_tag tc_allowed_an = tc_build_target | tc_external_program | tc_file \
-				 | tc_python_installation;
+	type_tag tc_allowed_an = tc_build_target | tc_external_program | tc_file | tc_python_installation;
 	struct args_norm an[] = { { obj_string }, { tc_allowed_an }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_args,
@@ -1372,7 +1347,10 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	};
 
 	if (cat == test_category_test) {
-		akw[kw_is_parallel] = (struct args_kw){ "is_parallel", obj_bool, };
+		akw[kw_is_parallel] = (struct args_kw){
+			"is_parallel",
+			obj_bool,
+		};
 	}
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
@@ -1389,21 +1367,19 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 		};
 
 		for (protocol = 0; protocol < ARRAY_LEN(protocol_names); ++protocol) {
-			if (str_eql(get_str(wk, akw[kw_protocol].val),
-				&WKSTR(protocol_names[protocol]))) {
+			if (str_eql(get_str(wk, akw[kw_protocol].val), &WKSTR(protocol_names[protocol]))) {
 				break;
 			}
 		}
 
 		if (protocol == ARRAY_LEN(protocol_names)) {
-			vm_error_at(wk, akw[kw_protocol].node,
-				"invalid protocol %o", akw[kw_protocol].val);
+			vm_error_at(wk, akw[kw_protocol].node, "invalid protocol %o", akw[kw_protocol].val);
 			return false;
 		}
 
-		if (protocol == test_protocol_gtest
-		    || protocol == test_protocol_rust) {
-			vm_warning_at(wk, akw[kw_protocol].node,
+		if (protocol == test_protocol_gtest || protocol == test_protocol_rust) {
+			vm_warning_at(wk,
+				akw[kw_protocol].node,
 				"unsupported protocol %o, falling back to 'exitcode'",
 				akw[kw_protocol].val);
 			protocol = test_protocol_exitcode;
@@ -1417,9 +1393,7 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 
 	obj args = exe_args;
 	if (akw[kw_args].set) {
-		if (!arr_to_args(wk,
-			arr_to_args_build_target | arr_to_args_custom_target,
-			akw[kw_args].val, &args)) {
+		if (!arr_to_args(wk, arr_to_args_build_target | arr_to_args_custom_target, akw[kw_args].val, &args)) {
 			return false;
 		}
 
@@ -1440,22 +1414,17 @@ add_test_common(struct workspace *wk, uint32_t args_node, enum test_category cat
 	t->name = an[0].val;
 	t->exe = exe;
 	t->args = args;
-	t->should_fail =
-		akw[kw_should_fail].set
-		&& get_obj_bool(wk, akw[kw_should_fail].val);
+	t->should_fail = akw[kw_should_fail].set && get_obj_bool(wk, akw[kw_should_fail].val);
 	t->suites = akw[kw_suite].val;
 	t->workdir = akw[kw_workdir].val;
 	t->timeout = akw[kw_timeout].val;
 	t->priority = akw[kw_priority].val;
 	t->category = cat;
 	t->protocol = protocol;
-	t->verbose = akw[kw_verbose].set
-		     && get_obj_bool(wk, akw[kw_verbose].val);
+	t->verbose = akw[kw_verbose].set && get_obj_bool(wk, akw[kw_verbose].val);
 
 	if (akw[kw_is_parallel].key) {
-		t->is_parallel = akw[kw_is_parallel].set
-			? get_obj_bool(wk, akw[kw_is_parallel].val)
-			: true;
+		t->is_parallel = akw[kw_is_parallel].set ? get_obj_bool(wk, akw[kw_is_parallel].val) : true;
 	}
 
 	struct add_test_depends_ctx deps_ctx = { .t = t };
@@ -1525,7 +1494,6 @@ func_join_paths(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
-
 static enum iteration_result
 environment_set_initial_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
@@ -1551,7 +1519,8 @@ func_environment(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	make_obj(wk, &d->actions, obj_array);
 
 	if (ao[0].set) {
-		if (!typecheck(wk, ao[0].node, ao[0].val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
+		if (!typecheck(
+			    wk, ao[0].node, ao[0].val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
 			return false;
 		}
 
@@ -1569,11 +1538,8 @@ func_import(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 		kw_required,
 		kw_disabler,
 	};
-	struct args_kw akw[] = {
-		[kw_required] = { "required", tc_required_kw },
-		[kw_disabler] = { "disabler", obj_bool },
-		0
-	};
+	struct args_kw akw[]
+		= { [kw_required] = { "required", tc_required_kw }, [kw_disabler] = { "disabler", obj_bool }, 0 };
 
 	if (!interp_args(wk, args_node, an, NULL, akw)) {
 		return false;
@@ -1814,18 +1780,12 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	struct alias_target_iter_ctx *ctx = _ctx;
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_alias_target:
 	case obj_build_target:
-	case obj_custom_target:
-		obj_array_push(wk, ctx->deps, val);
-		break;
-	default:
-		vm_error_at(wk, val, "expected target but got: %s",
-			obj_type_to_s(t));
-		return ir_err;
+	case obj_custom_target: obj_array_push(wk, ctx->deps, val); break;
+	default: vm_error_at(wk, val, "expected target but got: %s", obj_type_to_s(t)); return ir_err;
 	}
 
 	return ir_cont;
@@ -1834,7 +1794,9 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 static bool
 func_alias_target(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | tc_build_target | tc_custom_target | tc_alias_target | tc_both_libs }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string },
+		{ TYPE_TAG_GLOB | tc_build_target | tc_custom_target | tc_alias_target | tc_both_libs },
+		ARG_TYPE_NULL };
 	if (!interp_args(wk, args_node, an, NULL, NULL)) {
 		return false;
 	}
@@ -2040,6 +2002,7 @@ func_typeof(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+// clang-format off
 const struct func_impl impl_tbl_kernel[] =
 {
 	{ "add_global_arguments", func_add_global_arguments },

@@ -219,9 +219,7 @@ interp_index(struct workspace *wk, struct node *n, obj l_id, bool do_chain, obj 
 	type_tag t = get_obj_type(wk, l_id);
 
 	switch (t) {
-	case obj_disabler:
-		*res = disabler_id;
-		return true;
+	case obj_disabler: *res = disabler_id; return true;
 	case obj_array: {
 		if (!typecheck(wk, n->r, r_id, obj_number)) {
 			return false;
@@ -279,9 +277,7 @@ interp_index(struct workspace *wk, struct node *n, obj l_id, bool do_chain, obj 
 		tmp = make_strn(wk, &s->s[i], 1);
 		break;
 	}
-	default:
-		vm_error_at(wk, n->r, "index unsupported for %s", obj_type_to_s(t));
-		return false;
+	default: vm_error_at(wk, n->r, "index unsupported for %s", obj_type_to_s(t)); return false;
 	}
 
 	if (do_chain && (n->chflg & node_child_d)) {
@@ -298,15 +294,10 @@ interp_chained(struct workspace *wk, uint32_t node_id, obj l_id, obj *res)
 	struct node *n = get_node(wk->ast, node_id);
 
 	switch (n->type) {
-	case node_function:
-		return interp_func(wk, node_id, true, l_id, res);
-	case node_method:
-		return interp_method(wk, node_id, l_id, res);
-	case node_index:
-		return interp_index(wk, n, l_id, true, res);
-	default:
-		UNREACHABLE;
-		break;
+	case node_function: return interp_func(wk, node_id, true, l_id, res);
+	case node_method: return interp_method(wk, node_id, l_id, res);
+	case node_index: return interp_index(wk, n, l_id, true, res);
+	default: UNREACHABLE; break;
 	}
 
 	return false;
@@ -332,14 +323,17 @@ interp_u_minus(struct workspace *wk, struct node *n, obj *res)
 }
 
 bool
-interp_arithmetic(struct workspace *wk, uint32_t err_node,
-	enum arithmetic_type type, bool plusassign, uint32_t nl, uint32_t nr,
+interp_arithmetic(struct workspace *wk,
+	uint32_t err_node,
+	enum arithmetic_type type,
+	bool plusassign,
+	uint32_t nl,
+	uint32_t nr,
 	obj *res)
 {
 	obj l_id, r_id;
 
-	if (!wk->interp_node(wk, nl, &l_id)
-	    || !wk->interp_node(wk, nr, &r_id)) {
+	if (!wk->interp_node(wk, nl, &l_id) || !wk->interp_node(wk, nr, &r_id)) {
 		return false;
 	}
 
@@ -357,12 +351,9 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 		}
 
 		switch (type) {
-		case arith_add:
-			str = str_join(wk, l_id, r_id);
-			break;
+		case arith_add: str = str_join(wk, l_id, r_id); break;
 		case arith_div: {
-			const struct str *ss1 = get_str(wk, l_id),
-					 *ss2 = get_str(wk, r_id);
+			const struct str *ss1 = get_str(wk, l_id), *ss2 = get_str(wk, r_id);
 
 			if (str_has_null(ss1)) {
 				vm_error_at(wk, nl, "%o is an invalid path", l_id);
@@ -379,8 +370,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			str = sbuf_into_str(wk, &buf);
 			break;
 		}
-		default:
-			goto err1;
+		default: goto err1;
 		}
 
 		*res = str;
@@ -397,9 +387,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 		r = get_obj_number(wk, r_id);
 
 		switch (type) {
-		case arith_add:
-			num = l + r;
-			break;
+		case arith_add: num = l + r; break;
 		case arith_div:
 			if (!r) {
 				vm_error_at(wk, nr, "divide by 0");
@@ -407,9 +395,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			}
 			num = l / r;
 			break;
-		case arith_sub:
-			num = l - r;
-			break;
+		case arith_sub: num = l - r; break;
 		case arith_mod:
 			if (!r) {
 				vm_error_at(wk, nr, "divide by 0");
@@ -417,12 +403,8 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 			}
 			num = l % r;
 			break;
-		case arith_mul:
-			num = l * r;
-			break;
-		default:
-			assert(false);
-			return false;
+		case arith_mul: num = l * r; break;
+		default: assert(false); return false;
 		}
 
 		make_obj(wk, res, obj_number);
@@ -444,8 +426,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 				obj_array_push(wk, *res, r_id);
 			}
 			return true;
-		default:
-			goto err1;
+		default: goto err1;
 		}
 	}
 	case obj_dict: {
@@ -464,8 +445,7 @@ interp_arithmetic(struct workspace *wk, uint32_t err_node,
 
 		break;
 	}
-	default:
-		goto err1;
+	default: goto err1;
 	}
 
 	return true;
@@ -506,8 +486,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		obj_array_dup(wk, rhs, &dup);
 		rhs = dup;
 	}
-	default:
-		break;
+	default: break;
 	}
 
 	if (!rhs) {
@@ -721,19 +700,13 @@ interp_comparison(struct workspace *wk, struct node *n, obj *res)
 	}
 
 	switch ((enum comparison_type)n->subtype) {
-	case comp_equal:
-		b = obj_equal(wk, obj_l_id, obj_r_id);
-		break;
-	case comp_nequal:
-		b = !obj_equal(wk, obj_l_id, obj_r_id);
-		break;
+	case comp_equal: b = obj_equal(wk, obj_l_id, obj_r_id); break;
+	case comp_nequal: b = !obj_equal(wk, obj_l_id, obj_r_id); break;
 
 	case comp_in:
 	case comp_not_in:
 		switch (get_obj_type(wk, obj_r_id)) {
-		case obj_array:
-			b = obj_array_in(wk, obj_r_id, obj_l_id);
-			break;
+		case obj_array: b = obj_array_in(wk, obj_r_id, obj_l_id); break;
 		case obj_dict:
 			if (!typecheck(wk, n->l, obj_l_id, obj_string)) {
 				return false;
@@ -746,8 +719,7 @@ interp_comparison(struct workspace *wk, struct node *n, obj *res)
 				return false;
 			}
 
-			const struct str *r = get_str(wk, obj_r_id),
-					 *l = get_str(wk, obj_l_id);
+			const struct str *r = get_str(wk, obj_r_id), *l = get_str(wk, obj_l_id);
 			if (memmem(r->s, r->len, l->s, l->len)) {
 				b = true;
 			} else {
@@ -768,34 +740,22 @@ interp_comparison(struct workspace *wk, struct node *n, obj *res)
 	case comp_le:
 	case comp_gt:
 	case comp_ge: {
-		if (!typecheck(wk, n->l, obj_l_id, obj_number)
-		    || !typecheck(wk, n->r, obj_r_id, obj_number)) {
+		if (!typecheck(wk, n->l, obj_l_id, obj_number) || !typecheck(wk, n->r, obj_r_id, obj_number)) {
 			return false;
 		}
 
-		int64_t n_a = get_obj_number(wk, obj_l_id),
-			n_b = get_obj_number(wk, obj_r_id);
+		int64_t n_a = get_obj_number(wk, obj_l_id), n_b = get_obj_number(wk, obj_r_id);
 
 		switch (n->subtype) {
-		case comp_lt:
-			b = n_a < n_b;
-			break;
-		case comp_le:
-			b = n_a <= n_b;
-			break;
-		case comp_gt:
-			b = n_a > n_b;
-			break;
-		case comp_ge:
-			b = n_a >= n_b;
-			break;
-		default:
-			UNREACHABLE;
+		case comp_lt: b = n_a < n_b; break;
+		case comp_le: b = n_a <= n_b; break;
+		case comp_gt: b = n_a > n_b; break;
+		case comp_ge: b = n_a >= n_b; break;
+		default: UNREACHABLE;
 		}
 		break;
 	}
-	default:
-		UNREACHABLE;
+	default: UNREACHABLE;
 	}
 
 	make_obj(wk, res, obj_bool);
@@ -842,12 +802,8 @@ interp_if(struct workspace *wk, struct node *n, obj *res)
 		cond = get_obj_bool(wk, cond_id);
 		break;
 	}
-	case if_else:
-		cond = true;
-		break;
-	default:
-		assert(false);
-		return false;
+	case if_else: cond = true; break;
+	default: assert(false); return false;
 	}
 
 	if (cond) {
@@ -889,14 +845,9 @@ interp_foreach_common(struct workspace *wk, struct interp_foreach_ctx *ctx)
 	}
 
 	switch (wk->loop_ctl) {
-	case loop_continuing:
-		wk->loop_ctl = loop_norm;
-		break;
-	case loop_breaking:
-		wk->loop_ctl = loop_norm;
-		return ir_done;
-	case loop_norm:
-		break;
+	case loop_continuing: wk->loop_ctl = loop_norm; break;
+	case loop_breaking: wk->loop_ctl = loop_norm; return ir_done;
+	case loop_norm: break;
 	}
 
 	return ir_cont;
@@ -934,7 +885,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 	struct node *stmt_node = get_node(wk->ast, n->r);
 	if (!(args->chflg & node_child_r) && stmt_node->type == node_function) {
 		if (str_eql(get_str(wk, get_node(wk->ast, stmt_node->l)->data.str), &WKSTR("range"))
-		    && !(stmt_node->chflg & node_child_d)) {
+			&& !(stmt_node->chflg & node_child_d)) {
 			struct range_params range_params;
 			if (!func_range_common(wk, stmt_node->r, &range_params)) {
 				return false;
@@ -945,7 +896,6 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 				.n_l = args->l,
 				.block_node = n->c,
 			};
-
 
 			++wk->loop_depth;
 			wk->loop_ctl = loop_norm;
@@ -962,11 +912,8 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 					ret = false;
 					break_out_of_loop = true;
 					break;
-				case ir_cont:
-					break;
-				case ir_done:
-					break_out_of_loop = true;
-					break;
+				case ir_cont: break;
+				case ir_done: break_out_of_loop = true; break;
 				}
 
 				if (break_out_of_loop) {
@@ -982,7 +929,6 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 	if (!wk->interp_node(wk, n->r, &iterable)) {
 		return false;
 	}
-
 
 	switch (get_obj_type(wk, iterable)) {
 	case obj_array: {
@@ -1027,9 +973,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 
 		break;
 	}
-	default:
-		vm_error_at(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj_type(wk, iterable)));
-		return false;
+	default: vm_error_at(wk, n->r, "%s is not iterable", obj_type_to_s(get_obj_type(wk, iterable))); return false;
 	}
 
 	return ret;
@@ -1125,15 +1069,13 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		*res = n->l;
 		ret = true;
 		break;
-	case node_array:
-		ret = interp_array(wk, n->l, res);
-		break;
+	case node_array: ret = interp_array(wk, n->l, res); break;
 	case node_dict:
 		make_obj(wk, res, obj_dict);
 		ret = interp_dict(wk, n->l, res);
 		break;
 	case node_id:
-		if (!wk->get_variable(wk, get_cstr(wk,n->data.str), res, wk->cur_project)) {
+		if (!wk->get_variable(wk, get_cstr(wk, n->data.str), res, wk->cur_project)) {
 			vm_error_at(wk, n_id, "undefined object");
 			ret = false;
 			break;
@@ -1146,8 +1088,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		bool have_r;
 interp_block:
 		n->chflg |= node_visited; // for analyzer
-		have_r = n->chflg & node_child_r
-			 && get_node(wk->ast, n->r)->type != node_empty;
+		have_r = n->chflg & node_child_r && get_node(wk->ast, n->r)->type != node_empty;
 
 		assert(n->type == node_block);
 
@@ -1169,10 +1110,8 @@ interp_block:
 			}
 		}
 
-		if (!is_internal
-		    && was_stepping
-		    && wk->dbg.stepping
-		    && wk->dbg.last_line != get_node(wk->ast, n->l)->location.line) {
+		if (!is_internal && was_stepping && wk->dbg.stepping
+			&& wk->dbg.last_line != get_node(wk->ast, n->l)->location.line) {
 			wk->dbg.node = n->l;
 			wk->dbg.last_line = get_node(wk->ast, n->l)->location.line;
 			repl(wk, true);
@@ -1181,15 +1120,12 @@ interp_block:
 		if (have_r) {
 			struct node *r = get_node(wk->ast, n->r);
 			switch (r->type) {
-			case node_empty:
-				*res = obj_l;
-				break;
+			case node_empty: *res = obj_l; break;
 			case node_block:
 				n_id = n->r;
 				n = r;
 				goto interp_block;
-			default:
-				UNREACHABLE;
+			default: UNREACHABLE;
 			}
 		} else {
 			*res = obj_l;
@@ -1197,12 +1133,8 @@ interp_block:
 
 		return true;
 	}
-	case node_if:
-		ret = interp_if(wk, n, res);
-		break;
-	case node_foreach:
-		ret = interp_foreach(wk, n, res);
-		break;
+	case node_if: ret = interp_if(wk, n, res); break;
+	case node_foreach: ret = interp_foreach(wk, n, res); break;
 	case node_continue:
 		wk->loop_ctl = loop_continuing;
 		ret = true;
@@ -1218,9 +1150,7 @@ interp_block:
 		break;
 
 	/* functions */
-	case node_function:
-		ret = interp_func(wk, n_id, false, 0, res);
-		break;
+	case node_function: ret = interp_func(wk, n_id, false, 0, res); break;
 	case node_method:
 	case node_index: {
 		obj l_id;
@@ -1236,60 +1166,34 @@ interp_block:
 	}
 
 	/* assignment */
-	case node_assignment:
-		ret = interp_assign(wk, n, res);
-		break;
+	case node_assignment: ret = interp_assign(wk, n, res); break;
 
 	/* comparison stuff */
-	case node_not:
-		ret = interp_not(wk, n, res);
-		break;
+	case node_not: ret = interp_not(wk, n, res); break;
 	case node_and:
-	case node_or:
-		ret = interp_andor(wk, n, res);
-		break;
-	case node_comparison:
-		ret = interp_comparison(wk, n, res);
-		break;
-	case node_ternary:
-		ret = interp_ternary(wk, n, res);
-		break;
+	case node_or: ret = interp_andor(wk, n, res); break;
+	case node_comparison: ret = interp_comparison(wk, n, res); break;
+	case node_ternary: ret = interp_ternary(wk, n, res); break;
 
 	/* math */
-	case node_u_minus:
-		ret = interp_u_minus(wk, n, res);
-		break;
-	case node_arithmetic:
-		ret = interp_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, res);
-		break;
-	case node_plusassign:
-		ret = interp_plusassign(wk, n_id, res);
-		break;
+	case node_u_minus: ret = interp_u_minus(wk, n, res); break;
+	case node_arithmetic: ret = interp_arithmetic(wk, n_id, n->subtype, false, n->l, n->r, res); break;
+	case node_plusassign: ret = interp_plusassign(wk, n_id, res); break;
 
 	/* special */
-	case node_stringify:
-		ret = interp_stringify(wk, n, res);
-		break;
-	case node_func_def:
-		ret = interp_func_def(wk, n, res);
-		break;
+	case node_stringify: ret = interp_stringify(wk, n, res); break;
+	case node_func_def: ret = interp_func_def(wk, n, res); break;
 
 	/* handled in other places */
 	case node_foreach_args:
-	case node_argument:
-		assert(false && "unreachable");
-		break;
+	case node_argument: assert(false && "unreachable"); break;
 
-	case node_empty:
-		ret = true;
-		break;
+	case node_empty: ret = true; break;
 
 	/* never valid */
 	case node_paren:
 	case node_empty_line:
-	case node_null:
-		assert(false && "invalid node");
-		break;
+	case node_null: assert(false && "invalid node"); break;
 	}
 
 	if (!ret) {
