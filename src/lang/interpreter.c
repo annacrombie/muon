@@ -157,13 +157,13 @@ interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *re
 	obj tmp = 0;
 	struct node *n = get_node(wk->ast, n_id);
 
-	bool have_rcvr = true;
+	bool have_self = true;
 	if (!chained) {
 		// NOTE: This is to simulate looking up function objects for
 		// builtins.
 		struct node *l = get_node(wk->ast, n->l);
 		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, get_cstr(wk, l->data.str))) {
-			have_rcvr = false;
+			have_self = false;
 			l_id = 0;
 		} else {
 			if (!wk->interp_node(wk, n->l, &l_id)) {
@@ -172,11 +172,11 @@ interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *re
 		}
 	}
 
-	if (have_rcvr && !typecheck(wk, n->l, l_id, obj_func)) {
+	if (have_self && !typecheck(wk, n->l, l_id, obj_func)) {
 		return false;
 	}
 
-	if (!builtin_run(wk, have_rcvr, l_id, n_id, &tmp)) {
+	if (!builtin_run(wk, have_self, l_id, n_id, &tmp)) {
 		return false;
 	}
 

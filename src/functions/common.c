@@ -993,15 +993,15 @@ func_name_str(enum obj_type t, const char *name)
 }
 
 bool
-func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj *func)
+func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func)
 {
 	enum obj_type t;
 	struct func_impl_group *impl_group;
 	struct obj_module *m;
 
-	t = get_obj_type(wk, rcvr);
+	t = get_obj_type(wk, self);
 	if (t == obj_module) {
-		m = get_obj_module(wk, rcvr);
+		m = get_obj_module(wk, self);
 
 		if (!m->found && strcmp(name, "found") != 0) {
 			vm_error(wk, "module %s was not found", module_names[m->module]);
@@ -1045,24 +1045,24 @@ func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj
 	}
 
 	/* if (fi && fi->fuzz_unsafe && disable_fuzz_unsafe_functions) { */
-	/* 	vm_error_at(wk, name_node, "%s is disabled", func_name_str(have_rcvr, rcvr_type, name)); */
+	/* 	vm_error_at(wk, name_node, "%s is disabled", func_name_str(have_self, self_type, name)); */
 	/* 	return false; */
 	/* } */
 
-	/* if (have_rcvr && fi && fi->rcvr_transform) { */
-	/* 	rcvr_id = fi->rcvr_transform(wk, rcvr_id); */
+	/* if (have_self && fi && fi->self_transform) { */
+	/* 	self_id = fi->self_transform(wk, self_id); */
 	/* } */
 
 	/* TracyCZoneC(tctx_func, 0xff5000, true); */
 	/* #ifdef TRACY_ENABLE */
-	/* const char *func_name = func_name_str(have_rcvr, rcvr_type, name); */
+	/* const char *func_name = func_name_str(have_self, self_type, name); */
 	/* TracyCZoneName(tctx_func, func_name, strlen(func_name)); */
 	/* #endif */
 
 	/* bool func_res; */
 
 	/* if (fi) { */
-	/* 	func_res = fi->func(wk, rcvr_id, args_node, res); */
+	/* 	func_res = fi->func(wk, self_id, args_node, res); */
 	/* } else { */
 	/* 	func_res = func_obj_eval(wk, func_obj, func_module, args_node, res); */
 	/* } */
@@ -1075,7 +1075,7 @@ func_lookup(struct workspace *wk, obj rcvr, const char *name, uint32_t *idx, obj
 	/* 		disabler_among_args = false; */
 	/* 		return true; */
 	/* 	} else { */
-	/* 		vm_error_at(wk, name_node, "in %s", func_name_str(have_rcvr, rcvr_type, name)); */
+	/* 		vm_error_at(wk, name_node, "in %s", func_name_str(have_self, self_type, name)); */
 	/* 		return false; */
 	/* 	} */
 	/* } */
@@ -1086,7 +1086,7 @@ bool
 analyze_function(struct workspace *wk,
 	const struct func_impl *fi,
 	uint32_t args_node,
-	obj rcvr,
+	obj self,
 	obj *res,
 	bool *was_pure)
 {
@@ -1097,11 +1097,11 @@ analyze_function(struct workspace *wk,
 	bool pure = fi->pure;
 
 	struct obj_tainted_by_typeinfo_ctx tainted_ctx = { .allow_tainted_dict_values = true };
-	if (rcvr && obj_tainted_by_typeinfo(wk, rcvr, &tainted_ctx)) {
+	if (self && obj_tainted_by_typeinfo(wk, self, &tainted_ctx)) {
 		pure = false;
 	}
 
-	if (!rcvr) {
+	if (!self) {
 		if (strcmp(fi->name, "set_variable") == 0 || strcmp(fi->name, "subdir") == 0) {
 			analyze_function_opts.allow_impure_args_except_first = true;
 		} else if (strcmp(fi->name, "p") == 0) {
@@ -1115,7 +1115,7 @@ analyze_function(struct workspace *wk,
 	analyze_function_opts.pure_function = pure;
 	analyze_function_opts.encountered_error = true;
 
-	bool func_ret = fi->func(wk, rcvr, args_node, res);
+	bool func_ret = fi->func(wk, self, args_node, res);
 
 	pure = analyze_function_opts.pure_function;
 	bool ok = !analyze_function_opts.encountered_error;

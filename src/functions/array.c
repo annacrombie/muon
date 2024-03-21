@@ -11,19 +11,19 @@
 #include "log.h"
 
 static bool
-func_array_length(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_array_length(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_number);
-	set_obj_number(wk, *res, get_obj_array(wk, rcvr)->len);
+	set_obj_number(wk, *res, get_obj_array(wk, self)->len);
 	return true;
 }
 
 static bool
-func_array_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_array_get(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -33,7 +33,7 @@ func_array_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 
 	int64_t i = get_obj_number(wk, an[0].val);
 
-	if (!bounds_adjust(get_obj_array(wk, rcvr)->len, &i)) {
+	if (!bounds_adjust(get_obj_array(wk, self)->len, &i)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
@@ -41,7 +41,7 @@ func_array_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 			return false;
 		}
 	} else {
-		obj_array_index(wk, rcvr, i, res);
+		obj_array_index(wk, self, i, res);
 	}
 
 	return true;
@@ -73,7 +73,7 @@ array_contains_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_array_contains(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -81,7 +81,7 @@ func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 	}
 
 	struct array_contains_ctx ctx = { .item = an[0].val };
-	obj_array_foreach(wk, rcvr, &ctx, array_contains_iter);
+	obj_array_foreach(wk, self, &ctx, array_contains_iter);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, ctx.found);
@@ -89,7 +89,7 @@ func_array_contains(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_array_delete(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_array_delete(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -97,11 +97,11 @@ func_array_delete(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	int64_t idx = get_obj_number(wk, an[0].val);
-	if (!boundscheck(wk, an[0].node, get_obj_array(wk, rcvr)->len, &idx)) {
+	if (!boundscheck(wk, an[0].node, get_obj_array(wk, self)->len, &idx)) {
 		return false;
 	}
 
-	obj_array_del(wk, rcvr, idx);
+	obj_array_del(wk, self, idx);
 	return true;
 }
 

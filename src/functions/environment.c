@@ -134,7 +134,7 @@ environment_set(struct workspace *wk, obj env, enum environment_set_mode mode, o
 }
 
 static bool
-func_environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, enum environment_set_mode mode)
+func_environment_set_common(struct workspace *wk, obj self, uint32_t args_node, enum environment_set_mode mode)
 {
 	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -153,25 +153,25 @@ func_environment_set_common(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	return environment_set(wk, rcvr, mode, an[0].val, an[1].val, akw[kw_separator].val);
+	return environment_set(wk, self, mode, an[0].val, an[1].val, akw[kw_separator].val);
 }
 
 static bool
-func_environment_set(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_environment_set(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return func_environment_set_common(wk, rcvr, args_node, environment_set_mode_set);
+	return func_environment_set_common(wk, self, args_node, environment_set_mode_set);
 }
 
 static bool
-func_environment_append(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_environment_append(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return func_environment_set_common(wk, rcvr, args_node, environment_set_mode_append);
+	return func_environment_set_common(wk, self, args_node, environment_set_mode_append);
 }
 
 static bool
-func_environment_prepend(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_environment_prepend(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return func_environment_set_common(wk, rcvr, args_node, environment_set_mode_prepend);
+	return func_environment_set_common(wk, self, args_node, environment_set_mode_prepend);
 }
 
 const struct func_impl impl_tbl_environment[] = {

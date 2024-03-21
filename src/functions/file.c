@@ -29,13 +29,13 @@ file_is_linkable(struct workspace *wk, obj file)
 }
 
 static bool
-func_file_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_file_full_path(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = *get_obj_file(wk, rcvr);
+	*res = *get_obj_file(wk, self);
 	return true;
 }
 

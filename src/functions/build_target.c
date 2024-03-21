@@ -79,24 +79,24 @@ tgt_src_to_object_path(struct workspace *wk, const struct obj_build_target *tgt,
 }
 
 static bool
-func_build_target_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_build_target_name(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_build_target(wk, rcvr)->name;
+	*res = get_obj_build_target(wk, self)->name;
 	return true;
 }
 
 static bool
-func_build_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_build_target_full_path(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	struct obj_build_target *tgt = get_obj_build_target(wk, rcvr);
+	struct obj_build_target *tgt = get_obj_build_target(wk, self);
 
 	*res = tgt->build_path;
 	return true;
@@ -196,29 +196,29 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t err_node, obj *res, obj arr)
+build_target_extract_objects(struct workspace *wk, obj self, uint32_t err_node, obj *res, obj arr)
 {
 	make_obj(wk, res, obj_array);
 
 	struct build_target_extract_objects_ctx ctx = {
 		.err_node = err_node,
 		.res = res,
-		.tgt = get_obj_build_target(wk, rcvr),
-		.tgt_id = rcvr,
+		.tgt = get_obj_build_target(wk, self),
+		.tgt_id = self,
 	};
 
 	return obj_array_foreach_flat(wk, arr, &ctx, build_target_extract_objects_iter);
 }
 
 static bool
-func_build_target_extract_objects(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_build_target_extract_objects(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	return build_target_extract_objects(wk, rcvr, an[0].node, res, an[0].val);
+	return build_target_extract_objects(wk, self, an[0].node, res, an[0].val);
 }
 
 static enum iteration_result
@@ -230,15 +230,15 @@ build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rcvr, obj *res, bool recursive)
+build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj self, obj *res, bool recursive)
 {
 	make_obj(wk, res, obj_array);
 
 	struct build_target_extract_objects_ctx ctx = {
 		.err_node = err_node,
 		.res = res,
-		.tgt = get_obj_build_target(wk, rcvr),
-		.tgt_id = rcvr,
+		.tgt = get_obj_build_target(wk, self),
+		.tgt_id = self,
 	};
 
 	if (!obj_array_foreach_flat(wk, ctx.tgt->src, &ctx, build_target_extract_all_objects_iter)) {
@@ -253,7 +253,7 @@ build_target_extract_all_objects(struct workspace *wk, uint32_t err_node, obj rc
 }
 
 static bool
-func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_build_target_extract_all_objects(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	enum kwargs {
 		kw_recursive,
@@ -270,11 +270,11 @@ func_build_target_extract_all_objects(struct workspace *wk, obj rcvr, uint32_t a
 		? get_obj_bool(wk, akw[kw_recursive].val)
 		: false;
 
-	return build_target_extract_all_objects(wk, args_node, rcvr, res, recursive);
+	return build_target_extract_all_objects(wk, args_node, self, res, recursive);
 }
 
 static bool
-func_build_target_private_dir_include(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_build_target_private_dir_include(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -283,12 +283,12 @@ func_build_target_private_dir_include(struct workspace *wk, obj rcvr, uint32_t a
 	make_obj(wk, res, obj_include_directory);
 	struct obj_include_directory *inc = get_obj_include_directory(wk, *res);
 
-	inc->path = get_obj_build_target(wk, rcvr)->private_path;
+	inc->path = get_obj_build_target(wk, self)->private_path;
 	return true;
 }
 
 static bool
-func_build_target_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_build_target_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

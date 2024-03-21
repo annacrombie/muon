@@ -137,14 +137,14 @@ ret:
 }
 
 static bool
-func_module_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_module(wk, rcvr)->found);
+	set_obj_bool(wk, *res, get_obj_module(wk, self)->found);
 	return true;
 }
 

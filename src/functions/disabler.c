@@ -11,7 +11,7 @@
 #include "log.h"
 
 static bool
-func_disabler_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_disabler_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;

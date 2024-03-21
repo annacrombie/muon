@@ -97,32 +97,32 @@ func_module_fs_lookup_common(struct workspace *wk, uint32_t args_node, obj *res,
 }
 
 static bool
-func_module_fs_exists(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_exists(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	return func_module_fs_lookup_common(wk, args_node, res, fs_exists, fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_is_file(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_is_file(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	return func_module_fs_lookup_common(wk, args_node, res, fs_file_exists, fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_is_dir(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_is_dir(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	return func_module_fs_lookup_common(wk, args_node, res, fs_dir_exists, fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_is_symlink(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_is_symlink(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	return func_module_fs_lookup_common(wk, args_node, res, fs_symlink_exists,
 		fix_file_path_allow_file | fix_file_path_expanduser);
 }
 
 static bool
-func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_parent(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -142,7 +142,7 @@ func_module_fs_parent(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 }
 
 static bool
-func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_read(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	enum {
@@ -180,7 +180,7 @@ func_module_fs_read(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_is_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_is_absolute(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -193,7 +193,7 @@ func_module_fs_is_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_expanduser(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_expanduser(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -210,7 +210,7 @@ func_module_fs_expanduser(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 }
 
 static bool
-func_module_fs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_name(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -229,7 +229,7 @@ func_module_fs_name(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_stem(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_stem(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -255,7 +255,7 @@ func_module_fs_stem(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_as_posix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_as_posix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -281,7 +281,7 @@ func_module_as_posix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 }
 
 static bool
-func_module_replace_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_replace_suffix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -305,7 +305,7 @@ func_module_replace_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_hash(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_hash(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -344,7 +344,7 @@ func_module_fs_hash(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_size(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_size(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -373,7 +373,7 @@ func_module_fs_size(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_is_samepath(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_is_samepath(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -398,7 +398,7 @@ func_module_fs_is_samepath(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_copyfile(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_copyfile(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_string }, ARG_TYPE_NULL };
@@ -488,7 +488,7 @@ const struct func_impl impl_tbl_module_fs[] = {
 };
 
 static bool
-func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_write(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -509,7 +509,7 @@ func_module_fs_write(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 }
 
 static bool
-func_module_fs_copy(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_copy(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -529,7 +529,7 @@ func_module_fs_copy(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 }
 
 static bool
-func_module_fs_cwd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_cwd(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -542,7 +542,7 @@ func_module_fs_cwd(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 static bool
-func_module_fs_make_absolute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_make_absolute(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -556,7 +556,7 @@ func_module_fs_make_absolute(struct workspace *wk, obj rcvr, uint32_t args_node,
 }
 
 static bool
-func_module_fs_mkdir(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_mkdir(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -567,7 +567,7 @@ func_module_fs_mkdir(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 }
 
 static bool
-func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_relative_to(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -592,7 +592,7 @@ func_module_fs_relative_to(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_is_basename(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_is_basename(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -605,7 +605,7 @@ func_module_fs_is_basename(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_without_ext(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_without_ext(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -619,7 +619,7 @@ func_module_fs_without_ext(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_module_fs_is_subpath(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_is_subpath(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -633,7 +633,7 @@ func_module_fs_is_subpath(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 
 
 static bool
-func_module_fs_add_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_add_suffix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -648,7 +648,7 @@ func_module_fs_add_suffix(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 }
 
 static bool
-func_module_fs_executable(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_fs_executable(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {

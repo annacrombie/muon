@@ -21,20 +21,20 @@ dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 }
 
 static bool
-func_dict_keys(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_dict_keys(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_array);
-	obj_dict_foreach(wk, rcvr, res, dict_keys_iter);
+	obj_dict_foreach(wk, self, res, dict_keys_iter);
 
 	return true;
 }
 
 static bool
-func_dict_has_key(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_dict_has_key(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -43,12 +43,12 @@ func_dict_has_key(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, obj_dict_in(wk, rcvr, an[0].val));
+	set_obj_bool(wk, *res, obj_dict_in(wk, self, an[0].val));
 	return true;
 }
 
 static bool
-func_dict_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_dict_get(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -56,7 +56,7 @@ func_dict_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		return false;
 	}
 
-	if (!obj_dict_index(wk, rcvr, an[0].val, res)) {
+	if (!obj_dict_index(wk, self, an[0].val, res)) {
 		if (ao[0].set) {
 			*res = ao[0].val;
 		} else {
@@ -68,14 +68,14 @@ func_dict_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 static bool
-func_dict_delete(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_dict_delete(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	obj_dict_del(wk, rcvr, an[0].val);
+	obj_dict_del(wk, self, an[0].val);
 	return true;
 }
 

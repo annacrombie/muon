@@ -27,25 +27,25 @@ custom_target_is_linkable(struct workspace *wk, obj ct)
 }
 
 static bool
-func_custom_target_to_list(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_custom_target_to_list(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_custom_target(wk, rcvr)->output;
+	*res = get_obj_custom_target(wk, self)->output;
 	return true;
 }
 
 static bool
-func_custom_target_full_path(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_custom_target_full_path(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	obj elem;
-	if (!obj_array_flatten_one(wk, get_obj_custom_target(wk, rcvr)->output, &elem)) {
+	if (!obj_array_flatten_one(wk, get_obj_custom_target(wk, self)->output, &elem)) {
 		vm_error_at(wk, args_node, "this custom_target has multiple outputs");
 		return false;
 	}

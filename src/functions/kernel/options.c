@@ -61,7 +61,7 @@ validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
 }
 
 bool
-func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -234,7 +234,7 @@ func_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 }
 
 bool
-func_get_option(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_get_option(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 

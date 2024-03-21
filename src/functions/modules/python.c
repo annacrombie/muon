@@ -149,7 +149,7 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 
 static bool
 func_module_python_find_installation(struct workspace *wk,
-	obj rcvr, uint32_t args_node, obj *res)
+	obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -232,19 +232,19 @@ func_module_python_find_installation(struct workspace *wk,
 }
 
 static bool
-func_python_installation_language_version(struct workspace *wk, obj rcvr,
+func_python_installation_language_version(struct workspace *wk, obj self,
 	uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_python_installation(wk, rcvr)->language_version;
+	*res = get_obj_python_installation(wk, self)->language_version;
 	return true;
 }
 
 static bool
-func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_python3_find_python(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
@@ -272,7 +272,7 @@ func_module_python3_find_python(struct workspace *wk, obj rcvr, uint32_t args_no
 }
 
 static bool
-func_python_installation_get_path(struct workspace *wk, obj rcvr,
+func_python_installation_get_path(struct workspace *wk, obj self,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -282,7 +282,7 @@ func_python_installation_get_path(struct workspace *wk, obj rcvr,
 	}
 
 	obj path = an[0].val;
-	obj sysconfig_paths = get_obj_python_installation(wk, rcvr)->sysconfig_paths;
+	obj sysconfig_paths = get_obj_python_installation(wk, self)->sysconfig_paths;
 	if (obj_dict_index(wk, sysconfig_paths, path, res)) {
 		return true;
 	}
@@ -298,7 +298,7 @@ func_python_installation_get_path(struct workspace *wk, obj rcvr,
 }
 
 static bool
-func_python_installation_get_var(struct workspace *wk, obj rcvr,
+func_python_installation_get_var(struct workspace *wk, obj self,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -308,7 +308,7 @@ func_python_installation_get_var(struct workspace *wk, obj rcvr,
 	}
 
 	obj var = an[0].val;
-	obj sysconfig_vars = get_obj_python_installation(wk, rcvr)->sysconfig_vars;
+	obj sysconfig_vars = get_obj_python_installation(wk, self)->sysconfig_vars;
 	if (obj_dict_index(wk, sysconfig_vars, var, res)) {
 		return true;
 	}
@@ -324,7 +324,7 @@ func_python_installation_get_var(struct workspace *wk, obj rcvr,
 }
 
 static bool
-func_python_installation_has_path(struct workspace *wk, obj rcvr,
+func_python_installation_has_path(struct workspace *wk, obj self,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -332,7 +332,7 @@ func_python_installation_has_path(struct workspace *wk, obj rcvr,
 		return false;
 	}
 
-	obj sysconfig_paths = get_obj_python_installation(wk, rcvr)->sysconfig_paths;
+	obj sysconfig_paths = get_obj_python_installation(wk, self)->sysconfig_paths;
 	bool found = obj_dict_in(wk, sysconfig_paths, an[0].val);
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, found);
@@ -341,7 +341,7 @@ func_python_installation_has_path(struct workspace *wk, obj rcvr,
 }
 
 static bool
-func_python_installation_has_var(struct workspace *wk, obj rcvr,
+func_python_installation_has_var(struct workspace *wk, obj self,
 	uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -349,7 +349,7 @@ func_python_installation_has_var(struct workspace *wk, obj rcvr,
 		return false;
 	}
 
-	obj sysconfig_vars = get_obj_python_installation(wk, rcvr)->sysconfig_vars;
+	obj sysconfig_vars = get_obj_python_installation(wk, self)->sysconfig_vars;
 	bool found = obj_dict_in(wk, sysconfig_vars, an[0].val);
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, found);
@@ -358,9 +358,9 @@ func_python_installation_has_var(struct workspace *wk, obj rcvr,
 }
 
 static obj
-python_rcvr_transform(struct workspace *wk, obj rcvr)
+python_self_transform(struct workspace *wk, obj self)
 {
-	return get_obj_python_installation(wk, rcvr)->prog;
+	return get_obj_python_installation(wk, self)->prog;
 }
 
 void
@@ -369,7 +369,7 @@ python_build_impl_tbl(void)
 	uint32_t i;
 	for (i = 0; impl_tbl_external_program[i].name; ++i) {
 		struct func_impl tmp = impl_tbl_external_program[i];
-		tmp.rcvr_transform = python_rcvr_transform;
+		tmp.self_transform = python_self_transform;
 		impl_tbl_python_installation[i] = tmp;
 	}
 }

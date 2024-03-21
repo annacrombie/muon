@@ -708,7 +708,7 @@ module_pkgconf_write(struct workspace *wk, const char *path, struct pkgconf_file
 }
 
 static bool
-func_module_pkgconfig_generate(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_module_pkgconfig_generate(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	uint32_t i;
 	struct args_norm ao[] = { { tc_both_libs | tc_build_target }, ARG_TYPE_NULL };

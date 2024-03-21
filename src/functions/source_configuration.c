@@ -11,24 +11,24 @@
 #include "log.h"
 
 static bool
-func_source_configuration_sources(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_source_configuration_sources(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_source_configuration(wk, rcvr)->sources;
+	*res = get_obj_source_configuration(wk, self)->sources;
 	return true;
 }
 
 static bool
-func_source_configuration_dependencies(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_source_configuration_dependencies(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_source_configuration(wk, rcvr)->dependencies;
+	*res = get_obj_source_configuration(wk, self)->dependencies;
 	return true;
 }
 

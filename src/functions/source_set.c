@@ -21,7 +21,7 @@ source_set_freeze_nested_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 static bool
-source_set_add_rule(struct workspace *wk, obj rcvr, struct args_norm *posargs,
+source_set_add_rule(struct workspace *wk, obj self, struct args_norm *posargs,
 	struct args_kw *kw_when, struct args_kw *kw_if_true, struct args_kw *kw_if_false)
 {
 	obj when = 0, if_true, if_false = 0;
@@ -52,14 +52,14 @@ source_set_add_rule(struct workspace *wk, obj rcvr, struct args_norm *posargs,
 	obj_array_push(wk, rule, if_true);
 	obj_array_push(wk, rule, if_false);
 
-	obj_array_push(wk, get_obj_source_set(wk, rcvr)->rules, rule);
+	obj_array_push(wk, get_obj_source_set(wk, self)->rules, rule);
 	return true;
 }
 
 static bool
-source_set_check_not_frozen(struct workspace *wk, uint32_t err_node, obj rcvr)
+source_set_check_not_frozen(struct workspace *wk, uint32_t err_node, obj self)
 {
-	if (get_obj_source_set(wk, rcvr)->frozen) {
+	if (get_obj_source_set(wk, self)->frozen) {
 		vm_error_at(wk, err_node, "cannot modify frozen source set");
 		return false;
 	}
@@ -68,7 +68,7 @@ source_set_check_not_frozen(struct workspace *wk, uint32_t err_node, obj rcvr)
 }
 
 static bool
-func_source_set_add(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_source_set_add(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	const type_tag tc_ss_sources = tc_string | tc_file | tc_custom_target
 				       | tc_generated_list;
@@ -91,15 +91,15 @@ func_source_set_add(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res
 		return false;
 	}
 
-	if (!source_set_check_not_frozen(wk, args_node, rcvr)) {
+	if (!source_set_check_not_frozen(wk, args_node, self)) {
 		return false;
 	}
 
-	return source_set_add_rule(wk, rcvr, &an[0], &akw[kw_when], &akw[kw_if_true], &akw[kw_if_false]);
+	return source_set_add_rule(wk, self, &an[0], &akw[kw_when], &akw[kw_if_true], &akw[kw_if_false]);
 }
 
 static bool
-func_source_set_add_all(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_source_set_add_all(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_source_set }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -116,11 +116,11 @@ func_source_set_add_all(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		return false;
 	}
 
-	if (!source_set_check_not_frozen(wk, args_node, rcvr)) {
+	if (!source_set_check_not_frozen(wk, args_node, self)) {
 		return false;
 	}
 
-	return source_set_add_rule(wk, rcvr, &an[0], &akw[kw_when], &akw[kw_if_true], NULL);
+	return source_set_add_rule(wk, self, &an[0], &akw[kw_when], &akw[kw_if_true], NULL);
 }
 
 enum source_set_collect_mode {
@@ -272,7 +272,7 @@ source_set_collect_rules_iter(struct workspace *wk, void *_ctx, obj v)
 }
 
 static bool
-source_set_collect(struct workspace *wk, uint32_t err_node, obj rcvr,
+source_set_collect(struct workspace *wk, uint32_t err_node, obj self,
 	obj conf, enum source_set_collect_mode mode, bool strict, obj *res)
 {
 	obj arr;
@@ -284,7 +284,7 @@ source_set_collect(struct workspace *wk, uint32_t err_node, obj rcvr,
 		.res = arr,
 	};
 
-	struct obj_source_set *ss = get_obj_source_set(wk, rcvr);
+	struct obj_source_set *ss = get_obj_source_set(wk, self);
 
 	if (!obj_array_foreach(wk, ss->rules, &ctx, source_set_collect_rules_iter)) {
 		return false;
@@ -295,27 +295,27 @@ source_set_collect(struct workspace *wk, uint32_t err_node, obj rcvr,
 }
 
 static bool
-func_source_set_all_sources(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_source_set_all_sources(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	return source_set_collect(wk, 0, rcvr, 0, source_set_collect_sources, true, res);
+	return source_set_collect(wk, 0, self, 0, source_set_collect_sources, true, res);
 }
 
 static bool
-func_source_set_all_dependencies(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_source_set_all_dependencies(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	return source_set_collect(wk, 0, rcvr, 0, source_set_collect_dependencies, true, res);
+	return source_set_collect(wk, 0, self, 0, source_set_collect_dependencies, true, res);
 }
 
 static bool
-func_source_set_apply(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_source_set_apply(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_configuration_data | tc_dict }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -330,7 +330,7 @@ func_source_set_apply(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 		return false;
 	}
 
-	struct obj_source_set *ss = get_obj_source_set(wk, rcvr);
+	struct obj_source_set *ss = get_obj_source_set(wk, self);
 	ss->frozen = true;
 
 	obj dict = 0;
@@ -352,12 +352,12 @@ func_source_set_apply(struct workspace *wk, obj rcvr, uint32_t args_node, obj *r
 	make_obj(wk, res, obj_source_configuration);
 	struct obj_source_configuration *sc = get_obj_source_configuration(wk, *res);
 
-	if (!source_set_collect(wk, akw[kw_strict].node, rcvr, dict,
+	if (!source_set_collect(wk, akw[kw_strict].node, self, dict,
 		source_set_collect_sources, strict, &sc->sources)) {
 		return false;
 	}
 
-	if (!source_set_collect(wk, akw[kw_strict].node, rcvr, dict,
+	if (!source_set_collect(wk, akw[kw_strict].node, self, dict,
 		source_set_collect_dependencies, strict, &sc->dependencies)) {
 		return false;
 	}

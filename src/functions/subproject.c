@@ -34,7 +34,7 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 }
 
 static bool
-func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_subproject_get_variable(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -43,7 +43,7 @@ func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node,
 		return false;
 	}
 
-	if (!subproject_get_variable(wk, an[0].node, an[0].val, ao[0].val, rcvr, res)) {
+	if (!subproject_get_variable(wk, an[0].node, an[0].val, ao[0].val, self, res)) {
 		vm_error_at(wk, an[0].node, "subproject does not define '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
@@ -51,14 +51,14 @@ func_subproject_get_variable(struct workspace *wk, obj rcvr, uint32_t args_node,
 }
 
 static bool
-func_subproject_found(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_subproject_found(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_subproject(wk, rcvr)->found);
+	set_obj_bool(wk, *res, get_obj_subproject(wk, self)->found);
 	return true;
 }
 

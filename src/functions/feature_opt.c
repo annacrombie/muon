@@ -11,7 +11,7 @@
 #include "log.h"
 
 static bool
-feature_opt_common(struct workspace *wk, obj rcvr, uint32_t args_node,
+feature_opt_common(struct workspace *wk, obj self, uint32_t args_node,
 	obj *res, enum feature_opt_state state)
 {
 	if (!pop_args(wk, NULL, NULL)) {
@@ -19,36 +19,36 @@ feature_opt_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 	}
 
 	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, get_obj_feature_opt(wk, rcvr) == state);
+	set_obj_bool(wk, *res, get_obj_feature_opt(wk, self) == state);
 	return true;
 }
 
 static bool
-func_feature_opt_auto(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_auto(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return feature_opt_common(wk, rcvr, args_node, res, feature_opt_auto);
+	return feature_opt_common(wk, self, args_node, res, feature_opt_auto);
 }
 
 static bool
-func_feature_opt_disabled(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_disabled(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return feature_opt_common(wk, rcvr, args_node, res, feature_opt_disabled);
+	return feature_opt_common(wk, self, args_node, res, feature_opt_disabled);
 }
 
 static bool
-func_feature_opt_enabled(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_enabled(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return feature_opt_common(wk, rcvr, args_node, res, feature_opt_enabled);
+	return feature_opt_common(wk, self, args_node, res, feature_opt_enabled);
 }
 
 static bool
-func_feature_opt_allowed(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_allowed(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, state == feature_opt_auto || state == feature_opt_enabled);
@@ -56,20 +56,20 @@ func_feature_opt_allowed(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 }
 
 static bool
-func_feature_opt_disable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_disable_auto_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 
 	if (!get_obj_bool(wk, an[0].val)) {
-		*res = rcvr;
+		*res = self;
 		return true;
 	} else if (state == feature_opt_disabled || state == feature_opt_enabled) {
-		*res = rcvr;
+		*res = self;
 		return true;
 	} else {
 		make_obj(wk, res, obj_feature_opt);
@@ -79,20 +79,20 @@ func_feature_opt_disable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_n
 }
 
 static bool
-func_feature_opt_enable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_enable_auto_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 
 	if (!get_obj_bool(wk, an[0].val)) {
-		*res = rcvr;
+		*res = self;
 		return true;
 	} else if (state == feature_opt_disabled || state == feature_opt_enabled) {
-		*res = rcvr;
+		*res = self;
 		return true;
 	} else {
 		make_obj(wk, res, obj_feature_opt);
@@ -102,7 +102,7 @@ func_feature_opt_enable_auto_if(struct workspace *wk, obj rcvr, uint32_t args_no
 }
 
 static bool
-func_feature_opt_enable_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_enable_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -116,10 +116,10 @@ func_feature_opt_enable_if(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 
 	if (!get_obj_bool(wk, an[0].val)) {
-		*res = rcvr;
+		*res = self;
 		return true;
 	} else if (state == feature_opt_disabled) {
 		const char *err_msg = akw[kw_error_message].set
@@ -138,7 +138,7 @@ func_feature_opt_enable_if(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_feature_opt_disable_if(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_disable_if(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -152,10 +152,10 @@ func_feature_opt_disable_if(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 
 	if (!get_obj_bool(wk, an[0].val)) {
-		*res = rcvr;
+		*res = self;
 		return true;
 	} else if (state == feature_opt_enabled) {
 		const char *err_msg = akw[kw_error_message].set
@@ -174,7 +174,7 @@ func_feature_opt_disable_if(struct workspace *wk, obj rcvr, uint32_t args_node, 
 }
 
 static bool
-func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_feature_opt_require(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -189,7 +189,7 @@ func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		return false;
 	}
 
-	enum feature_opt_state state = get_obj_feature_opt(wk, rcvr);
+	enum feature_opt_state state = get_obj_feature_opt(wk, self);
 	if (!get_obj_bool(wk, an[0].val)) {
 		if (state == feature_opt_enabled) {
 			vm_error_at(wk, an[0].node, "%s",
@@ -202,7 +202,7 @@ func_feature_opt_require(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 			set_obj_feature_opt(wk, *res, feature_opt_disabled);
 		}
 	} else {
-		*res = rcvr;
+		*res = self;
 	}
 
 	return true;

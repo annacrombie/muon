@@ -442,7 +442,7 @@ set_dependency_cache_iter(struct workspace *wk, void *_ctx, obj name)
 }
 
 bool
-func_dependency(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_dependency(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {

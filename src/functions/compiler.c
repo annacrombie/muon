@@ -435,9 +435,9 @@ enum cc_kwargs {
 };
 
 static void
-compiler_opts_init(obj rcvr, struct args_kw *akw, struct compiler_check_opts *opts)
+compiler_opts_init(obj self, struct args_kw *akw, struct compiler_check_opts *opts)
 {
-	opts->comp_id = rcvr;
+	opts->comp_id = self;
 	if (akw[cc_kw_dependencies].set) {
 		opts->deps = &akw[cc_kw_dependencies];
 	}
@@ -456,7 +456,7 @@ compiler_opts_init(obj rcvr, struct args_kw *akw, struct compiler_check_opts *op
 }
 
 static bool
-func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_node,
+func_compiler_check_args_common(struct workspace *wk, obj self, uint32_t args_node,
 	struct args_norm *an, struct args_kw **kw_res, struct compiler_check_opts *opts,
 	enum cc_kwargs args_mask)
 {
@@ -500,7 +500,7 @@ func_compiler_check_args_common(struct workspace *wk, obj rcvr, uint32_t args_no
 		}
 	}
 
-	compiler_opts_init(rcvr, akw, opts);
+	compiler_opts_init(self, akw, opts);
 	return true;
 }
 
@@ -521,7 +521,7 @@ compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
 }
 
 static bool
-func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_sizeof(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -530,7 +530,7 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 		.skip_run_check = true,
 	};
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories)) {
 		return false;
 	}
@@ -574,7 +574,7 @@ func_compiler_sizeof(struct workspace *wk, obj rcvr, uint32_t args_node, obj *re
 }
 
 static bool
-func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_alignment(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -582,7 +582,7 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 		.mode = compile_mode_run,
 	};
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix)) {
 		return false;
 	}
@@ -622,7 +622,7 @@ func_compiler_alignment(struct workspace *wk, obj rcvr, uint32_t args_node, obj 
 }
 
 static bool
-func_compiler_compute_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_compute_int(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -630,7 +630,7 @@ func_compiler_compute_int(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 		.mode = compile_mode_run,
 	};
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_include_directories
 		| cm_kw_guess | cm_kw_high | cm_kw_low)) {
 		return false;
@@ -844,7 +844,7 @@ compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_
 }
 
 static bool
-func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_function_attribute(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -852,7 +852,7 @@ func_compiler_has_function_attribute(struct workspace *wk, obj rcvr, uint32_t ar
 	}
 
 	bool has_fattr;
-	if (!compiler_has_function_attribute(wk, rcvr, an[0].node, an[0].val, &has_fattr)) {
+	if (!compiler_has_function_attribute(wk, self, an[0].node, an[0].val, &has_fattr)) {
 		return false;
 	}
 
@@ -884,7 +884,7 @@ func_compiler_get_supported_function_attributes_iter(struct workspace *wk, void 
 }
 
 static bool
-func_compiler_get_supported_function_attributes(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_get_supported_function_attributes(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -896,14 +896,14 @@ func_compiler_get_supported_function_attributes(struct workspace *wk, obj rcvr, 
 
 	return obj_array_foreach_flat(wk, an[0].val,
 		&(struct func_compiler_get_supported_function_attributes_iter_ctx) {
-		.compiler = rcvr,
+		.compiler = self,
 		.arr = *res,
 		.node = an[0].node,
 	}, func_compiler_get_supported_function_attributes_iter);
 }
 
 static bool
-func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_function(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -911,7 +911,7 @@ func_compiler_has_function(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		.mode = compile_mode_link,
 	};
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
 		| cm_kw_include_directories)) {
 		return false;
@@ -1074,7 +1074,7 @@ compiler_has_header_symbol_cpp(struct workspace *wk, uint32_t node,
 }
 
 static bool
-func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_header_symbol(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1082,14 +1082,14 @@ func_compiler_has_header_symbol(struct workspace *wk, obj rcvr, uint32_t args_no
 		.mode = compile_mode_compile,
 	};
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
 		| cm_kw_include_directories)) {
 		return false;
 	}
 
 	bool ok;
-	switch (get_obj_compiler(wk, rcvr)->lang) {
+	switch (get_obj_compiler(wk, self)->lang) {
 	case compiler_language_c:
 		if (!compiler_has_header_symbol_c(wk, an[0].node, &opts,
 			compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
@@ -1241,14 +1241,14 @@ failed:
 }
 
 static bool
-func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_get_define(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 
 	struct compiler_check_opts opts = { 0 };
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
 		| cm_kw_include_directories)) {
 		return false;
@@ -1261,9 +1261,9 @@ func_compiler_get_define(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 }
 
 static bool
-func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	struct compiler_check_opts opts = { .comp_id = rcvr };
+	struct compiler_check_opts opts = { .comp_id = self };
 
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -1280,14 +1280,14 @@ func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj rcvr, uin
 }
 
 static bool
-func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
+func_compiler_check_common(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
 		.mode = mode,
 	};
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_name
 		| cm_kw_include_directories)) {
 		return false;
@@ -1348,15 +1348,15 @@ func_compiler_check_common(struct workspace *wk, obj rcvr, uint32_t args_node, o
 }
 
 static bool
-func_compiler_compiles(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_compiles(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return func_compiler_check_common(wk, rcvr, args_node, res, compile_mode_compile);
+	return func_compiler_check_common(wk, self, args_node, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_links(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_links(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return func_compiler_check_common(wk, rcvr, args_node, res, compile_mode_link);
+	return func_compiler_check_common(wk, self, args_node, res, compile_mode_link);
 }
 
 static bool
@@ -1402,7 +1402,7 @@ compiler_check_header(struct workspace *wk, uint32_t err_node, struct compiler_c
 }
 
 static bool
-compiler_check_header_common(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_check_header_common(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1410,7 +1410,7 @@ compiler_check_header_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 		.mode = mode,
 	};
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix | cm_kw_required
 		| cm_kw_include_directories)) {
 		return false;
@@ -1421,19 +1421,19 @@ compiler_check_header_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 }
 
 static bool
-func_compiler_has_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_header(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_check_header_common(wk, rcvr, args_node, res, compile_mode_preprocess);
+	return compiler_check_header_common(wk, self, args_node, res, compile_mode_preprocess);
 }
 
 static bool
-func_compiler_check_header(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_check_header(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_check_header_common(wk, rcvr, args_node, res, compile_mode_compile);
+	return compiler_check_header_common(wk, self, args_node, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_type(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1441,7 +1441,7 @@ func_compiler_has_type(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 		.mode = compile_mode_compile,
 	};
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
 		| cm_kw_include_directories)) {
 		return false;
@@ -1505,13 +1505,13 @@ compiler_has_member(struct workspace *wk, struct compiler_check_opts *opts,
 }
 
 static bool
-func_compiler_has_member(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_member(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = { 0 };
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
 		| cm_kw_include_directories)) {
 		return false;
@@ -1560,13 +1560,13 @@ compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_members(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
 	struct compiler_check_opts opts = { 0 };
 
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_prefix
 		| cm_kw_include_directories)) {
 		return false;
@@ -1596,7 +1596,7 @@ func_compiler_has_members(struct workspace *wk, obj rcvr, uint32_t args_node, ob
 }
 
 static bool
-func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_run(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1604,7 +1604,7 @@ func_compiler_run(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
 		.mode = compile_mode_run,
 		.skip_run_check = true,
 	};
-	if (!func_compiler_check_args_common(wk, rcvr, args_node, an, &akw, &opts,
+	if (!func_compiler_check_args_common(wk, self, args_node, an, &akw, &opts,
 		cm_kw_args | cm_kw_dependencies | cm_kw_name)) {
 		return false;
 	}
@@ -1730,7 +1730,7 @@ func_compiler_get_supported_arguments_iter(struct workspace *wk, void *_ctx, obj
 }
 
 static bool
-compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node, type_tag glob, obj *res, enum compile_mode mode)
+compiler_has_argument_common(struct workspace *wk, obj self, uint32_t args_node, type_tag glob, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { glob | obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -1738,7 +1738,7 @@ compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 	}
 
 	bool has_argument;
-	if (!compiler_has_argument(wk, rcvr, an[0].node, an[0].val, &has_argument, mode)) {
+	if (!compiler_has_argument(wk, self, an[0].node, an[0].val, &has_argument, mode)) {
 		return false;
 	}
 
@@ -1748,31 +1748,31 @@ compiler_has_argument_common(struct workspace *wk, obj rcvr, uint32_t args_node,
 }
 
 static bool
-func_compiler_has_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, 0, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, self, args_node, 0, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_has_link_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_link_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, 0, res, compile_mode_link);
+	return compiler_has_argument_common(wk, self, args_node, 0, res, compile_mode_link);
 }
 
 static bool
-func_compiler_has_multi_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_multi_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, TYPE_TAG_GLOB, res, compile_mode_compile);
+	return compiler_has_argument_common(wk, self, args_node, TYPE_TAG_GLOB, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_has_multi_link_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_has_multi_link_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_has_argument_common(wk, rcvr, args_node, TYPE_TAG_GLOB, res, compile_mode_link);
+	return compiler_has_argument_common(wk, self, args_node, TYPE_TAG_GLOB, res, compile_mode_link);
 }
 
 static bool
-compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_get_supported_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1784,7 +1784,7 @@ compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_n
 
 	return obj_array_foreach_flat(wk, an[0].val,
 		&(struct func_compiler_get_supported_arguments_iter_ctx) {
-		.compiler = rcvr,
+		.compiler = self,
 		.arr = *res,
 		.node = an[0].node,
 		.mode = mode,
@@ -1792,15 +1792,15 @@ compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_n
 }
 
 static bool
-func_compiler_get_supported_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_get_supported_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_get_supported_arguments(wk, rcvr, args_node, res, compile_mode_compile);
+	return compiler_get_supported_arguments(wk, self, args_node, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_get_supported_link_arguments(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_get_supported_link_arguments(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_get_supported_arguments(wk, rcvr, args_node, res, compile_mode_link);
+	return compiler_get_supported_arguments(wk, self, args_node, res, compile_mode_link);
 }
 
 static enum iteration_result
@@ -1823,7 +1823,7 @@ func_compiler_first_supported_argument_iter(struct workspace *wk, void *_ctx, ob
 }
 
 static bool
-compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res, enum compile_mode mode)
+compiler_first_supported_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res, enum compile_mode mode)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1835,7 +1835,7 @@ compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_
 
 	return obj_array_foreach_flat(wk, an[0].val,
 		&(struct func_compiler_get_supported_arguments_iter_ctx) {
-		.compiler = rcvr,
+		.compiler = self,
 		.arr = *res,
 		.node = an[0].node,
 		.mode = mode,
@@ -1843,48 +1843,48 @@ compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_
 }
 
 static bool
-func_compiler_first_supported_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_first_supported_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_first_supported_argument(wk, rcvr, args_node, res, compile_mode_compile);
+	return compiler_first_supported_argument(wk, self, args_node, res, compile_mode_compile);
 }
 
 static bool
-func_compiler_first_supported_link_argument(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_first_supported_link_argument(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
-	return compiler_first_supported_argument(wk, rcvr, args_node, res, compile_mode_link);
+	return compiler_first_supported_argument(wk, self, args_node, res, compile_mode_link);
 }
 
 static bool
-func_compiler_get_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
-{
-	if (!pop_args(wk, NULL, NULL)) {
-		return false;
-	}
-
-	*res = make_str(wk, compiler_type_to_s(get_obj_compiler(wk, rcvr)->type));
-	return true;
-}
-
-static bool
-func_compiler_get_linker_id(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_get_id(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = make_str(wk, linker_type_to_s(get_obj_compiler(wk, rcvr)->linker_type));
+	*res = make_str(wk, compiler_type_to_s(get_obj_compiler(wk, self)->type));
 	return true;
 }
 
 static bool
-func_compiler_get_argument_syntax(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_get_linker_id(struct workspace *wk, obj self, uint32_t args_node, obj *res)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, linker_type_to_s(get_obj_compiler(wk, self)->linker_type));
+	return true;
+}
+
+static bool
+func_compiler_get_argument_syntax(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	const char *syntax;
-	enum compiler_type type = get_obj_compiler(wk, rcvr)->type;
+	enum compiler_type type = get_obj_compiler(wk, self)->type;
 
 	switch (type) {
 	case compiler_posix:
@@ -1962,7 +1962,7 @@ compiler_find_library_check_headers_iter(struct workspace *wk, void *_ctx, obj h
 }
 
 static bool
-func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_find_library(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -2032,7 +2032,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		.lib_name = an[0].val,
 		.only_static = akw[kw_static].set ? get_obj_bool(wk, akw[kw_static].val) : false,
 	};
-	struct obj_compiler *comp = get_obj_compiler(wk, rcvr);
+	struct obj_compiler *comp = get_obj_compiler(wk, self);
 
 	bool found_from_dirs_kw = false;
 
@@ -2062,7 +2062,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		};
 
 		struct compiler_check_opts header_check_opts = { 0 };
-		compiler_opts_init(rcvr, header_kwargs, &header_check_opts);
+		compiler_opts_init(self, header_kwargs, &header_check_opts);
 
 		struct compiler_find_library_check_headers_ctx check_headers_ctx = {
 			.ok = true,
@@ -2090,7 +2090,7 @@ func_compiler_find_library(struct workspace *wk, obj rcvr, uint32_t args_node, o
 		return true;
 	}
 
-	compiler_log(wk, rcvr, "found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path->buf);
+	compiler_log(wk, self, "found library '%s' at '%s'", get_cstr(wk, an[0].val), ctx.path->buf);
 	dep->flags |= dep_flag_found;
 	make_obj(wk, &dep->dep.link_with, obj_array);
 	obj path_str = make_str(wk, ctx.path->buf);
@@ -2156,7 +2156,7 @@ compiler_preprocess_create_tgt_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
-func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_preprocess(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -2177,7 +2177,7 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 		return false;
 	}
 
-	struct obj_compiler *comp = get_obj_compiler(wk, rcvr);
+	struct obj_compiler *comp = get_obj_compiler(wk, self);
 
 	obj cmd;
 	obj_array_dup(wk, comp->cmd_arr, &cmd);
@@ -2200,7 +2200,7 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 	push_args(wk, cmd, compilers[comp->type].args.include("@OUTDIR@"));
 	push_args(wk, cmd, compilers[comp->type].args.include("@CURRENT_SOURCE_DIR@"));
 
-	if (!add_include_directory_args(wk, &akw[kw_include_directories], have_dep ? &dep : 0, rcvr, cmd)) {
+	if (!add_include_directory_args(wk, &akw[kw_include_directories], have_dep ? &dep : 0, self, cmd)) {
 		return false;
 	}
 
@@ -2234,24 +2234,24 @@ func_compiler_preprocess(struct workspace *wk, obj rcvr, uint32_t args_node, obj
 }
 
 static bool
-func_compiler_cmd_array(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_cmd_array(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_compiler(wk, rcvr)->cmd_arr;
+	*res = get_obj_compiler(wk, self)->cmd_arr;
 	return true;
 }
 
 static bool
-func_compiler_version(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_compiler_version(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_compiler(wk, rcvr)->ver;
+	*res = get_obj_compiler(wk, self)->ver;
 	return true;
 }
 

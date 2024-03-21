@@ -13,14 +13,14 @@
 #include "log.h"
 
 static bool
-func_boolean_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_boolean_to_string(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm ao[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	if (get_obj_bool(wk, rcvr)) {
+	if (get_obj_bool(wk, self)) {
 		*res = ao[0].set ? ao[0].val : make_str(wk, "true");
 	} else {
 		*res = ao[1].set ? ao[1].val : make_str(wk, "false");
@@ -30,13 +30,13 @@ func_boolean_to_string(struct workspace *wk, obj rcvr, uint32_t args_node, obj *
 }
 
 static bool
-func_boolean_to_int(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_boolean_to_int(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	int32_t val = get_obj_bool(wk, rcvr) ? 1 : 0;
+	int32_t val = get_obj_bool(wk, self) ? 1 : 0;
 	make_obj(wk, res, obj_number);
 	set_obj_number(wk, *res, val);
 	return true;

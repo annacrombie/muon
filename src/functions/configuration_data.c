@@ -13,7 +13,7 @@
 #include "log.h"
 
 static bool
-func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_set_quoted(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -28,7 +28,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 		return false;
 	}
 
-	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
+	obj dict = get_obj_configuration_data(wk, self)->dict;
 
 	const char *s = get_cstr(wk, an[1].val);
 	obj str = make_str(wk, "\"");
@@ -48,7 +48,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj rcvr, uint32_t args
 }
 
 static bool
-func_configuration_data_set(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_set(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { tc_string | tc_number | tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -62,7 +62,7 @@ func_configuration_data_set(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
+	obj dict = get_obj_configuration_data(wk, self)->dict;
 
 	obj_dict_set(wk, dict, an[0].val, an[1].val);
 
@@ -70,7 +70,7 @@ func_configuration_data_set(struct workspace *wk, obj rcvr, uint32_t args_node, 
 }
 
 static bool
-func_configuration_data_set10(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_set10(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, { obj_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -85,7 +85,7 @@ func_configuration_data_set10(struct workspace *wk, obj rcvr, uint32_t args_node
 		return false;
 	}
 
-	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
+	obj dict = get_obj_configuration_data(wk, self)->dict;
 
 	obj n;
 	make_obj(wk, &n, obj_number);
@@ -114,7 +114,7 @@ configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf,
 }
 
 static bool
-func_configuration_data_get(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_get(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -123,11 +123,11 @@ func_configuration_data_get(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	return configuration_data_get(wk, an[0].node, rcvr, an[0].val, ao[0].val, res);
+	return configuration_data_get(wk, an[0].node, self, an[0].val, ao[0].val, res);
 }
 
 static bool
-func_configuration_data_get_unquoted(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_get_unquoted(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
@@ -137,7 +137,7 @@ func_configuration_data_get_unquoted(struct workspace *wk, obj rcvr, uint32_t ar
 	}
 
 	obj v;
-	if (!configuration_data_get(wk, an[0].node, rcvr, an[0].val, ao[0].val, &v)) {
+	if (!configuration_data_get(wk, an[0].node, self, an[0].val, ao[0].val, &v)) {
 		return false;
 	}
 
@@ -164,13 +164,13 @@ obj_dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj _v)
 }
 
 static bool
-func_configuration_data_keys(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_keys(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	obj dict = get_obj_configuration_data(wk, rcvr)->dict;
+	obj dict = get_obj_configuration_data(wk, self)->dict;
 
 	make_obj(wk, res, obj_array);
 	obj_dict_foreach(wk, dict, res, obj_dict_keys_iter);
@@ -178,7 +178,7 @@ func_configuration_data_keys(struct workspace *wk, obj rcvr, uint32_t args_node,
 }
 
 static bool
-func_configuration_data_has(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_has(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -186,14 +186,14 @@ func_configuration_data_has(struct workspace *wk, obj rcvr, uint32_t args_node, 
 		return false;
 	}
 
-	obj _, dict = get_obj_configuration_data(wk, rcvr)->dict;
+	obj _, dict = get_obj_configuration_data(wk, self)->dict;
 	make_obj(wk, res, obj_bool);
 	set_obj_bool(wk, *res, obj_dict_index(wk, dict, an[0].val, &_));
 	return true;
 }
 
 static bool
-func_configuration_data_merge_from(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_configuration_data_merge_from(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	struct args_norm an[] = { { obj_configuration_data }, ARG_TYPE_NULL };
 
@@ -201,7 +201,7 @@ func_configuration_data_merge_from(struct workspace *wk, obj rcvr, uint32_t args
 		return false;
 	}
 
-	obj_dict_merge_nodup(wk, get_obj_configuration_data(wk, rcvr)->dict,
+	obj_dict_merge_nodup(wk, get_obj_configuration_data(wk, self)->dict,
 		get_obj_configuration_data(wk, an[0].val)->dict
 		);
 	return true;

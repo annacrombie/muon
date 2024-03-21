@@ -14,31 +14,31 @@
 #include "log.h"
 
 static bool
-func_both_libs_get_shared_lib(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_both_libs_get_shared_lib(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_both_libs(wk, rcvr)->dynamic_lib;
+	*res = get_obj_both_libs(wk, self)->dynamic_lib;
 	return true;
 }
 
 static bool
-func_both_libs_get_static_lib(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_both_libs_get_static_lib(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = get_obj_both_libs(wk, rcvr)->static_lib;
+	*res = get_obj_both_libs(wk, self)->static_lib;
 	return true;
 }
 
 static obj
-both_libs_rcvr_transform(struct workspace *wk, obj rcvr)
+both_libs_self_transform(struct workspace *wk, obj self)
 {
-	return get_obj_both_libs(wk, rcvr)->dynamic_lib;
+	return get_obj_both_libs(wk, self)->dynamic_lib;
 }
 
 void
@@ -47,7 +47,7 @@ both_libs_build_impl_tbl(void)
 	uint32_t i;
 	for (i = 0; impl_tbl_build_target[i].name; ++i) {
 		struct func_impl tmp = impl_tbl_build_target[i];
-		tmp.rcvr_transform = both_libs_rcvr_transform;
+		tmp.self_transform = both_libs_self_transform;
 		impl_tbl_both_libs[i] = tmp;
 	}
 }

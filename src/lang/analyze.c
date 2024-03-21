@@ -732,14 +732,14 @@ analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, o
 }
 
 static bool
-analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, const struct func_impl *fi, obj rcvr, obj *res)
+analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, const struct func_impl *fi, obj self, obj *res)
 {
 	bool ret = true;
 	obj func_res;
 	bool old_analyze_error = analyzer.error;
 	analyzer.error = false;
 
-	bool subdir_func = !rcvr && strcmp(fi->name, "subdir") == 0;
+	bool subdir_func = !self && strcmp(fi->name, "subdir") == 0;
 	obj parent_eval_trace;
 
 	analyze_all_function_arguments(wk, n_id, args_node);
@@ -758,7 +758,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 	}
 
 	bool was_pure;
-	if (!analyze_function(wk, fi, args_node, rcvr, &func_res, &was_pure) || analyzer.error) {
+	if (!analyze_function(wk, fi, args_node, self, &func_res, &was_pure) || analyzer.error) {
 		if (subdir_func && analyzer.opts->subdir_error) {
 			vm_error_at(wk, n_id, "in subdir");
 		}
@@ -795,7 +795,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 static bool analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res);
 
 static void
-analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, type_tag rcvr_type, obj *res)
+analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, type_tag self_type, obj *res)
 {
 	struct node *n = get_node(wk->ast, n_id);
 
@@ -805,7 +805,7 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 	obj func_obj = 0, func_module = 0;
 	const struct func_impl *fi = 0;
 
-	if (rcvr_type == obj_module
+	if (self_type == obj_module
 	    && get_obj_type(wk, ctx->l) == obj_module
 	    && get_obj_module(wk, ctx->l)->found) {
 		struct obj_module *m = get_obj_module(wk, ctx->l);
@@ -822,7 +822,7 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 			}
 		}
 	} else {
-		const struct func_impl **impl_tbl = func_tbl[rcvr_type];
+		const struct func_impl **impl_tbl = func_tbl[self_type];
 
 		if (!impl_tbl) {
 			return;
@@ -975,11 +975,11 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 			analyze_all_function_arguments(wk, n_id, n->c);
 
 			type_tag t = get_obj_type(wk, l_id);
-			bool rcvr_is_not_found_module = (t == obj_module && !get_obj_module(wk, l_id)->found)
+			bool self_is_not_found_module = (t == obj_module && !get_obj_module(wk, l_id)->found)
 							|| (t == obj_typeinfo && get_obj_typeinfo(wk, l_id)->type == tc_module);
-			bool rcvr_is_module_object = t == obj_typeinfo && get_obj_typeinfo(wk, l_id)->subtype == tc_module;
+			bool self_is_module_object = t == obj_typeinfo && get_obj_typeinfo(wk, l_id)->subtype == tc_module;
 
-			if (rcvr_is_not_found_module || rcvr_is_module_object) {
+			if (self_is_not_found_module || self_is_module_object) {
 				tmp = make_typeinfo(wk, tc_any, tc_module);
 			} else {
 				vm_error_at(wk, n_id, "method %s not found on %s", get_cstr(wk, get_node(wk->ast, n->r)->data.str), inspect_typeinfo(wk, l_id));

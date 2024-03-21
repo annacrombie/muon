@@ -10,7 +10,7 @@
 #include "log.h"
 
 static bool
-func_(struct workspace *wk, obj rcvr, uint32_t args_node, obj *res)
+func_(struct workspace *wk, obj self, uint32_t args_node, obj *res)
 {
 }
 
