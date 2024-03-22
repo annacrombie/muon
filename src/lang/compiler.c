@@ -92,7 +92,6 @@ comp_node(struct workspace *wk, struct node *n)
 
 	case node_type_continue:
 	case node_type_break:
-	case node_type_ternary:
 		// Unimplemented
 		break;
 
@@ -270,6 +269,23 @@ comp_node(struct workspace *wk, struct node *n)
 		}
 		break;
 	}
+	case node_type_ternary: {
+		uint32_t else_jmp, end_jmp;
+
+		compile_expr(wk, n->l);
+		push_code(wk, op_jmp_if_false);
+		else_jmp = wk->vm.code.len;
+		push_constant(wk, 0);
+		compile_expr(wk, n->r->l);
+		push_code(wk, op_jmp);
+		end_jmp = wk->vm.code.len;
+		push_constant(wk, 0);
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, else_jmp));
+		compile_expr(wk, n->r->r);
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp));
+
+		break;
+	}
 	case node_type_func_def: {
 		obj f;
 		uint32_t func_jump_over_patch_tgt;
@@ -351,7 +367,8 @@ compile_expr(struct workspace *wk, struct node *n)
 
 	while (wk->vm.compiler_state.node_stack.len > stack_base || n) {
 		if (n) {
-			if (n->type == node_type_foreach || n->type == node_type_if || n->type == node_type_func_def) {
+			if (n->type == node_type_foreach || n->type == node_type_if || n->type == node_type_func_def
+				|| n->type == node_type_ternary) {
 				comp_node(wk, n);
 				n = 0;
 			} else {

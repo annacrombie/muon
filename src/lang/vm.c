@@ -297,8 +297,6 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 		akw[j].set = true;
 	}
 
-	object_stack_discard(&wk->vm.stack, wk->vm.nkwargs);
-
 	argi = 0;
 
 	for (i = 0; an && an[i].type != ARG_TYPE_NULL; ++i) {

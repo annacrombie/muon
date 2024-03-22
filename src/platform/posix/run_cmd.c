@@ -65,14 +65,10 @@ copy_pipes(struct run_cmd_ctx *ctx)
 	}
 
 	switch (copy_pipe(ctx->pipefd_err[0], &ctx->err)) {
-	case copy_pipe_result_waiting:
-		return copy_pipe_result_waiting;
-	case copy_pipe_result_finished:
-		return res;
-	case copy_pipe_result_failed:
-		return copy_pipe_result_failed;
-	default:
-		UNREACHABLE_RETURN;
+	case copy_pipe_result_waiting: return copy_pipe_result_waiting;
+	case copy_pipe_result_finished: return res;
+	case copy_pipe_result_failed: return copy_pipe_result_failed;
+	default: UNREACHABLE_RETURN;
 	}
 }
 
@@ -82,7 +78,7 @@ run_cmd_ctx_close_fds(struct run_cmd_ctx *ctx)
 	if (ctx->pipefd_err_open[0] && close(ctx->pipefd_err[0]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
 	}
-	ctx->pipefd_err_open[0]  = false;
+	ctx->pipefd_err_open[0] = false;
 
 	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
@@ -103,7 +99,6 @@ run_cmd_ctx_close_fds(struct run_cmd_ctx *ctx)
 		LOG_E("failed to close: %s", strerror(errno));
 	}
 	ctx->input_fd_open = false;
-
 }
 
 enum run_cmd_state
@@ -129,7 +124,9 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 			} else {
 				// sleep here for 1ms to give the process some
 				// time to complete
-				struct timespec req = { .tv_nsec = 1000000, };
+				struct timespec req = {
+					.tv_nsec = 1000000,
+				};
 				nanosleep(&req, NULL);
 			}
 		} else {
@@ -213,7 +210,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 			uint32_t i = 0;
 			LL("env:");
 			p = k = envstr;
-			for (;; ++p) {
+			for (; envc; ++p) {
 				if (!p[0]) {
 					if (!k) {
 						k = p + 1;
@@ -285,7 +282,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 			const char *k;
 			uint32_t i = 0;
 			p = k = envstr;
-			for (;; ++p) {
+			for (; envc; ++p) {
 				if (!p[0]) {
 					if (!k) {
 						k = p + 1;
@@ -293,7 +290,9 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 						int err;
 						if ((err = setenv(k, p + 1, 1)) != 0) {
 							LOG_E("failed to set environment var %s='%s': %s",
-								k, p + 1, strerror(err));
+								k,
+								p + 1,
+								strerror(err));
 							exit(1);
 						}
 						k = NULL;
@@ -337,9 +336,13 @@ err:
 }
 
 static bool
-build_argv(struct run_cmd_ctx *ctx, struct source *src,
-	const char *argstr, uint32_t argstr_argc, char *const *old_argv,
-	struct sbuf *cmd, const char ***argv)
+build_argv(struct run_cmd_ctx *ctx,
+	struct source *src,
+	const char *argstr,
+	uint32_t argstr_argc,
+	char *const *old_argv,
+	struct sbuf *cmd,
+	const char ***argv)
 {
 	const char *argv0, *new_argv0 = NULL, *new_argv1 = NULL;
 	const char **new_argv;

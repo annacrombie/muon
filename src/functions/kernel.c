@@ -623,6 +623,10 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		.prog = str,
 	};
 
+	enum wrap_mode wrap_mode;
+	if (wk->vm.lang_mode == language_internal) {
+		goto find_program_step_4;
+	}
 	/* 1. Program overrides set via meson.override_find_program() */
 	if (t == obj_string) {
 		if (!find_program_check_override(wk, ctx, prog)) {
@@ -635,7 +639,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	}
 
 	/* 2. [provide] sections in subproject wrap files, if wrap_mode is set to forcefallback */
-	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
+	wrap_mode = get_option_wrap_mode(wk);
 	if (t == obj_string && wrap_mode == wrap_mode_forcefallback) {
 		if (!find_program_check_fallback(wk, ctx, prog)) {
 			return false;
@@ -648,6 +652,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	/* TODO: 3. [binaries] section in your machine files */
 
+find_program_step_4:
 	/* 4. Directories provided using the dirs: kwarg */
 	if (ctx->dirs) {
 		obj_array_foreach(wk, ctx->dirs, &dir_ctx, find_program_custom_dir_iter);
@@ -659,7 +664,8 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 
 	/* 5. Project's source tree relative to the current subdir */
 	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
-	path_join(wk, &buf, get_cstr(wk, current_project(wk)->cwd), str);
+	struct project *proj = current_project(wk);
+	path_join(wk, &buf, proj ? get_cstr(wk, proj->cwd) : "", str);
 	if (fs_file_exists(buf.buf)) {
 		path = buf.buf;
 		goto found;
@@ -669,6 +675,10 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 	if (fs_find_cmd(wk, &buf, str)) {
 		path = buf.buf;
 		goto found;
+	}
+
+	if (wk->vm.lang_mode == language_internal) {
+		goto find_program_step_8;
 	}
 
 	/* 7. [provide] sections in subproject wrap files, if wrap_mode is set to anything other than nofallback */
@@ -682,6 +692,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		}
 	}
 
+find_program_step_8:
 	/* 8. Special cases */
 	if (t == obj_string) {
 		if (have_samurai && (strcmp(str, "ninja") == 0 || strcmp(str, "samu") == 0)) {
@@ -754,12 +765,14 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 		kw_dirs,
 		kw_version,
 	};
-	struct args_kw akw[] = { [kw_required] = { "required", tc_required_kw },
+	struct args_kw akw[] = {
+		[kw_required] = { "required", tc_required_kw },
 		[kw_native] = { "native", obj_bool },
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_dirs] = { "dirs", TYPE_TAG_LISTIFY | obj_string },
 		[kw_version] = { "version", TYPE_TAG_LISTIFY | obj_string },
-		0 };
+		0,
+	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
@@ -1027,7 +1040,9 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 			return false;
 		}
 
-		workspace_add_regenerate_deps(wk, args);
+		if (wk->vm.lang_mode != language_internal) {
+			workspace_add_regenerate_deps(wk, args);
+		}
 
 		join_args_argstr(wk, &argstr, &argc, args);
 	}

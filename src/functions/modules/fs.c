@@ -68,7 +68,8 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 		} else if (opts & fix_file_path_noabs) {
 			path_copy(wk, buf, ss->s);
 		} else {
-			path_join(wk, buf, get_cstr(wk, current_project(wk)->cwd), ss->s);
+			struct project *proj = current_project(wk);
+			path_join(wk, buf, proj ? get_cstr(wk, proj->cwd) : "", ss->s);
 		}
 	}
 

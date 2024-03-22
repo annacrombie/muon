@@ -52,7 +52,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 struct project *
 current_project(struct workspace *wk)
 {
-	return arr_get(&wk->projects, wk->cur_project);
+	return wk->projects.len ? arr_get(&wk->projects, wk->cur_project) : 0;
 }
 
 void

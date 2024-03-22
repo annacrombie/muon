@@ -408,7 +408,7 @@ parse_fstring(struct parser *p)
 
 				n = n->r = make_node_t(p, node_type_add);
 
-				n->l = make_node_t(p, node_type_add);
+				n->l = make_node_t(p, node_type_string);
 				n->l->data.str = make_strn(p->wk, str.s, str.len);
 
 				n = n->r = make_node_t(p, node_type_add);
@@ -429,7 +429,7 @@ parse_fstring(struct parser *p)
 	}
 
 	n = n->r = make_node_t(p, node_type_string);
-	n->r->data.str = make_strn(p->wk, str.s, str.len);
+	n->data.str = make_strn(p->wk, str.s, str.len);
 
 	return res;
 }
@@ -465,6 +465,20 @@ parse_binary(struct parser *p, struct node *l)
 	n = make_node_t(p, t);
 	n->l = l;
 	n->r = r;
+	return n;
+}
+
+static struct node *
+parse_ternary(struct parser *p, struct node *l)
+{
+	struct node *n;
+
+	n = make_node_t(p, node_type_ternary);
+	n->l = l;
+	n->r = make_node_t(p, node_type_list);
+	n->r->l = parse_prec(p, parse_precedence_assignment);
+	parse_expect(p, ':');
+	n->r->r = parse_prec(p, parse_precedence_assignment);
 	return n;
 }
 
@@ -895,31 +909,32 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len)
 
 // clang-format off
 static const struct parse_rule _parse_rules[] = {
-	[token_type_number]     = { parse_number,   0,            0                           },
-	[token_type_identifier] = { parse_id,       0,            0                           },
-	[token_type_string]     = { parse_string,   0,            0                           },
-	[token_type_fstring]    = { parse_fstring,  0,            0                           },
-	[token_type_true]       = { parse_bool,     0,            0                           },
-	[token_type_false]      = { parse_bool,     0,            0                           },
-	['(']                   = { parse_grouping, parse_call,   parse_precedence_call       },
-	['[']                   = { parse_array,    parse_index,  parse_precedence_call       },
-	['{']                   = { parse_dict,     0,            0                           },
-	['+']                   = { 0,              parse_binary, parse_precedence_term       },
-	['-']                   = { parse_unary,    parse_binary, parse_precedence_term       },
-	['*']                   = { 0,              parse_binary, parse_precedence_factor     },
-	['/']                   = { 0,              parse_binary, parse_precedence_factor     },
-	['<']                   = { 0,              parse_binary, parse_precedence_comparison },
-	['>']                   = { 0,              parse_binary, parse_precedence_comparison },
-	[token_type_leq]        = { 0,              parse_binary, parse_precedence_comparison },
-	[token_type_geq]        = { 0,              parse_binary, parse_precedence_comparison },
-	[token_type_or]         = { 0,              parse_binary, parse_precedence_or         },
-	[token_type_and]        = { 0,              parse_binary, parse_precedence_and        },
-	[token_type_eq]         = { 0,              parse_binary, parse_precedence_equality   },
-	[token_type_neq]        = { 0,              parse_binary, parse_precedence_equality   },
-	[token_type_in]         = { 0,              parse_binary, parse_precedence_equality   },
-	[token_type_not_in]     = { 0,              parse_binary, parse_precedence_equality   },
-	['.']                   = { 0,              parse_method, parse_precedence_call       },
-	[token_type_not]        = { parse_unary,    0,            0                           },
+	[token_type_number]     = { parse_number,   0,             0                           },
+	[token_type_identifier] = { parse_id,       0,             0                           },
+	[token_type_string]     = { parse_string,   0,             0                           },
+	[token_type_fstring]    = { parse_fstring,  0,             0                           },
+	[token_type_true]       = { parse_bool,     0,             0                           },
+	[token_type_false]      = { parse_bool,     0,             0                           },
+	['(']                   = { parse_grouping, parse_call,    parse_precedence_call       },
+	['[']                   = { parse_array,    parse_index,   parse_precedence_call       },
+	['{']                   = { parse_dict,     0,             0                           },
+	['+']                   = { 0,              parse_binary,  parse_precedence_term       },
+	['-']                   = { parse_unary,    parse_binary,  parse_precedence_term       },
+	['*']                   = { 0,              parse_binary,  parse_precedence_factor     },
+	['/']                   = { 0,              parse_binary,  parse_precedence_factor     },
+	['<']                   = { 0,              parse_binary,  parse_precedence_comparison },
+	['>']                   = { 0,              parse_binary,  parse_precedence_comparison },
+	[token_type_leq]        = { 0,              parse_binary,  parse_precedence_comparison },
+	[token_type_geq]        = { 0,              parse_binary,  parse_precedence_comparison },
+	[token_type_or]         = { 0,              parse_binary,  parse_precedence_or         },
+	[token_type_and]        = { 0,              parse_binary,  parse_precedence_and        },
+	[token_type_eq]         = { 0,              parse_binary,  parse_precedence_equality   },
+	[token_type_neq]        = { 0,              parse_binary,  parse_precedence_equality   },
+	[token_type_in]         = { 0,              parse_binary,  parse_precedence_equality   },
+	[token_type_not_in]     = { 0,              parse_binary,  parse_precedence_equality   },
+	['.']                   = { 0,              parse_method,  parse_precedence_call       },
+	['?']                   = { 0,              parse_ternary, parse_precedence_assignment },
+	[token_type_not]        = { parse_unary,    0,             0                           },
 };
 // clang-format on
 

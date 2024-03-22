@@ -86,6 +86,10 @@ environment_or_dict_set(struct workspace *wk, obj env, const char *key, const ch
 void
 set_default_environment_vars(struct workspace *wk, obj env, bool set_subdir)
 {
+	if (wk->vm.lang_mode == language_internal) {
+		return;
+	}
+
 	if (wk->argv0) {
 		// argv0 may not be set, e.g. during `muon install`
 		environment_or_dict_set(wk, env, "MUON_PATH", wk->argv0);
