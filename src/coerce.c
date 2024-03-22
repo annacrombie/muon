@@ -383,7 +383,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 			}
 			break;
 		case mode_output:
-			if (!path_is_basename(get_cstr(wk, val))) {
+			if (!path_is_basename(get_cstr(wk, val)) && wk->lang_mode != language_extended) {
 				interp_error(wk, ctx->node, "output file '%s' contains path separators", get_cstr(wk, val));
 				return ir_err;
 			}

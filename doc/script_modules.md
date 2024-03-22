@@ -176,7 +176,7 @@ dict[str|int]
 
 Finally, you can wrap the entire type in `glob[<type>]` or `listify[<type>]` to
 get the special argument handling detailed in doc/contributing.md (search for
-`TYPE_TAG_{GLOB,LISTIFY}`.
+`TYPE_TAG_{GLOB,LISTIFY}`).
 
 ## Additional built-in functions
 
@@ -189,6 +189,8 @@ Various additional builtin functions are avaliable:
 - `typeof(arg any) -> str` - returns the type of an object.
 - `list.delete(index int)` - delete the element from list at the specefied index
 - `dict.delete(key str)` - delete key from dict
+- `meson.argv0() -> str` - gets the command used to invoke muon (useful for
+  creating targets which invoke scripts).
 
 The `fs` module also has additonal functions:
 
@@ -196,6 +198,9 @@ The `fs` module also has additonal functions:
 - `write(dest str|file, data str)` - write `data` to `dest`
 - `cwd() -> str` - returns muon's current working directory
 - `mkdir(path str)` - make the directory at `path`
+- `rmdir(path str, recursive bool)` - delete the directory at `path`. `recursive`
+  defaults to false. If set to true the contents of `path` will be recursively
+  deleted before `path` itself.
 - `is_basename(path str) -> bool` - true if str contains no path separators
 - `is_subpath(base str, sub str) -> bool` - true if `sub` is a subpath of `base`
 - `add_suffix(path str, suff str) -> str` - add the suffix `suff` to `path`
@@ -204,3 +209,12 @@ The `fs` module also has additonal functions:
 - `without_ext(path str) -> str` - return path with extension removed
   to it, otherwise return path
 - `executable(path str) -> str` - if path has no path separators, prepend './'
+
+
+## Semantic differences between regular and extended Meson
+
+- In regular meson functions which create targets, the `output` parameter is not
+  allowed to contain file separators. This has the effect that targets must only
+  produce outputs which live in the current build directory. In extended meson
+  file separators are permitted in these cases and so extended meson functions
+  can create targets whose outputs may exist in other build directories.

@@ -311,6 +311,9 @@ tests = [
     ['keyval/2 subdir'],
     ['keyval/3 load_config files'],
     ['keyval/4 load_config builddir'],
+
+    # frameworks
+    ['frameworks/6 gettext'],
 ]
 
 if dep_dict['samurai']

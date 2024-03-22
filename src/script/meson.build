@@ -9,8 +9,12 @@ foreach s : [
     'global_options.meson',
     'per_project_options.meson',
     'vcs_tagger.meson',
+    'gettext.meson',
+    'itstool.meson',
+    'msgfmthelper.meson',
 
     'modules/_test.meson',
+    'modules/i18n.meson'
 ]
     scripts_input += s
     scripts_cmdline += files(s) + [s]

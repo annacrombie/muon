@@ -136,6 +136,17 @@ fs_mkdir(const char *path)
 	return true;
 }
 
+bool
+fs_rmdir(const char *path)
+{
+	if (rmdir(path) == -1) {
+		LOG_E("failed to remove directory %s: %s", path, strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
 static bool
 fs_copy_link(const char *src, const char *dest)
 {

@@ -42,6 +42,8 @@ bool fs_exe_exists(const char *path);
 bool fs_dir_exists(const char *path);
 bool fs_mkdir(const char *path);
 bool fs_mkdir_p(const char *path);
+bool fs_rmdir(const char *path);
+bool fs_rmdir_recursive(const char *path);
 bool fs_read_entire_file(const char *path, struct source *src);
 bool fs_fsize(FILE *file, uint64_t *ret);
 bool fs_fclose(FILE *file);

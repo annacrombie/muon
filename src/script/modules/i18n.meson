@@ -1,0 +1,393 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+PRESET_ARGS = {
+    'glib': [
+        '--from-code=UTF-8',
+        '--add-comments',
+
+        # https://developer.gnome.org/glib/stable/glib-I18N.html
+        '--keyword=_',
+        '--keyword=N_',
+        '--keyword=C_:1c,2',
+        '--keyword=NC_:1c,2',
+        '--keyword=g_dcgettext:2',
+        '--keyword=g_dngettext:2,3',
+        '--keyword=g_dpgettext2:2c,3',
+
+        '--flag=N_:1:pass-c-format',
+        '--flag=C_:2:pass-c-format',
+        '--flag=NC_:2:pass-c-format',
+        '--flag=g_dngettext:2:pass-c-format',
+        '--flag=g_strdup_printf:1:c-format',
+        '--flag=g_string_printf:2:c-format',
+        '--flag=g_string_append_printf:2:c-format',
+        '--flag=g_error_new:3:c-format',
+        '--flag=g_set_error:4:c-format',
+        '--flag=g_markup_printf_escaped:1:c-format',
+        '--flag=g_log:3:c-format',
+        '--flag=g_print:1:c-format',
+        '--flag=g_printerr:1:c-format',
+        '--flag=g_printf:1:c-format',
+        '--flag=g_fprintf:2:c-format',
+        '--flag=g_sprintf:2:c-format',
+        '--flag=g_snprintf:3:c-format',
+    ]
+}
+
+func read_linguas(source_dir str) -> list[any]
+
+  linguas_path = join_paths(source_dir, 'LINGUAS')
+
+  fs = import('fs')
+  if not fs.exists(linguas_path)
+    return []
+  endif
+
+  contents = fs.read(linguas_path).split('\n')
+
+  languages = []
+  foreach line : contents
+    if line.startswith('#') or line == ''
+      continue
+    endif
+
+    languages += line
+  endforeach
+
+  return languages
+endfunc
+
+func get_data_dirs(source_dir str, dirs list[str]|void) -> str
+
+  if is_void(dirs)
+    return ''
+  endif
+
+  dirs = []
+  foreach dir : dirs
+    dirs += source_dir / dir
+  endforeach
+
+  datadirs = ':'.join(dirs)
+  return f'datadirs=@datadirs@'
+endfunc
+
+func gettext(
+  package_name str,
+  args listify[str]:,
+  data_dirs listify[str]:,
+  install bool: true,
+  install_dir str:,
+  languages listify[str]:,
+  preset str: ) -> list[any]
+
+  xgettext = find_program('xgettext', native: false)
+  msgfmt = find_program('msgfmt', native: false)
+  msgmerge = find_program('msgmerge', native: false)
+  msginit = find_program('msginit', native: false)
+
+  current_source_dir = meson.current_source_dir()
+
+  gettext_invocation = [
+    meson.argv0(),
+    'internal',
+    'eval',
+    '-e',
+    'gettext.meson',
+  ]
+
+  pkg_arg = f'pkgname=@package_name@'
+  lang_arg = ''
+  if not is_void(languages)
+    langs_merged = '^'.join(languages)
+    lang_arg = f'langs=@langs_merged@'
+  endif
+
+  foreach tool : [ xgettext, msgfmt, msgmerge, msginit ]
+    if tool.found()
+      continue
+    endif
+
+    tool_name = fs.name(tool.full_path())
+    if tool_name == 'msgfmt'
+      warning('Gettext not found, all translation targets will be ignored.')
+      return []
+    endif
+
+    warning(f'@tool_name@ not found, maintainer targets will not work')
+  endforeach
+
+  if not is_void(preset)
+    if not PRESET_ARGS.has_key(preset)
+      error(f'preset: @preset@ not found')
+    endif
+
+    selected_preset_args = PRESET_ARGS[preset]
+    if is_void(args)
+      args = []
+    endif
+
+    args += selected_preset_args
+  endif
+
+  extra_arg = ''
+  if not is_void(args)
+    extra_args_merged = '^'.join(args)
+    extra_arg = f'extra_args=@extra_arg@'
+  endif
+
+  source_root_arg = 'source_root=@0@'.format(meson.project_source_root())
+  subdir_arg = f'subdir=@current_source_dir@'
+
+  potgen_command = gettext_invocation + 'pot' + pkg_arg + source_root_arg + subdir_arg
+
+  data_dirs_arg = get_data_dirs(current_source_dir, data_dirs)
+  if data_dirs_arg != ''
+    potgen_command += data_dirs_arg
+  endif
+
+  if extra_arg != ''
+    potgen_command += extra_arg
+  endif
+
+  if xgettext.found()
+    potgen_command += 'xgettext=@0@'.format(xgettext.path())
+  endif
+
+  potgen_target = run_target(
+    f'@package_name@-pot',
+    command: potgen_command
+  )
+
+  if is_void(languages)
+    languages = read_linguas(current_source_dir)
+  endif
+
+  if is_void(install_dir)
+    install_dir = get_option('localedir')
+  endif
+
+  gmo_targets = []
+
+  foreach lang : languages
+
+    gmo_target = custom_target(
+      f'@package_name@-@lang@.mo',
+      command: [
+        msgfmt,
+        '-o',
+        '@OUTPUT@',
+        '@INPUT@'
+      ],
+      input: [ current_source_dir / f'@lang@.po' ],
+      output: [
+        meson.current_build_dir() /
+        lang /
+        'LC_MESSAGES' /
+        f'@package_name@.mo'
+      ],
+      install: install,
+      install_dir: install_dir / lang / 'LC_MESSAGES',
+      install_tag: 'i18n',
+    )
+
+    gmo_targets += gmo_target
+
+  endforeach
+
+  all_gmo_target = alias_target(f'@package_name@-gmo', gmo_targets)
+
+  update_po_args = gettext_invocation + 'update_po' + pkg_arg + source_root_arg + subdir_arg
+  if lang_arg != ''
+    update_po_args += lang_arg
+  endif
+
+  if data_dirs_arg != ''
+    update_po_args += data_dirs_arg
+  endif
+
+  if extra_arg != ''
+    update_po_args += extra_arg
+  endif
+
+  if msginit.found()
+    update_po_args += 'msginit=@0@'.format(msginit.path())
+  endif
+
+  if msgmerge.found()
+    update_po_args += 'msgmerge=@0@'.format(msgmerge.path())
+  endif
+
+  update_po_target = run_target(
+    f'@package_name@-update-po',
+    command: update_po_args
+  )
+
+  return [gmo_targets, potgen_target, update_po_target]
+endfunc
+
+func merge_file(
+  input listify[str|file|custom_tgt]:,
+  output str:,
+  build_by_default bool:,
+  install bool:,
+  install_dir str:,
+  install_tag str:,
+  args listify[str]: [],
+  data_dirs listify[str]: [],
+  po_dir str:,
+  type str:) -> custom_tgt
+
+  current_source_dir = meson.current_source_dir()
+  current_build_dir = meson.current_build_dir()
+
+  msgfmt = find_program('msgfmt', native: false, required: true)
+  if msgfmt.found()
+    # i18n.merge_file requires GNU msgfmt and depending on the value of 'type'
+    # it needs a specific version
+    actual_version = msgfmt.version()
+    needed_version = type == 'desktop' ? '>=0.19.7' : '>=0.19'
+
+    if not actual_version.version_compare(needed_version)
+      error(f'i18n.merge_file requires GNU msgfmt @needed_version@ to produce files of type: @type@ (got @actual_version@)')
+    endif
+  endif
+
+  podir = current_source_dir / po_dir
+  data_dirs_arg = get_data_dirs(current_source_dir, data_dirs)
+
+  extra_arg = ''
+  if not is_void(args)
+    extra_args_merged = '^'.join(args)
+    extra_arg = f'extra_args=@extra_arg@'
+  endif
+
+  msgfmthelper_invocation = [
+    meson.argv0(),
+    'internal',
+    'eval',
+    '-e',
+    'msgfmthelper.meson',
+    '@INPUT@',
+    '@OUTPUT@',
+    f'type=@type@',
+    f'podir=@podir@',
+    'msgfmt=@0@'.format(msgfmt.full_path())
+  ]
+
+  if data_dirs_arg != ''
+    msgfmthelper_invocation += data_dirs_arg
+  endif
+
+  if extra_arg != ''
+    msgfmthelper_invocation += extra_arg
+  endif
+
+  if is_void(build_by_default)
+    build_by_default = install
+  endif
+
+  if is_void(install_tag)
+    install_tag = ''
+  endif
+
+  return custom_target(
+    '',
+    command: msgfmthelper_invocation,
+    input: input,
+    output: output,
+    install_tag: install_tag,
+    install: is_void(install) ? false : install,
+    install_dir: is_void(install_dir) ? '' : install_dir,
+    build_by_default: build_by_default
+  )
+
+endfunc
+
+func itstool_join(
+  input listify[str|file|custom_tgt]: [],
+  output str:,
+  build_by_default bool:,
+  install bool:,
+  install_dir str:,
+  install_tag str:,
+  its_files listify[str|file]: [],
+  mo_targets listify[custom_tgt]: [],
+) -> custom_tgt
+
+  if install and is_void(install_dir)
+    error('"install_dir" keyword argument must be set when "install" is true')
+  endif
+
+  itstool = find_program('itstool', native: false)
+
+  current_build_dir = meson.current_build_dir()
+  current_source_dir = meson.current_source_dir()
+
+  fs = import('fs')
+  mo_fnames = []
+  foreach target : mo_targets
+    mo_fnames += target.full_path()
+  endforeach
+
+  itstool_invocation = [
+    meson.argv0(),
+    'internal',
+    'eval',
+    '-e',
+    'itstool.meson',
+    'join',
+    '@INPUT@',
+    '@OUTPUT@',
+    'itstool=@0@'.format(itstool.full_path()),
+    'build_root=@0@'.format(meson.project_build_root())
+  ]
+
+  if not is_void(its_files)
+    its_paths = []
+    foreach its_file : its_files
+      if not fs.is_absolute(its_file)
+        its_paths += current_source_dir / its_file
+      else
+        its_paths += its_file
+      endif
+    endforeach
+
+    its_paths_merged = ':'.join(its_paths)
+    itstool_invocation += f'its_files=@its_paths_merged@'
+
+  endif
+
+  if mo_fnames.length() != 0
+    mo_fnames_merged = ':'.join(mo_fnames)
+    itstool_invocation += f'mo_files=@mo_fnames_merged@'
+  endif
+
+  if is_void(install)
+    install = false
+  endif
+
+  if is_void(build_by_default)
+    build_by_default = install
+  endif
+
+  return custom_target(
+    '',
+    input: input,
+    output: output,
+    command: itstool_invocation,
+    install: install,
+    install_dir: is_void(install_dir) ? '' : install_dir,
+    install_tag: is_void(install_tag) ? '' : install_tag,
+    build_by_default : build_by_default,
+    depends: mo_targets
+  )
+
+endfunc
+
+return {
+  'gettext' : gettext,
+  'merge_file' : merge_file,
+  'itstool_join' : itstool_join
+}

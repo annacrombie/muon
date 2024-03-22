@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+input = argv[1]
+output = argv[2]
+
+argv.delete(0)
+argv.delete(0)
+argv.delete(0)
+
+options = {
+  'msgfmt': '',
+  'type': '',
+  'podir': '',
+  'datadirs': '',
+  'extra_args': ''
+}
+
+foreach arg : argv
+  elems = arg.split('=')
+  key = elems[0]
+  val = elems[1]
+
+  options += { key : val }
+
+endforeach
+
+datadirs_env = environment()
+
+if options['datadirs'] != ''
+  datadirs_env.set('GETTEXTDATADIRS', options['datadirs'])
+endif
+
+extra_args = options['extra_args'] != '' ? options['extra_args'].split('^') : []
+
+res = run_command(
+  options['msgfmt'],
+  '--@0@'.format(options['type']),
+  '-d', options['podir'],
+  '--template', input,
+  '-o', output,
+  extra_args,
+  env: datadirs_env
+)

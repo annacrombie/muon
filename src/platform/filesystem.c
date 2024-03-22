@@ -430,6 +430,63 @@ fs_copy_dir(const char *src_base, const char *dest_base)
 	return fs_dir_foreach(src_base, &ctx, fs_copy_dir_iter);
 }
 
+struct fs_rmdir_ctx {
+	const char *base_dir;
+};
+
+static enum iteration_result
+fs_rmdir_iter(void *_ctx, const char *path)
+{
+	enum iteration_result ir_res = ir_err;
+	struct fs_rmdir_ctx *ctx = _ctx;
+	struct stat sb;
+
+	SBUF(name);
+
+	path_join(NULL, &name, ctx->base_dir, path);
+
+	if (!fs_stat(name.buf, &sb)) {
+		goto ret;
+	}
+
+	if (S_ISDIR(sb.st_mode)) {
+
+		if (!fs_rmdir_recursive(name.buf)) {
+			goto ret;
+		}
+
+		if (!fs_rmdir(name.buf)) {
+			goto ret;
+		}
+
+	} else if (S_ISREG(sb.st_mode)) {
+
+		if (!fs_remove(name.buf)) {
+			goto ret;
+		}
+
+	} else {
+		LOG_E("unhandled file type: %s", name.buf);
+		goto ret;
+	}
+
+	ir_res = ir_cont;
+
+ret:
+	sbuf_destroy(&name);
+	return ir_res;
+}
+
+bool
+fs_rmdir_recursive(const char *path)
+{
+	struct fs_rmdir_ctx ctx = {
+		.base_dir = path
+	};
+
+	return fs_dir_foreach(path, &ctx, fs_rmdir_iter);
+}
+
 bool
 fs_is_a_tty(FILE *f)
 {

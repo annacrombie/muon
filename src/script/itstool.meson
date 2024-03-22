@@ -1,0 +1,120 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+func join(
+  build_dir str,
+  itstool str,
+  its_files list[str],
+  mo_files list[str],
+  input str,
+  output str
+)
+  if is_void(mo_files) or mo_files.length() == 0
+    error('No mo files specified to use for translation.')
+  endif
+
+  fs = import('fs')
+
+  itstool_invocation = [
+    itstool
+  ]
+
+  foreach its_file : its_files
+    itstool_invocation += [ '-i', its_file ]
+  endforeach
+
+  itstool_invocation += [
+    '-j', input,
+    '-o', output
+  ]
+
+  locales = []
+  foreach mo_file : mo_files
+    if not fs.exists(mo_file)
+      error(f'Could not find @mo_file@')
+    endif
+
+    if not mo_file.endswith('.mo')
+      error(f'File is not a mo file: @mo_file@')
+    endif
+
+    locale_dir = mo_file.split('LC_MESSAGES')[0]
+    if locale_dir.endswith('/')
+      locale_dir = locale_dir.strip('/')
+    endif
+
+    locales += fs.name(locale_dir)
+  endforeach
+
+  tmpdir = build_dir / '__muon_itstool_tmpdir'
+
+  fs.mkdir(tmpdir)
+
+  tmp_locale_files = []
+  foreach i : range(mo_files.length())
+
+    mo_file = mo_files[i]
+    locale = locales[i]
+
+    tmp_locale_file = tmpdir / f'@locale@.mo'
+    tmp_locale_files += tmp_locale_file
+
+    fs.copy(mo_file, tmp_locale_file)
+
+  endforeach
+
+  itstool_invocation += tmp_locale_files
+  res = run_command(itstool_invocation)
+
+  fs.rmdir(tmpdir, recursive: true)
+
+  retval = res.returncode()
+  if retval != 0
+    error(f'Command @itstool@ returned @retval@')
+  endif
+
+endfunc
+
+command = argv[1]
+input = argv[2]
+output = argv[3]
+
+# argv[0] => gettext.meson
+# argv[1] => 'join'
+# argv[2] => @INPUT@
+# argv[3] => @OUTPUT@
+argv.delete(0)
+argv.delete(0)
+argv.delete(0)
+argv.delete(0)
+
+options = {
+  'itstool': '',
+  'its_files': '',
+  'mo_files': '',
+}
+
+foreach arg : argv
+
+  elems = arg.split('=')
+  key = elems[0]
+  val = elems[1]
+
+  options += { key : val }
+
+endforeach
+
+its_files = options['its_files'] != '' ? options['its_files'].split(':') : []
+mo_files = options['mo_files'] != '' ? options['mo_files'].split(':') : []
+
+if command == 'join'
+    join(
+      options['build_root'],
+      options['itstool'],
+      its_files,
+      mo_files,
+      input,
+      output)
+else
+  error(f'Unknown subcommand: @command@')
+endif

@@ -1,0 +1,148 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+# This function ensures that the gettext files are correctly created.
+# Called from both '@package@-pot' and '@package@-update-po' targets
+func run_potgen(
+  src_sub str,
+  xgettext str,
+  pkgname str,
+  datadirs str,
+  args list[str],
+  source_root str
+)
+  fs = import('fs')
+
+  listfile = src_sub / 'POTFILES.in'
+  if not fs.exists(listfile)
+    listfile = src_sub / 'POTFILES'
+    if not fs.exists(listfile)
+      error(f'Could not find POTFILES in @src_sub@')
+    endif
+  endif
+
+  child_env = environment()
+  if datadirs != ''
+    child_env.set('GETTEXTDATADIRS', datadirs)
+  endif
+
+  ofile = src_sub / f'@pkgname@.pot'
+  res = run_command(
+    xgettext,
+    f'--package-name=@pkgname@',
+    '-p', src_sub,
+    '-f', listfile,
+    '-D', source_root,
+    '-k_',
+    '-o', ofile,
+    args,
+    env: child_env
+  )
+
+  if res.returncode() != 0
+    error(res.stderr())
+  endif
+endfunc
+
+# Updates gettext translation files after a source updates.
+# Called from '@package@-update-po' maintainer target.
+func update_po(
+  src_sub str,
+  msgmerge str,
+  msginit str,
+  pkgname str,
+  langs list[str]
+)
+
+  potfile = src_sub / f'@pkgname@.pot'
+  fs = import('fs')
+  foreach lang : langs
+    pofile = src_sub / f'@lang@.po'
+    if fs.exists(pofile)
+      res = run_command(msgmerge, '-q', '-o', pofile, pofile, potfile)
+      if res.returncode() != 0
+        error(res.stderr())
+      endif
+    else
+      res = run_command(
+        msginit,
+        '--input', potfile,
+        '--output-file', pofile,
+        '--locale', lang,
+        '--no-translator',
+        capture: true
+      )
+      if res.returncode() != 0
+        error(res.stderr())
+      endif
+    endif
+
+  endforeach
+
+endfunc
+
+command = argv[1]
+
+# argv[0] => gettext.meson
+# argv[1] => 'pot|update_po'
+argv.delete(0)
+argv.delete(0)
+
+options = {
+  'pkgname': '',
+  'datadirs': '',
+  'langs': '',
+  'localedir': '',
+  'source_root': '',
+  'subdir': '',
+  'xgettext': 'xgettext',
+  'msgmerge': 'msgmerge',
+  'msginit': 'msginit',
+  'extra_args': ''
+}
+
+foreach arg : argv
+
+  elems = arg.split('=')
+  key = elems[0]
+  val = elems[1]
+
+  options += { key : val }
+
+endforeach
+
+langs = options['langs'] != '' ? options['langs'].split('^') : []
+extra_args = options['extra_args'] != '' ? options['extra_args'].split('^') : []
+
+if command == 'pot'
+
+  run_potgen(
+    options['subdir'],
+    options['xgettext'],
+    options['pkgname'],
+    options['datadirs'],
+    extra_args,
+    options['source_root'])
+
+elif command == 'update_po'
+
+  run_potgen(
+    options['subdir'],
+    options['xgettext'],
+    options['pkgname'],
+    options['datadirs'],
+    extra_args,
+    options['source_root'])
+
+  update_po(
+    options['subdir'],
+    options['msgmerge'],
+    options['msginit'],
+    options['pkgname'],
+    langs)
+
+else
+  error(f'unknown subcommand: @command@')
+endif

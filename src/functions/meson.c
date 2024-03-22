@@ -625,7 +625,19 @@ func_meson_project(struct workspace *wk, obj _, uint32_t args_node, obj *res)
 	return true;
 }
 
+static bool
+func_meson_argv0(struct workspace *wk, obj _, uint32_t args_node, obj *res)
+{
+	if (!interp_args(wk, args_node, NULL, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_str(wk, wk->argv0);
+	return true;
+}
+
 const struct func_impl impl_tbl_meson_internal[] = {
 	{ "project", func_meson_project, tc_dict, true },
+	{ "argv0", func_meson_argv0, tc_string, true },
 	{ NULL, NULL },
 };

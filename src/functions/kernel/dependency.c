@@ -384,6 +384,14 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx, bool
 			make_obj(wk, &dep->dep.link_args, obj_array);
 			obj_array_foreach(wk, ctx->modules, ctx, handle_appleframeworks_modules_iter);
 		}
+	} else if (strcmp(get_cstr(wk, ctx->name), "intl") == 0) {
+		*handled = true;
+		make_obj(wk, ctx->res, obj_dependency);
+		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+		dep->name = make_str(wk, "intl");
+		dep->flags |= dep_flag_found;
+		dep->type = dependency_type_external_library;
+
 	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
 		*handled = true;
 		if (ctx->requirement == requirement_required) {
