@@ -11,8 +11,7 @@
 #include "log.h"
 
 bool
-subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
-	obj fallback, obj subproj, obj *res)
+subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id, obj fallback, obj subproj, obj *res)
 {
 	const char *name = get_cstr(wk, name_id);
 	struct obj_subproject *sub = get_obj_subproject(wk, subproj);
@@ -36,14 +35,13 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id,
 static bool
 func_subproject_get_variable(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	if (!subproject_get_variable(wk, an[0].node, an[0].val, ao[0].val, self, res)) {
+	if (!subproject_get_variable(wk, an[0].node, an[0].val, an[1].val, self, res)) {
 		vm_error_at(wk, an[0].node, "subproject does not define '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}

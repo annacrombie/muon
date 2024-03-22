@@ -25,11 +25,10 @@ static bool
 func_meson_get_compiler(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	enum kwargs { kw_native, };
-	struct args_kw akw[] = {
-		[kw_native] = { "native", obj_bool },
-		0
+	enum kwargs {
+		kw_native,
 	};
+	struct args_kw akw[] = { [kw_native] = { "native", obj_bool }, 0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -37,7 +36,7 @@ func_meson_get_compiler(struct workspace *wk, obj _, obj *res)
 
 	enum compiler_language l;
 	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)
-	    || !obj_dict_geti(wk, current_project(wk)->compilers, l, res)) {
+		|| !obj_dict_geti(wk, current_project(wk)->compilers, l, res)) {
 		vm_error_at(wk, an[0].node, "no compiler found for '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
@@ -243,11 +242,7 @@ func_meson_override_dependency(struct workspace *wk, obj _, obj *res)
 		kw_static,
 		kw_native, // ignored
 	};
-	struct args_kw akw[] = {
-		[kw_static] = { "static", obj_bool },
-		[kw_native] = { "native", obj_bool },
-		0
-	};
+	struct args_kw akw[] = { [kw_static] = { "static", obj_bool }, [kw_native] = { "native", obj_bool }, 0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -263,12 +258,8 @@ func_meson_override_dependency(struct workspace *wk, obj _, obj *res)
 		}
 	} else {
 		switch (get_option_default_library(wk)) {
-		case tgt_static_library:
-			override_dict = wk->dep_overrides_static;
-			break;
-		default:
-			override_dict = wk->dep_overrides_dynamic;
-			break;
+		case tgt_static_library: override_dict = wk->dep_overrides_static; break;
+		default: override_dict = wk->dep_overrides_dynamic; break;
 		}
 	}
 
@@ -279,8 +270,8 @@ func_meson_override_dependency(struct workspace *wk, obj _, obj *res)
 static bool
 func_meson_override_find_program(struct workspace *wk, obj _, obj *res)
 {
-	type_tag tc_allowed = tc_file | tc_external_program | tc_build_target \
-			      | tc_custom_target | tc_python_installation;
+	type_tag tc_allowed = tc_file | tc_external_program | tc_build_target | tc_custom_target
+			      | tc_python_installation;
 	struct args_norm an[] = { { obj_string }, { tc_allowed }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
@@ -303,11 +294,8 @@ func_meson_override_find_program(struct workspace *wk, obj _, obj *res)
 		obj_array_push(wk, override, ver);
 		break;
 	case obj_external_program:
-	case obj_python_installation:
-		override = an[1].val;
-		break;
-	default:
-		UNREACHABLE;
+	case obj_python_installation: override = an[1].val; break;
+	default: UNREACHABLE;
 	}
 
 	obj_dict_set(wk, wk->find_program_overrides, an[0].val, override);
@@ -389,8 +377,7 @@ process_script_commandline_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	default:
 type_error:
-		vm_error_at(wk, ctx->node, "invalid type for script commandline '%s'",
-			obj_type_to_s(t));
+		vm_error_at(wk, ctx->node, "invalid type for script commandline '%s'", obj_type_to_s(t));
 		return ir_err;
 	}
 
@@ -409,12 +396,10 @@ func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
 		kw_skip_if_destdir, // ignored
 		kw_dry_run,
 	};
-	struct args_kw akw[] = {
-		[kw_install_tag] = { "install_tag", obj_string },
+	struct args_kw akw[] = { [kw_install_tag] = { "install_tag", obj_string },
 		[kw_skip_if_destdir] = { "skip_if_destdir", obj_bool },
 		[kw_dry_run] = { "dry_run", obj_bool },
-		0
-	};
+		0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -492,15 +477,14 @@ func_meson_add_dist_script(struct workspace *wk, obj _, obj *res)
 static bool
 func_meson_get_cross_property(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	if (ao[0].set) {
-		*res = ao[0].val;
+	if (an[1].set) {
+		*res = an[1].val;
 	} else {
 		vm_error_at(wk, an[0].node, "TODO: get cross property");
 		return false;
@@ -512,20 +496,18 @@ func_meson_get_cross_property(struct workspace *wk, obj _, obj *res)
 static bool
 func_meson_get_external_property(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
-	enum kwargs { kw_native, };
-	struct args_kw akw[] = {
-		[kw_native] = { "native", obj_bool },
-		0
+	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_native,
 	};
+	struct args_kw akw[] = { [kw_native] = { "native", obj_bool }, 0 };
 
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
-	if (ao[0].set) {
-		*res = ao[0].val;
+	if (an[1].set) {
+		*res = an[1].val;
 	} else {
 		vm_error_at(wk, an[0].node, "TODO: get external property");
 		return false;

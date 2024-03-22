@@ -7,9 +7,9 @@
 
 #include <string.h>
 
-#include "lang/typecheck.h"
 #include "functions/common.h"
 #include "functions/configuration_data.h"
+#include "lang/typecheck.h"
 #include "log.h"
 
 static bool
@@ -96,8 +96,7 @@ func_configuration_data_set10(struct workspace *wk, obj self, obj *res)
 }
 
 static bool
-configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf,
-	obj key, obj def, obj *res)
+configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf, obj key, obj def, obj *res)
 {
 	obj dict = get_obj_configuration_data(wk, conf)->dict;
 
@@ -116,28 +115,26 @@ configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf,
 static bool
 func_configuration_data_get(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	return configuration_data_get(wk, an[0].node, self, an[0].val, ao[0].val, res);
+	return configuration_data_get(wk, an[0].node, self, an[0].val, an[1].val, res);
 }
 
 static bool
 func_configuration_data_get_unquoted(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
 	obj v;
-	if (!configuration_data_get(wk, an[0].node, self, an[0].val, ao[0].val, &v)) {
+	if (!configuration_data_get(wk, an[0].node, self, an[0].val, an[1].val, &v)) {
 		return false;
 	}
 
@@ -201,9 +198,8 @@ func_configuration_data_merge_from(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	obj_dict_merge_nodup(wk, get_obj_configuration_data(wk, self)->dict,
-		get_obj_configuration_data(wk, an[0].val)->dict
-		);
+	obj_dict_merge_nodup(
+		wk, get_obj_configuration_data(wk, self)->dict, get_obj_configuration_data(wk, an[0].val)->dict);
 	return true;
 }
 

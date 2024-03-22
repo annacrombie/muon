@@ -25,8 +25,7 @@ func_array_length(struct workspace *wk, obj self, obj *res)
 static bool
 func_array_get(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_number }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
@@ -34,8 +33,8 @@ func_array_get(struct workspace *wk, obj self, obj *res)
 	int64_t i = get_obj_number(wk, an[0].val);
 
 	if (!bounds_adjust(get_obj_array(wk, self)->len, &i)) {
-		if (ao[0].set) {
-			*res = ao[0].val;
+		if (an[1].set) {
+			*res = an[1].val;
 		} else {
 			vm_error_at(wk, an[0].node, "index out of bounds");
 			return false;
@@ -116,6 +115,9 @@ const struct func_impl impl_tbl_array_internal[] = {
 	{ "length", func_array_length, tc_number, true },
 	{ "get", func_array_get, tc_any, true },
 	{ "contains", func_array_contains, tc_bool, true },
-	{ "delete", func_array_delete, },
+	{
+		"delete",
+		func_array_delete,
+	},
 	{ NULL, NULL },
 };

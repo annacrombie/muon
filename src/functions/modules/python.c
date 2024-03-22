@@ -137,7 +137,7 @@ iterate_required_module_list(struct workspace *wk, void *ctx, obj val)
 static bool
 func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_required,
 		kw_disabler,
@@ -159,8 +159,8 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 	bool disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val);
 
 	const char *cmd = "python3";
-	if (ao[0].set) {
-		cmd = get_cstr(wk, ao[0].val);
+	if (an[0].set) {
+		cmd = get_cstr(wk, an[0].val);
 	}
 
 	SBUF(cmd_path);
@@ -228,14 +228,14 @@ func_python_installation_language_version(struct workspace *wk, obj self, obj *r
 static bool
 func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	const char *cmd = "python3";
-	if (ao[0].set) {
-		cmd = get_cstr(wk, ao[0].val);
+	if (an[0].set) {
+		cmd = get_cstr(wk, an[0].val);
 	}
 
 	SBUF(cmd_path);
@@ -256,8 +256,7 @@ func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 static bool
 func_python_installation_get_path(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
@@ -268,20 +267,19 @@ func_python_installation_get_path(struct workspace *wk, obj self, obj *res)
 		return true;
 	}
 
-	if (!ao[0].set) {
+	if (!an[1].set) {
 		vm_error(wk, "path '%o' not found, no default specified", path);
 		return false;
 	}
 
-	*res = ao[0].val;
+	*res = an[1].val;
 	return true;
 }
 
 static bool
 func_python_installation_get_var(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
@@ -292,12 +290,12 @@ func_python_installation_get_var(struct workspace *wk, obj self, obj *res)
 		return true;
 	}
 
-	if (!ao[0].set) {
+	if (!an[1].set) {
 		vm_error(wk, "variable '%o' not found, no default specified", var);
 		return false;
 	}
 
-	*res = ao[0].val;
+	*res = an[1].val;
 	return true;
 }
 

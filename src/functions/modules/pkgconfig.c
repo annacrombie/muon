@@ -718,7 +718,7 @@ static bool
 func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 {
 	uint32_t i;
-	struct args_norm ao[] = { { tc_both_libs | tc_build_target }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_both_libs | tc_build_target, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_name,
 		kw_description,
@@ -769,7 +769,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	if (!ao[0].set && !akw[kw_name].set) {
+	if (!an[0].set && !akw[kw_name].set) {
 		vm_error(wk, "you must either pass a library, or the name keyword");
 		return false;
 	}
@@ -789,20 +789,20 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 	make_obj(wk, &pc.exclude, obj_array);
 
 	obj mainlib = 0;
-	if (ao[0].set) {
-		switch (get_obj_type(wk, ao[0].val)) {
+	if (an[0].set) {
+		switch (get_obj_type(wk, an[0].val)) {
 		case obj_both_libs: {
-			mainlib = get_obj_both_libs(wk, ao[0].val)->dynamic_lib;
+			mainlib = get_obj_both_libs(wk, an[0].val)->dynamic_lib;
 			break;
 		}
-		case obj_build_target: mainlib = ao[0].val; break;
+		case obj_build_target: mainlib = an[0].val; break;
 		default: assert(false && "unreachable");
 		}
 	}
 
 	if (akw[kw_name].set) {
 		pc.name = akw[kw_name].val;
-	} else if (ao[0].set) {
+	} else if (an[0].set) {
 		pc.name = get_obj_build_target(wk, mainlib)->name;
 	}
 
@@ -829,7 +829,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 	}
 
 	if (mainlib) {
-		if (!module_pkgconf_process_libs(wk, ao[0].node, mainlib, &pc, pkgconf_visibility_pub, false)) {
+		if (!module_pkgconf_process_libs(wk, an[0].node, mainlib, &pc, pkgconf_visibility_pub, false)) {
 			return false;
 		}
 	}

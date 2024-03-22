@@ -99,33 +99,35 @@ dep_pkgconfig_define(struct workspace *wk, obj dep, uint32_t node, obj var)
 static bool
 func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_pkgconfig,
 		kw_pkgconfig_define,
 		kw_internal,
 		kw_default_value,
 	};
-	struct args_kw akw[] = { [kw_pkgconfig] = { "pkgconfig", obj_string },
+	struct args_kw akw[] = {
+		[kw_pkgconfig] = { "pkgconfig", obj_string },
 		[kw_pkgconfig_define] = { "pkgconfig_define", TYPE_TAG_LISTIFY | obj_string },
 		[kw_internal] = { "internal", obj_string },
 		[kw_default_value] = { "default_value", obj_string },
-		0 };
-	if (!pop_args(wk, NULL, akw)) {
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
-	if (ao[0].set) {
+	if (an[0].set) {
 		if (!akw[kw_pkgconfig].set) {
 			akw[kw_pkgconfig].set = true;
-			akw[kw_pkgconfig].node = ao[0].node;
-			akw[kw_pkgconfig].val = ao[0].val;
+			akw[kw_pkgconfig].node = an[0].node;
+			akw[kw_pkgconfig].val = an[0].val;
 		}
 
 		if (!akw[kw_internal].set) {
 			akw[kw_internal].set = true;
-			akw[kw_internal].node = ao[0].node;
-			akw[kw_internal].val = ao[0].val;
+			akw[kw_internal].node = an[0].node;
+			akw[kw_internal].val = an[0].val;
 		}
 	}
 
@@ -279,14 +281,14 @@ func_dependency_partial_dependency(struct workspace *wk, obj self, obj *res)
 static bool
 func_dependency_as_system(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
-	if (!pop_args(wk, NULL, NULL)) {
+	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
 	enum include_type inc_type = include_type_system;
-	if (ao[0].set) {
-		if (!coerce_include_type(wk, get_str(wk, ao[0].val), ao[0].node, &inc_type)) {
+	if (an[0].set) {
+		if (!coerce_include_type(wk, get_str(wk, an[0].val), an[0].node, &inc_type)) {
 			return false;
 		}
 	}

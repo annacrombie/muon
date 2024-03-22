@@ -15,15 +15,15 @@
 static bool
 func_boolean_to_string(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
-	if (!pop_args(wk, NULL, NULL)) {
+	struct args_norm an[] = { { obj_string, .optional = true }, { obj_string, .optional = true }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
 	if (get_obj_bool(wk, self)) {
-		*res = ao[0].set ? ao[0].val : make_str(wk, "true");
+		*res = an[0].set ? an[0].val : make_str(wk, "true");
 	} else {
-		*res = ao[1].set ? ao[1].val : make_str(wk, "false");
+		*res = an[1].set ? an[1].val : make_str(wk, "false");
 	}
 
 	return true;

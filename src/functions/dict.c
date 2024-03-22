@@ -50,15 +50,14 @@ func_dict_has_key(struct workspace *wk, obj self, obj *res)
 static bool
 func_dict_get(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
 	if (!obj_dict_index(wk, self, an[0].val, res)) {
-		if (ao[0].set) {
-			*res = ao[0].val;
+		if (an[1].set) {
+			*res = an[1].val;
 		} else {
 			vm_error_at(wk, an[0].node, "key not in dictionary: '%s'", get_cstr(wk, an[0].val));
 			return false;

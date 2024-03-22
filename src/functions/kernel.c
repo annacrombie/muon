@@ -875,8 +875,7 @@ func_generator(struct workspace *wk, obj _, obj *res)
 static bool
 func_assert(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { obj_bool }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_bool }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
@@ -885,8 +884,8 @@ func_assert(struct workspace *wk, obj _, obj *res)
 	*res = 0;
 
 	if (!get_obj_bool(wk, an[0].val)) {
-		if (ao[0].set) {
-			LOG_E("%s", get_cstr(wk, ao[0].val));
+		if (an[0].set) {
+			LOG_E("%s", get_cstr(wk, an[0].val));
 		}
 		return false;
 	}
@@ -1188,15 +1187,15 @@ ret:
 static bool
 func_configuration_data(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_dict, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
 	make_obj(wk, res, obj_configuration_data);
 
-	if (ao[0].set) {
-		get_obj_configuration_data(wk, *res)->dict = ao[0].val;
+	if (an[0].set) {
+		get_obj_configuration_data(wk, *res)->dict = an[0].val;
 	} else {
 		obj dict;
 		make_obj(wk, &dict, obj_dict);
@@ -1507,7 +1506,7 @@ environment_set_initial_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 static bool
 func_environment(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm ao[] = { { obj_dict }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_dict, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
@@ -1516,13 +1515,13 @@ func_environment(struct workspace *wk, obj _, obj *res)
 	struct obj_environment *d = get_obj_environment(wk, *res);
 	make_obj(wk, &d->actions, obj_array);
 
-	if (ao[0].set) {
+	if (an[0].set) {
 		if (!typecheck(
-			    wk, ao[0].node, ao[0].val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
+			    wk, an[0].node, an[0].val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
 			return false;
 		}
 
-		obj_dict_foreach(wk, ao[0].val, res, environment_set_initial_iter);
+		obj_dict_foreach(wk, an[0].val, res, environment_set_initial_iter);
 	}
 
 	return true;
@@ -1649,8 +1648,7 @@ func_unset_variable(struct workspace *wk, obj _, obj *res)
 static bool
 func_get_variable(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	disabler_among_args_immunity = true;
 	if (!pop_args(wk, an, NULL)) {
 		return false;
@@ -1665,8 +1663,8 @@ func_get_variable(struct workspace *wk, obj _, obj *res)
 	}
 
 	if (!wk->vm.behavior.get_variable(wk, get_cstr(wk, an[0].val), res)) {
-		if (ao[0].set) {
-			*res = ao[0].val;
+		if (an[1].set) {
+			*res = an[1].val;
 		} else {
 			vm_error_at(wk, an[0].node, "undefined object %o", an[0].val);
 			return false;
@@ -1706,8 +1704,7 @@ func_subdir_done(struct workspace *wk, obj _, obj *res)
 static bool
 func_summary(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_any }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_any }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_section,
 		kw_bool_yn, // ignored
@@ -1726,13 +1723,13 @@ func_summary(struct workspace *wk, obj _, obj *res)
 	obj sec = akw[kw_section].set ? akw[kw_section].val : make_str(wk, "");
 	obj dict;
 
-	if (ao[0].set) {
+	if (an[1].set) {
 		if (!typecheck(wk, an[0].node, an[0].val, obj_string)) {
 			return false;
 		}
 
 		make_obj(wk, &dict, obj_dict);
-		obj_dict_set(wk, dict, an[0].val, ao[0].val);
+		obj_dict_set(wk, dict, an[0].val, an[1].val);
 	} else {
 		if (!typecheck(wk, an[0].node, an[0].val, obj_dict)) {
 			return false;
@@ -1821,8 +1818,11 @@ func_alias_target(struct workspace *wk, obj _, obj *res)
 bool
 func_range_common(struct workspace *wk, uint32_t args_node, struct range_params *res)
 {
-	struct args_norm an[] = { { obj_number }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { obj_number }, { obj_number }, { obj_number }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_number },
+		{ obj_number, .optional = true },
+		{ obj_number, .optional = true },
+		{ obj_number, .optional = true },
+		ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
@@ -1833,9 +1833,9 @@ func_range_common(struct workspace *wk, uint32_t args_node, struct range_params 
 	}
 	res->start = n;
 
-	if (ao[0].set) {
-		int64_t n = get_obj_number(wk, ao[0].val);
-		if (!rangecheck(wk, ao[0].node, res->start, UINT32_MAX, n)) {
+	if (an[1].set) {
+		int64_t n = get_obj_number(wk, an[1].val);
+		if (!rangecheck(wk, an[1].node, res->start, UINT32_MAX, n)) {
 			return false;
 		}
 
@@ -1845,9 +1845,9 @@ func_range_common(struct workspace *wk, uint32_t args_node, struct range_params 
 		res->start = 0;
 	}
 
-	if (ao[1].set) {
-		int64_t n = get_obj_number(wk, ao[1].val);
-		if (!rangecheck(wk, ao[1].node, 1, UINT32_MAX, n)) {
+	if (an[2].set) {
+		int64_t n = get_obj_number(wk, an[2].val);
+		if (!rangecheck(wk, an[2].node, 1, UINT32_MAX, n)) {
 			return false;
 		}
 		res->step = n;

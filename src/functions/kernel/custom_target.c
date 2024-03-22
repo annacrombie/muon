@@ -35,10 +35,7 @@ prefix_plus_index(const struct str *ss, const char *prefix, int64_t *index)
 {
 	uint32_t len = strlen(prefix);
 	if (str_startswith(ss, &WKSTR(prefix))) {
-		return str_to_i(&(struct str) {
-			.s = &ss->s[len],
-			.len = ss->len - len
-		}, index, false);
+		return str_to_i(&(struct str){ .s = &ss->s[len], .len = ss->len - len }, index, false);
 	}
 
 	return false;
@@ -121,8 +118,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 			continue;
 		}
 
-		if (!key_names[key].valid
-		    || (key_names[key].needs_name && !ctx->opts->name)) {
+		if (!key_names[key].valid || (key_names[key].needs_name && !ctx->opts->name)) {
 			return format_cb_not_found;
 		}
 
@@ -194,7 +190,8 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		/* @BASENAME@: the input filename, with extension removed */
 		struct obj_array *in = get_obj_array(wk, ctx->opts->input);
 		if (in->len != 1) {
-			vm_error_at(wk, ctx->opts->err_node,
+			vm_error_at(wk,
+				ctx->opts->err_node,
 				"to use @PLAINNAME@ and @BASENAME@ in a custom "
 				"target command, there must be exactly one input");
 			return format_cb_error;
@@ -217,8 +214,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		}
 		return format_cb_found;
 	}
-	default:
-		break;
+	default: break;
 	}
 
 	int64_t index;
@@ -230,7 +226,11 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		arr = ctx->opts->output;
 	} else {
 		if (ctx->opts->err_node) {
-			vm_warning_at(wk, ctx->opts->err_node, "not substituting unknown key '%.*s' in commandline", strkey->len, strkey->s);
+			vm_warning_at(wk,
+				ctx->opts->err_node,
+				"not substituting unknown key '%.*s' in commandline",
+				strkey->len,
+				strkey->s);
 		}
 		return format_cb_skip;
 	}
@@ -324,9 +324,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		}
 		goto cont;
 	}
-	default:
-		vm_error_at(wk, ctx->opts->err_node, "unable to coerce %o to string", val);
-		return ir_err;
+	default: vm_error_at(wk, ctx->opts->err_node, "unable to coerce %o to string", val); return ir_err;
 	}
 
 	assert(get_obj_type(wk, ss) == obj_string);
@@ -340,7 +338,8 @@ cont:
 bool
 process_custom_target_commandline(struct workspace *wk,
 	struct process_custom_target_commandline_opts *opts,
-	obj arr, obj *res)
+	obj arr,
+	obj *res)
 {
 	make_obj(wk, res, obj_array);
 
@@ -365,11 +364,7 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 {
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
-	enum cmd_output_fmt_key {
-		key_plainname,
-		key_basename,
-		cmd_output_fmt_key_count
-	};
+	enum cmd_output_fmt_key { key_plainname, key_basename, cmd_output_fmt_key_count };
 
 	const char *key_names[cmd_output_fmt_key_count] = {
 		[key_plainname] = "PLAINNAME",
@@ -389,7 +384,8 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 
 	struct obj_array *in = get_obj_array(wk, ctx->opts->input);
 	if (in->len != 1) {
-		vm_error_at(wk, ctx->opts->err_node,
+		vm_error_at(wk,
+			ctx->opts->err_node,
 			"to use @PLAINNAME@ and @BASENAME@ in a custom "
 			"target output, there must be exactly one input");
 		return format_cb_error;
@@ -401,18 +397,14 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 	SBUF(buf);
 
 	switch (key) {
-	case key_plainname:
-		path_basename(wk, &buf, ss->s);
-		break;
+	case key_plainname: path_basename(wk, &buf, ss->s); break;
 	case key_basename: {
 		SBUF(basename);
 		path_basename(wk, &basename, ss->s);
 		path_without_ext(wk, &buf, basename.buf);
 		break;
 	}
-	default:
-		assert(false && "unreachable");
-		return format_cb_error;
+	default: assert(false && "unreachable"); return format_cb_error;
 	}
 
 	*elem = sbuf_into_str(wk, &buf);
@@ -471,8 +463,7 @@ process_custom_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 bool
-make_custom_target(struct workspace *wk,
-	struct make_custom_target_opts *opts, obj *res)
+make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, obj *res)
 {
 	obj input, raw_output, output, args;
 
@@ -561,13 +552,13 @@ make_custom_target(struct workspace *wk,
 	}
 
 	struct process_custom_target_commandline_opts cmdline_opts = {
-		.err_node   = opts->command_node,
+		.err_node = opts->command_node,
 		.relativize = true,
-		.name       = opts->name,
-		.input      = input,
-		.output     = output,
-		.depfile    = depfile,
-		.build_dir  = opts->build_dir,
+		.name = opts->name,
+		.input = input,
+		.output = output,
+		.depfile = depfile,
+		.build_dir = opts->build_dir,
 		.extra_args = opts->extra_args,
 		.extra_args_valid = opts->extra_args_valid,
 	};
@@ -599,7 +590,7 @@ make_custom_target(struct workspace *wk,
 bool
 func_custom_target(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm ao[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_input,
 		kw_output,
@@ -637,7 +628,7 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_feed] = { "feed", obj_bool },
 		[kw_console] = { "console", obj_bool },
-		0
+		0,
 	};
 
 	if (!pop_args(wk, NULL, akw)) {
@@ -645,8 +636,8 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 	}
 
 	obj name;
-	if (ao[0].set) {
-		name = ao[0].val;
+	if (an[0].set) {
+		name = an[0].val;
 	} else {
 		if (!get_obj_array(wk, akw[kw_output].val)->len) {
 			vm_error_at(wk, akw[kw_output].node, "output cannot be empty");
@@ -659,17 +650,17 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 	}
 
 	struct make_custom_target_opts opts = {
-		.name         = name,
-		.input_node   = akw[kw_input].node,
-		.output_node  = akw[kw_output].node,
+		.name = name,
+		.input_node = akw[kw_input].node,
+		.output_node = akw[kw_output].node,
 		.command_node = akw[kw_command].node,
-		.input_orig   = akw[kw_input].val,
-		.output_orig  = akw[kw_output].val,
-		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.input_orig = akw[kw_input].val,
+		.output_orig = akw[kw_output].val,
+		.output_dir = get_cstr(wk, current_project(wk)->build_dir),
 		.command_orig = akw[kw_command].val,
 		.depfile_orig = akw[kw_depfile].val,
-		.capture      = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
-		.feed         = akw[kw_feed].set && get_obj_bool(wk, akw[kw_feed].val),
+		.capture = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
+		.feed = akw[kw_feed].set && get_obj_bool(wk, akw[kw_feed].val),
 	};
 
 	if (!make_custom_target(wk, &opts, res)) {
@@ -718,7 +709,7 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 	}
 
 	if ((akw[kw_install].set && get_obj_bool(wk, akw[kw_install].val))
-	    || (!akw[kw_install].set && akw[kw_install_dir].set)) {
+		|| (!akw[kw_install].set && akw[kw_install_dir].set)) {
 		if (!akw[kw_install_dir].set || !get_obj_array(wk, akw[kw_install_dir].val)->len) {
 			vm_error_at(wk, akw[kw_install].node, "custom target installation requires install_dir");
 			return false;
@@ -740,8 +731,8 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 			install_dir = i0;
 		}
 
-		if (!push_install_targets(wk, akw[kw_install_dir].node, tgt->output,
-			install_dir, install_mode_id, false)) {
+		if (!push_install_targets(
+			    wk, akw[kw_install_dir].node, tgt->output, install_dir, install_mode_id, false)) {
 			return false;
 		}
 	}
@@ -766,22 +757,18 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 		kw_fallback,
 		kw_replace_string,
 	};
-	struct args_kw akw[] = {
-		[kw_input] = { "input", TYPE_TAG_LISTIFY | tc_coercible_files, .required = true },
+	struct args_kw akw[] = { [kw_input] = { "input", TYPE_TAG_LISTIFY | tc_coercible_files, .required = true },
 		[kw_output] = { "output", obj_string, .required = true },
 		[kw_command] = { "command", tc_command_array | tc_both_libs },
 		[kw_fallback] = { "fallback", obj_string },
 		[kw_replace_string] = { "replace_string", obj_string },
-		0
-	};
+		0 };
 
 	if (!pop_args(wk, NULL, akw)) {
 		return false;
 	}
 
-	obj replace_string = akw[kw_replace_string].set
-		? akw[kw_replace_string].val
-		: make_str(wk, "@VCS_TAG@");
+	obj replace_string = akw[kw_replace_string].set ? akw[kw_replace_string].val : make_str(wk, "@VCS_TAG@");
 
 	obj fallback;
 	if (akw[kw_fallback].set) {
@@ -793,14 +780,16 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 	obj command;
 	make_obj(wk, &command, obj_array);
 
-	push_args_null_terminated(wk, command, (char *const []){
-		(char *)wk->argv0,
-		"internal",
-		"eval",
-		"-e",
-		"vcs_tagger.meson",
-		NULL,
-	});
+	push_args_null_terminated(wk,
+		command,
+		(char *const[]){
+			(char *)wk->argv0,
+			"internal",
+			"eval",
+			"-e",
+			"vcs_tagger.meson",
+			NULL,
+		});
 
 	obj input;
 	{
@@ -826,12 +815,12 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 	}
 
 	struct make_custom_target_opts opts = {
-		.name         = make_str(wk, "vcs_tag"),
-		.input_node   = akw[kw_input].node,
-		.output_node  = akw[kw_output].node,
-		.input_orig   = akw[kw_input].val,
-		.output_orig  = akw[kw_output].val,
-		.output_dir   = get_cstr(wk, current_project(wk)->build_dir),
+		.name = make_str(wk, "vcs_tag"),
+		.input_node = akw[kw_input].node,
+		.output_node = akw[kw_output].node,
+		.input_orig = akw[kw_input].val,
+		.output_orig = akw[kw_output].val,
+		.output_dir = get_cstr(wk, current_project(wk)->build_dir),
 		.command_orig = command,
 	};
 

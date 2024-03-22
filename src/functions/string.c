@@ -428,20 +428,20 @@ func_string_endswith(struct workspace *wk, obj self, obj *res)
 static bool
 func_string_substring(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm ao[] = { { obj_number }, { obj_number }, ARG_TYPE_NULL };
-	if (!pop_args(wk, NULL, NULL)) {
+	struct args_norm an[] = { { obj_number, .optional = true }, { obj_number, .optional = true }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
 	const struct str *s = get_str(wk, self);
 	int64_t start = 0, end = s->len;
 
-	if (ao[0].set) {
-		start = get_obj_number(wk, ao[0].val);
+	if (an[0].set) {
+		start = get_obj_number(wk, an[0].val);
 	}
 
-	if (ao[1].set) {
-		end = get_obj_number(wk, ao[1].val);
+	if (an[1].set) {
+		end = get_obj_number(wk, an[1].val);
 	}
 
 	if (start < 0) {

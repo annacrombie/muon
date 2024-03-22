@@ -402,8 +402,7 @@ func_module_fs_is_samepath(struct workspace *wk, obj self, obj *res)
 static bool
 func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 {
-	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
-	struct args_norm ao[] = { { tc_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_string | tc_file }, { tc_string, .optional = true }, ARG_TYPE_NULL };
 	enum {
 		kw_install,
 		kw_install_dir,
@@ -428,8 +427,8 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 	}
 
 	obj output;
-	if (ao[0].set) {
-		output = ao[0].val;
+	if (an[1].set) {
+		output = an[1].val;
 	} else {
 		SBUF(dest);
 		path_basename(wk, &dest, path.buf);
@@ -454,7 +453,7 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 	struct make_custom_target_opts opts = {
 		.name = make_str(wk, "copyfile"),
 		.input_node = an[0].node,
-		.output_node = ao[1].node,
+		.output_node = an[1].node,
 		.input_orig = an[0].val,
 		.output_orig = output,
 		.output_dir = get_cstr(wk, current_project(wk)->build_dir),
