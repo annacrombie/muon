@@ -38,7 +38,7 @@ static struct {
 	} redirect;
 } error_diagnostic_store;
 
-	void
+void
 error_diagnostic_store_redirect(struct source *src, struct source_location location)
 {
 	if (error_diagnostic_store.redirect.redirect) {
@@ -86,9 +86,10 @@ error_diagnostic_store_push_src(struct source *src)
 		struct source dup;
 		fs_source_dup(src, &dup);
 
-		arr_push(&error_diagnostic_store.sources, &(struct error_diagnostic_source) {
-			.src = dup,
-		});
+		arr_push(&error_diagnostic_store.sources,
+			&(struct error_diagnostic_source){
+				.src = dup,
+			});
 
 		i = error_diagnostic_store.sources.len - 1;
 	}
@@ -106,11 +107,11 @@ error_diagnostic_store_push(uint32_t src_idx, struct source_location location, e
 
 	arr_push(&error_diagnostic_store.messages,
 		&(struct error_diagnostic_message){
-		.location = location,
-		.lvl = lvl,
-		.msg = m,
-		.src_idx = src_idx,
-	});
+			.location = location,
+			.lvl = lvl,
+			.msg = m,
+			.src_idx = src_idx,
+		});
 }
 
 static int32_t
@@ -121,10 +122,10 @@ error_diagnostic_store_compare_except_lvl(const void *_a, const void *_b, void *
 
 	if (a->src_idx != b->src_idx) {
 		return (int32_t)a->src_idx - (int32_t)b->src_idx;
-	} else if (a->location.line != b->location.line) {
-		return (int32_t)a->location.line - (int32_t)b->location.line;
-	} else if (a->location.col != b->location.col) {
-		return (int32_t)a->location.col - (int32_t)b->location.col;
+	} else if (a->location.off != b->location.off) {
+		return (int32_t)a->location.off - (int32_t)b->location.off;
+	} else if (a->location.len != b->location.len) {
+		return (int32_t)a->location.len - (int32_t)b->location.len;
 	} else if ((v = strcmp(a->msg, b->msg)) != 0) {
 		return v;
 	} else {
@@ -190,8 +191,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 			msg->lvl = log_error;
 		}
 
-		if ((opts & error_diagnostic_store_replay_errors_only)
-		    && msg->lvl != log_error) {
+		if ((opts & error_diagnostic_store_replay_errors_only) && msg->lvl != log_error) {
 			continue;
 		}
 
@@ -266,32 +266,39 @@ error_get_stored_source(uint32_t src_idx)
 	return arr_get(&error_diagnostic_store.sources, src_idx);
 }
 
-static bool
-list_line_internal(struct source *src, uint32_t lno, uint32_t *start_of_line, uint32_t *line_pre_len)
-{
-	*start_of_line = 0;
+struct detailed_source_location {
+	struct source_location loc;
+	uint32_t line, col, start_of_line;
+};
 
-	uint64_t i, cl = 1;
+MUON_ATTR_FORMAT(printf, 3, 4)
+static uint32_t
+print_source_line(struct source *src, uint32_t tgt_line, const char *prefix_fmt, ...)
+{
+	uint64_t i, line = 1, start_of_line = 0;
 	for (i = 0; i < src->len; ++i) {
 		if (src->src[i] == '\n') {
-			++cl;
-			*start_of_line = i + 1;
+			++line;
+			start_of_line = i + 1;
 		}
 
-		if (cl == lno) {
+		if (line == tgt_line) {
 			break;
 		}
 	}
 
-	if (i == src->len) {
-		return false;
+	if (i >= src->len) {
+		return 0;
 	}
 
-	char line_pre[32] = { 0 };
-	*line_pre_len = snprintf(line_pre, 31, "%3d | ", lno);
+	char prefix_buf[32] = { 0 };
+	va_list ap;
+	va_start(ap, prefix_fmt);
+	uint32_t ret = vsnprintf(prefix_buf, sizeof(prefix_buf), prefix_fmt, ap);
+	va_end(ap);
 
-	log_plain("%s", line_pre);
-	for (i = *start_of_line; src->src[i] && src->src[i] != '\n'; ++i) {
+	log_plain("%s", prefix_buf);
+	for (i = start_of_line; src->src[i] && src->src[i] != '\n'; ++i) {
 		if (src->src[i] == '\t') {
 			log_plain("        ");
 		} else {
@@ -299,28 +306,58 @@ list_line_internal(struct source *src, uint32_t lno, uint32_t *start_of_line, ui
 		}
 	}
 	log_plain("\n");
-	return true;
+	return ret;
 }
 
 static void
-list_line_col_marker(const struct source *src, uint32_t col, uint32_t sol, uint32_t line_pre_len)
+get_detailed_source_location(struct source *src, struct source_location loc, struct detailed_source_location *dloc)
+{
+	*dloc = (struct detailed_source_location){
+		.loc = loc,
+		.line = 1,
+		.col = 1,
+	};
+
+	if (!src || loc.off > src->len) {
+		return;
+	}
+
+	uint32_t i;
+	for (i = 0; i < src->len; ++i) {
+		if (i == loc.off) {
+			dloc->col = (i - dloc->start_of_line) + 1;
+			return;
+		}
+
+		if (src->src[i] == '\n') {
+			++dloc->line;
+			dloc->start_of_line = i + 1;
+		}
+	}
+}
+
+static void
+list_line_underline(const struct source *src, struct detailed_source_location *dloc, uint32_t line_pre_len)
 {
 	uint32_t i;
 	for (i = 0; i < line_pre_len; ++i) {
 		log_plain(" ");
 	}
 
-	if (sol + col >= src->len) {
+	if (dloc->start_of_line + dloc->col >= src->len) {
 		log_plain("^\n");
 		return;
 	}
 
-	for (i = 0; i < col; ++i) {
-		if (src->src[sol + i] == '\t') {
+	for (i = 0; i < dloc->col; ++i) {
+		if (src->src[dloc->start_of_line + i] == '\t') {
 			log_plain("        ");
 		} else {
-			log_plain(i == col - 1 ? "^" : " ");
+			log_plain(i == dloc->col - 1 ? "^" : " ");
 		}
+	}
+	for (i = 1; i < dloc->loc.len; ++i) {
+		log_plain("-");
 	}
 	log_plain("\n");
 }
@@ -330,8 +367,7 @@ reopen_source(struct source *src, bool *destroy_source)
 {
 	if (!src->len) {
 		switch (src->reopen_type) {
-		case source_reopen_type_none:
-			return;
+		case source_reopen_type_none: return;
 		case source_reopen_type_embedded:
 			src->src = embedded_get(src->label);
 			src->len = strlen(src->src);
@@ -347,30 +383,26 @@ reopen_source(struct source *src, bool *destroy_source)
 }
 
 void
-list_line_range(struct source *src, uint32_t lno, uint32_t list_amt, uint32_t col)
+list_line_range(struct source *src, struct source_location location, uint32_t context)
 {
-	uint32_t lstart = 0, lend, i;
+	/* uint32_t lstart = 0, lend = 1, i; */
 
-	if (lno > list_amt / 2) {
-		lstart = lno - list_amt / 2;
-	}
-	lend = lstart + list_amt;
-
-	log_plain("-> %s%s%s\n",
-		log_clr() ? "\033[32m" : "",
-		src->label,
-		log_clr() ? "\033[0m" : ""
-		);
+	log_plain("-> %s%s%s\n", log_clr() ? "\033[32m" : "", src->label, log_clr() ? "\033[0m" : "");
 
 	bool destroy_source = false;
 	reopen_source(src, &destroy_source);
 
-	for (i = lstart; i < lend; ++i) {
-		uint32_t line_pre_len, sol;
-		if (list_line_internal(src, i, &sol, &line_pre_len)) {
-			if (i == lno && col) {
-				list_line_col_marker(src, col, sol, line_pre_len);
-			}
+	struct detailed_source_location dloc;
+	get_detailed_source_location(src, location, &dloc);
+
+	int32_t i;
+	for (i = -context; i <= (int32_t)context; ++i) {
+		uint32_t line_pre_len;
+
+		line_pre_len = print_source_line(src, dloc.line, "%s%3d | ", i == 0 ? ">" : " ", dloc.line);
+
+		if (i == 0) {
+			list_line_underline(src, &dloc, line_pre_len);
 		}
 	}
 
@@ -392,7 +424,13 @@ error_message(struct source *src, struct source_location location, enum log_leve
 		return;
 	}
 
-	log_plain("%s:%d:%d: ", src->label, location.line, location.col);
+	bool destroy_source = false;
+	reopen_source(src, &destroy_source);
+
+	struct detailed_source_location dloc;
+	get_detailed_source_location(src, location, &dloc);
+
+	log_plain("%s:%d:%d: ", src->label, dloc.line, dloc.col);
 
 	if (log_clr()) {
 		log_plain("\033[%sm%s\033[0m ", log_level_clr[lvl], log_level_name[lvl]);
@@ -402,15 +440,12 @@ error_message(struct source *src, struct source_location location, enum log_leve
 
 	log_plain("%s\n", msg);
 
-	bool destroy_source = false;
-	reopen_source(src, &destroy_source);
-
-	uint32_t line_pre_len, sol;
-	if (!list_line_internal(src, location.line, &sol, &line_pre_len)) {
+	uint32_t line_pre_len;
+	if (!(line_pre_len = print_source_line(src, dloc.line, "%3d | ", dloc.line))) {
 		goto ret;
 	}
 
-	list_line_col_marker(src, location.col, sol, line_pre_len);
+	list_line_underline(src, &dloc, line_pre_len);
 
 ret:
 	if (destroy_source) {

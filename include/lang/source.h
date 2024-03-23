@@ -25,7 +25,7 @@ struct source {
 };
 
 struct source_location {
-	uint32_t line, col;
+	uint32_t off, len;
 };
 
 #endif

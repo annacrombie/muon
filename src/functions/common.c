@@ -957,7 +957,7 @@ func_lookup_for_mode(const struct func_impl_group *impl_group, const char *name,
 		}
 	}
 
-	return true;
+	return false;
 }
 
 bool

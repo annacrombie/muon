@@ -113,25 +113,24 @@ substitute_config(struct workspace *wk,
 
 	SBUF_manual(out_buf);
 
-	struct source_location location = { 1, 0 }, id_location;
-	uint32_t i, id_start, id_len;
+	struct source_location location = { 0, 1 }, id_location;
+	uint32_t i, id_start, id_len, col = 0;
 	obj elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
 		if (src.src[i] == '\n') {
-			location.col = i + 1;
-			++location.line;
+			col = i + 1;
 		}
 
-		if (i == location.col && strncmp(&src.src[i], define, define_len) == 0) {
+		if (i == col && strncmp(&src.src[i], define, define_len) == 0) {
 			i += define_len;
 
 			configure_file_skip_whitespace(&src, &i);
 
 			id_start = i;
 			id_location = location;
-			id_location.col = i - location.col + 1;
+			++id_location.off;
 			id_len = configure_var_len(&src.src[id_start]);
 			i += id_len;
 
@@ -158,7 +157,7 @@ extraneous_cmake_chars: {
 		++i;
 	}
 
-	id_location.col = orig_i - location.col + 1;
+	/* id_location.col = orig_i - location.col + 1; */
 	error_messagef(&src,
 		id_location,
 		log_warn,
@@ -168,7 +167,7 @@ extraneous_cmake_chars: {
 }
 					}
 				} else {
-					id_location.col = i - location.col + 1;
+					/* id_location.col = i - location.col + 1; */
 					error_messagef(&src,
 						id_location,
 						log_error,
@@ -262,7 +261,7 @@ write_mesondefine:
 			i += varstart_len;
 			id_start = i;
 			id_location = location;
-			id_location.col = id_start - location.col + 1;
+			/* id_location.col = id_start - location.col + 1; */
 			i += configure_var_len(&src.src[id_start]);
 
 			if (src.src[i] != varend) {

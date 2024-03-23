@@ -50,7 +50,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 		goto done_with_line;
 	} else if (!ctx->keyval && *line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
-			location.col = strlen(line) + 1;
+			location.off += strlen(line) + 1;
 			error_messagef(&ctx->src, location, log_error, "expected ']'");
 			ctx->success = false;
 			goto done_with_line;
@@ -68,7 +68,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 
 	if (!(ptr = strchr(line, '='))) {
 		if (!ctx->keyval) {
-			location.col = strlen(line) + 1;
+			location.off += strlen(line) + 1;
 			error_messagef(&ctx->src, location, log_error, "expected '='");
 			ctx->success = false;
 		}
@@ -104,7 +104,7 @@ done_with_line:
 		return ir_done;
 	}
 
-	++ctx->location.line;
+	location.off += strlen(line) + 1;
 
 	return ir_cont;
 }
@@ -116,7 +116,7 @@ ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, vo
 		.comment_chars = ";#",
 		.octx = octx,
 		.cb = cb,
-		.location = { 1, 1 },
+		.location = { 0, 1 },
 		.success = true,
 		.src = *src,
 	};
@@ -153,7 +153,7 @@ keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *
 		.keyval = true,
 		.octx = octx,
 		.cb = cb,
-		.location = { 1, 1 },
+		.location = { 0, 1 },
 		.success = true,
 		.src = *src,
 	};

@@ -74,9 +74,7 @@ comp_node(struct workspace *wk, struct node *n)
 {
 	assert(n->type != node_type_stmt);
 
-	push_location(wk, n);
-
-	L("compiling %s", node_to_s(wk, n));
+	/* L("compiling %s", node_to_s(wk, n)); */
 
 	switch (n->type) {
 	case node_type_stmt: UNREACHABLE;
@@ -90,11 +88,6 @@ comp_node(struct workspace *wk, struct node *n)
 		// Skipped
 		break;
 
-	case node_type_continue:
-	case node_type_break:
-		// Unimplemented
-		break;
-
 	case node_type_stringify: push_code(wk, op_stringify); break;
 	case node_type_index: push_code(wk, op_index); break;
 	case node_type_negate: push_code(wk, op_negate); break;
@@ -103,8 +96,6 @@ comp_node(struct workspace *wk, struct node *n)
 	case node_type_mul: push_code(wk, op_mul); break;
 	case node_type_div: push_code(wk, op_div); break;
 	case node_type_mod: push_code(wk, op_mod); break;
-	case node_type_or: push_code(wk, op_or); break;
-	case node_type_and: push_code(wk, op_and); break;
 	case node_type_not: push_code(wk, op_not); break;
 	case node_type_eq: push_code(wk, op_eq); break;
 	case node_type_neq:
@@ -176,8 +167,16 @@ comp_node(struct workspace *wk, struct node *n)
 			known = func_lookup(wk, 0, get_str(wk, n->r->data.str)->s, &idx, 0);
 			if (!known) {
 				n->r->type = node_type_id;
+				push_location(wk, n->r);
 				comp_node(wk, n->r);
 			}
+		}
+
+		push_location(wk, n);
+
+		if (known && strcmp(native_funcs[idx].name, "subdir_done") == 0) {
+			push_code(wk, op_return);
+			break;
 		}
 
 		if (known) {
@@ -205,6 +204,9 @@ comp_node(struct workspace *wk, struct node *n)
 		struct node *ida = n->l->l->l, *idb = n->l->l->r;
 
 		compile_expr(wk, n->l->r);
+
+		push_location(wk, n);
+
 		if (idb) {
 			push_code(wk, op_typecheck);
 			push_constant(wk, obj_dict);
@@ -228,11 +230,37 @@ comp_node(struct workspace *wk, struct node *n)
 			push_code(wk, op_pop);
 		}
 
+		uint32_t loop_jmp_stack_base = wk->vm.compiler_state.loop_jmp_stack.len;
+		arr_push(&wk->vm.compiler_state.loop_jmp_stack, &loop_body_start);
+
 		compile_block(wk, n->r);
 
 		push_code(wk, op_jmp);
 		push_constant(wk, loop_body_start);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, break_jmp_patch_tgt));
+
+		arr_pop(&wk->vm.compiler_state.loop_jmp_stack);
+
+		while (wk->vm.compiler_state.loop_jmp_stack.len > loop_jmp_stack_base) {
+			break_jmp_patch_tgt = *(uint32_t *)arr_pop(&wk->vm.compiler_state.loop_jmp_stack);
+			push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, break_jmp_patch_tgt));
+		}
+		break;
+	}
+	case node_type_continue: {
+		push_code(wk, op_jmp);
+		push_constant(wk, *(uint32_t *)arr_peek(&wk->vm.compiler_state.loop_jmp_stack, 1));
+		break;
+	}
+	case node_type_break: {
+		push_code(wk, op_jmp);
+
+		uint32_t top = *(uint32_t *)arr_pop(&wk->vm.compiler_state.loop_jmp_stack);
+		arr_push(&wk->vm.compiler_state.loop_jmp_stack, &wk->vm.code.len);
+		arr_push(&wk->vm.compiler_state.loop_jmp_stack, &top);
+
+		push_constant(wk, 0);
+		push_constant(wk, *(uint32_t *)arr_peek(&wk->vm.compiler_state.loop_jmp_stack, 1));
 		break;
 	}
 	case node_type_if: {
@@ -252,7 +280,7 @@ comp_node(struct workspace *wk, struct node *n)
 			push_code(wk, op_jmp);
 
 			end_jmp = wk->vm.code.len;
-			arr_push(&wk->vm.compiler_state.jmp_stack, &end_jmp);
+			arr_push(&wk->vm.compiler_state.if_jmp_stack, &end_jmp);
 			++patch_tgts;
 			push_constant(wk, 0);
 
@@ -264,7 +292,7 @@ comp_node(struct workspace *wk, struct node *n)
 		}
 
 		for (uint32_t i = 0; i < patch_tgts; ++i) {
-			arr_pop(&wk->vm.compiler_state.jmp_stack, &end_jmp);
+			end_jmp = *(uint32_t *)arr_pop(&wk->vm.compiler_state.if_jmp_stack);
 			push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp));
 		}
 		break;
@@ -272,18 +300,49 @@ comp_node(struct workspace *wk, struct node *n)
 	case node_type_ternary: {
 		uint32_t else_jmp, end_jmp;
 
+		L("comping ternary l");
 		compile_expr(wk, n->l);
 		push_code(wk, op_jmp_if_false);
 		else_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
+		L("comping ternary r->l");
 		compile_expr(wk, n->r->l);
 		push_code(wk, op_jmp);
 		end_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, else_jmp));
+		L("comping ternary r->r");
 		compile_expr(wk, n->r->r);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp));
 
+		break;
+	}
+	case node_type_or: {
+		uint32_t short_circuit_jmp;
+		compile_expr(wk, n->l);
+		push_code(wk, op_dup);
+		push_code(wk, op_jmp_if_true);
+		short_circuit_jmp = wk->vm.code.len;
+		push_constant(wk, 0);
+		push_code(wk, op_pop);
+		compile_expr(wk, n->r);
+		push_code(wk, op_typecheck);
+		push_constant(wk, obj_bool);
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, short_circuit_jmp));
+		break;
+	}
+	case node_type_and: {
+		uint32_t short_circuit_jmp;
+		compile_expr(wk, n->l);
+		push_code(wk, op_dup);
+		push_code(wk, op_jmp_if_false);
+		short_circuit_jmp = wk->vm.code.len;
+		push_constant(wk, 0);
+		push_code(wk, op_pop);
+		compile_expr(wk, n->r);
+		push_code(wk, op_typecheck);
+		push_constant(wk, obj_bool);
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, short_circuit_jmp));
 		break;
 	}
 	case node_type_func_def: {
@@ -368,21 +427,23 @@ compile_expr(struct workspace *wk, struct node *n)
 	while (wk->vm.compiler_state.node_stack.len > stack_base || n) {
 		if (n) {
 			if (n->type == node_type_foreach || n->type == node_type_if || n->type == node_type_func_def
-				|| n->type == node_type_ternary) {
+				|| n->type == node_type_ternary || n->type == node_type_and
+				|| n->type == node_type_or) {
 				comp_node(wk, n);
+				prev = n;
 				n = 0;
 			} else {
 				arr_push(&wk->vm.compiler_state.node_stack, &n);
 				n = n->l;
 			}
 		} else {
-			peek = *(struct node **)arr_get(
-				&wk->vm.compiler_state.node_stack, wk->vm.compiler_state.node_stack.len - 1);
+			peek = *(struct node **)arr_peek(&wk->vm.compiler_state.node_stack, 1);
 			if (peek->r && prev != peek->r) {
 				n = peek->r;
 			} else {
+				push_location(wk, peek);
 				comp_node(wk, peek);
-				arr_pop(&wk->vm.compiler_state.node_stack, &prev);
+				prev = *(struct node **)arr_pop(&wk->vm.compiler_state.node_stack);
 			}
 		}
 	}

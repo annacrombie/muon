@@ -87,16 +87,14 @@ token_to_s(struct workspace *wk, struct token *token)
 	uint32_t i;
 
 	i = snprintf(buf, BUF_SIZE_S, "%s", token_type_to_s(token->type));
-	if (token->type == token_type_string
-	    || token->type == token_type_fstring
-	    || token->type == token_type_identifier
-	    || token->type == token_type_error) {
+	if (token->type == token_type_string || token->type == token_type_fstring
+		|| token->type == token_type_identifier || token->type == token_type_error) {
 		i += obj_snprintf(wk, &buf[i], BUF_SIZE_S - i, ":%o", token->data.str);
 	} else if (token->type == token_type_number) {
 		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%" PRIi64, token->data.num);
 	}
 
-	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", token->location.line, token->location.col);
+	i += snprintf(&buf[i], BUF_SIZE_S - i, " off %d, len: %d", token->location.off, token->location.len);
 
 	return buf;
 }
@@ -139,21 +137,17 @@ is_skipchar(const char c)
 * lexer utils
 ******************************************************************************/
 
-#define lexer_str(__len) (struct str) { \
-		&lexer->src[lexer->i], \
-		lexer->i + __len > lexer->source->len ? lexer->source->len - lexer->i : __len \
-}
+#define lexer_str(__len)                                                                                             \
+	(struct str)                                                                                                 \
+	{                                                                                                            \
+		&lexer->src[lexer->i], lexer->i + __len > lexer->source->len ? lexer->source->len - lexer->i : __len \
+	}
 
 static void
 lex_advance(struct lexer *lexer)
 {
 	if (lexer->i >= lexer->source->len) {
 		return;
-	}
-
-	if (lexer->src[lexer->i] == '\n') {
-		++lexer->line;
-		lexer->line_start = lexer->i + 1;
 	}
 
 	++lexer->i;
@@ -174,13 +168,18 @@ struct lex_str_token_table {
 };
 
 static bool
-lex_str_token_lookup(struct lexer *lexer, struct token *token, const struct lex_str_token_table *table, uint32_t table_len, struct str *str)
+lex_str_token_lookup(struct lexer *lexer,
+	struct token *token,
+	const struct lex_str_token_table *table,
+	uint32_t table_len,
+	struct str *str)
 {
 	uint32_t i;
 
 	for (i = 0; i < table_len; ++i) {
 		if (str_eql(&table[i].str, str)) {
 			token->type = table[i].token_type;
+			token->location.len = table[i].str.len;
 			return true;
 		}
 	}
@@ -192,11 +191,12 @@ static void
 lex_copy_str(struct lexer *lexer, struct token *token, uint32_t start, uint32_t end)
 {
 	token->data.str = make_strn(lexer->wk, &lexer->src[start], end - start);
+	token->location.len = end - start;
 }
 
 static void
-MUON_ATTR_FORMAT(printf, 3, 4)
-lex_error_token(struct lexer *lexer, struct token *token, const char *fmt, ...){
+MUON_ATTR_FORMAT(printf, 3, 4) lex_error_token(struct lexer *lexer, struct token *token, const char *fmt, ...)
+{
 	token->type = token_type_error;
 
 	va_list args;
@@ -254,15 +254,18 @@ lex_number(struct lexer *lexer, struct token *token)
 
 	if (lexer->src[lexer->i] == '0') {
 		switch (lexer->src[lexer->i + 1]) {
-		case 'X': case 'x':
+		case 'X':
+		case 'x':
 			base = 16;
 			lexer->i += 2;
 			break;
-		case 'B': case 'b':
+		case 'B':
+		case 'b':
 			base = 2;
 			lexer->i += 2;
 			break;
-		case 'O': case 'o':
+		case 'O':
+		case 'o':
 			base = 8;
 			lexer->i += 2;
 			break;
@@ -347,7 +350,8 @@ static bool
 lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 {
 	switch (lexer->src[lexer->i + 1]) {
-	case '\\': case '\'':
+	case '\\':
+	case '\'':
 		lex_advance(lexer);
 		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
 		return true;
@@ -384,15 +388,9 @@ lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 	case 'U': {
 		uint32_t len = 0;
 		switch (lexer->src[lexer->i + 1]) {
-		case 'x':
-			len = 2;
-			break;
-		case 'u':
-			len = 4;
-			break;
-		case 'U':
-			len = 8;
-			break;
+		case 'x': len = 2; break;
+		case 'u': len = 4; break;
+		case 'U': len = 8; break;
 		}
 		lex_advance(lexer);
 
@@ -412,8 +410,16 @@ lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 
 		return lex_string_escape_utf8(lexer, token, buf, val);
 	}
-	case '0': case '1': case '2': case '3': case '4':
-	case '5': case '6': case '7': case '8': case '9': {
+	case '0':
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+	case '8':
+	case '9': {
 		char num[4] = { 0 };
 		uint32_t i;
 
@@ -433,9 +439,7 @@ lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 		lex_advance(lexer);
 		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
 		return true;
-	case 0:
-		lex_error_token(lexer, token, "unterminated hex escape");
-		return false;
+	case 0: lex_error_token(lexer, token, "unterminated hex escape"); return false;
 	}
 
 	UNREACHABLE_RETURN;
@@ -452,7 +456,7 @@ lex_string(struct lexer *lexer, struct token *token)
 		uint32_t start = lexer->i;
 
 		while (lexer->source->len - lexer->i >= multiline_terminator.len
-		       && !str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
+			&& !str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
 			lex_advance(lexer);
 		}
 
@@ -471,17 +475,15 @@ lex_string(struct lexer *lexer, struct token *token)
 
 	for (; lexer->i < lexer->source->len && lexer->src[lexer->i] != '\''; lex_advance(lexer)) {
 		switch (lexer->src[lexer->i]) {
-		case 0: case '\n':
-			goto unterminated_string;
+		case 0:
+		case '\n': goto unterminated_string;
 		case '\\': {
 			if (!lex_string_escape(lexer, token, &buf)) {
 				return;
 			}
 			break;
 		}
-		default:
-			sbuf_push(lexer->wk, &buf, lexer->src[lexer->i]);
-			break;
+		default: sbuf_push(lexer->wk, &buf, lexer->src[lexer->i]); break;
 		}
 	}
 
@@ -500,11 +502,8 @@ void
 lexer_next(struct lexer *lexer, struct token *token)
 {
 restart:
-	*token = (struct token) {
-		.location = (struct source_location) {
-			.line = lexer->line,
-			.col = lexer->i - lexer->line_start + 1,
-		}
+	*token = (struct token){
+		.location = (struct source_location){ .off = lexer->i, .len = 1 },
 	};
 
 	if (lexer->i >= lexer->source->len) {
@@ -537,10 +536,13 @@ restart:
 		goto restart;
 	}
 
+	token->location.off = lexer->i;
+
 	struct str lexer_str_2chr = lexer_str(2);
 	if (lex_str_token_lookup(lexer, token, lex_2chr_tokens, ARRAY_LEN(lex_2chr_tokens), &lexer_str_2chr)
-	    || ((lexer->mode & lexer_mode_functions)
-		&& lex_str_token_lookup(lexer, token, lex_2chr_tokens_func, ARRAY_LEN(lex_2chr_tokens_func), &lexer_str_2chr))) {
+		|| ((lexer->mode & lexer_mode_functions)
+			&& lex_str_token_lookup(
+				lexer, token, lex_2chr_tokens_func, ARRAY_LEN(lex_2chr_tokens_func), &lexer_str_2chr))) {
 		lex_advance_n(lexer, 2);
 		return;
 	}
@@ -549,6 +551,7 @@ restart:
 		lex_advance(lexer);
 		token->type = token_type_fstring;
 		lex_string(lexer, token);
+		token->location.len = lexer->i - token->location.off;
 		return;
 	} else if (is_valid_start_of_identifier(lexer->src[lexer->i])) {
 		uint32_t start = lexer->i;
@@ -560,8 +563,12 @@ restart:
 		}
 
 		if (lex_str_token_lookup(lexer, token, lex_keyword_tokens, ARRAY_LEN(lex_keyword_tokens), &str)
-		    || ((lexer->mode & lexer_mode_functions)
-			&& lex_str_token_lookup(lexer, token, lex_keyword_tokens_func, ARRAY_LEN(lex_keyword_tokens_func), &str))) {
+			|| ((lexer->mode & lexer_mode_functions)
+				&& lex_str_token_lookup(lexer,
+					token,
+					lex_keyword_tokens_func,
+					ARRAY_LEN(lex_keyword_tokens_func),
+					&str))) {
 			return;
 		} else {
 			token->type = token_type_identifier;
@@ -571,6 +578,7 @@ restart:
 		return;
 	} else if (is_digit(lexer->src[lexer->i])) {
 		lex_number(lexer, token);
+		token->location.len = lexer->i - token->location.off;
 		return;
 	}
 
@@ -591,23 +599,34 @@ restart:
 	case '\'':
 		token->type = token_type_string;
 		lex_string(lexer, token);
+		token->location.len = lexer->i - token->location.off;
 		return;
-	case '(': case '[': case '{':
+	case '(':
+	case '[':
+	case '{':
 		token->type = lexer->src[lexer->i];
 		++lexer->enclosing;
 		break;
-	case ')': case ']': case '}':
+	case ')':
+	case ']':
+	case '}':
 		token->type = lexer->src[lexer->i];
 		if (lexer->enclosing) {
 			--lexer->enclosing;
 		}
 		break;
-	case '.': case ',': case ':': case '?':
-	case '+': case '-': case '*': case '/':
-	case '%': case '=':
-	case '>': case '<':
-		token->type = lexer->src[lexer->i];
-		break;
+	case '.':
+	case ',':
+	case ':':
+	case '?':
+	case '+':
+	case '-':
+	case '*':
+	case '/':
+	case '%':
+	case '=':
+	case '>':
+	case '<': token->type = lexer->src[lexer->i]; break;
 	case '|':
 		if (!(lexer->mode & lexer_mode_functions)) {
 			goto unexpected_character;
@@ -635,10 +654,9 @@ unexpected_character:
 void
 lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum lexer_mode mode)
 {
-	*lexer = (struct lexer) {
+	*lexer = (struct lexer){
 		.wk = wk,
 		.source = src,
-		.line = 1,
 		.src = src->src,
 		.mode = mode,
 	};

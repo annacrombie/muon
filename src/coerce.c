@@ -55,7 +55,8 @@ coerce_environment_iter(struct workspace *wk, void *_ctx, obj val)
 
 	const char *eql;
 	if (!(eql = strchr(ss->s, '='))) {
-		vm_error_at(wk, ctx->err_node, "invalid env element %o; env elements must be of the format key=value", val);
+		vm_error_at(
+			wk, ctx->err_node, "invalid env element %o; env elements must be of the format key=value", val);
 		return ir_err;
 	}
 
@@ -71,8 +72,7 @@ static enum iteration_result
 typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
 {
 	uint32_t err_node = *(uint32_t *)_ctx;
-	const struct str *k = get_str(wk, key),
-			 *v = get_str(wk, val);
+	const struct str *k = get_str(wk, key), *v = get_str(wk, val);
 
 	if (!k->len) {
 		vm_error_at(wk, err_node, "environment key may not be an empty string (value is '%s')", v->s);
@@ -103,10 +103,8 @@ coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res
 
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
-	case obj_string:
-		return coerce_environment_iter(wk, &ctx, val) != ir_err;
-	case obj_array:
-		return obj_array_foreach_flat(wk, val, &ctx, coerce_environment_iter);
+	case obj_string: return coerce_environment_iter(wk, &ctx, val) != ir_err;
+	case obj_array: return obj_array_foreach_flat(wk, val, &ctx, coerce_environment_iter);
 	case obj_dict:
 		if (!typecheck(wk, err_node, val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
 			return false;
@@ -160,9 +158,7 @@ coerce_num_to_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		*res = val;
 		break;
 	}
-	default:
-		vm_error_at(wk, node, "unable to coerce %o to string", val);
-		return false;
+	default: vm_error_at(wk, node, "unable to coerce %o to string", val); return false;
 	}
 
 	return true;
@@ -179,9 +175,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 			*res = make_str(wk, "false");
 		}
 		break;
-	case obj_file:
-		*res = *get_obj_file(wk, val);
-		break;
+	case obj_file: *res = *get_obj_file(wk, val); break;
 	case obj_number: {
 		*res = make_strf(wk, "%" PRId64, get_obj_number(wk, val));
 		break;
@@ -190,9 +184,7 @@ coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res)
 		*res = val;
 		break;
 	}
-	default:
-		vm_error_at(wk, node, "unable to coerce %o to string", val);
-		return false;
+	default: vm_error_at(wk, node, "unable to coerce %o to string", val); return false;
 	}
 
 	return true;
@@ -237,11 +229,8 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
-	case obj_file:
-		str = *get_obj_file(wk, val);
-		break;
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_file: str = *get_obj_file(wk, val); break;
+	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
 		struct obj_build_target *o = get_obj_build_target(wk, val);
@@ -269,9 +258,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		}
 		break;
 	}
-	default:
-		vm_error_at(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(t));
-		return false;
+	default: vm_error_at(wk, node, "unable to coerce '%s' into executable", obj_type_to_s(t)); return false;
 	}
 
 	*res = str;
@@ -292,22 +279,17 @@ coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requi
 			}
 		} else if (t == obj_feature_opt) {
 			switch (get_obj_feature_opt(wk, kw_required->val)) {
-			case feature_opt_disabled:
-				*requirement = requirement_skip;
-				break;
-			case feature_opt_enabled:
-				*requirement = requirement_required;
-				break;
-			case feature_opt_auto:
-				*requirement = requirement_auto;
-				break;
+			case feature_opt_disabled: *requirement = requirement_skip; break;
+			case feature_opt_enabled: *requirement = requirement_required; break;
+			case feature_opt_auto: *requirement = requirement_auto; break;
 			}
 		} else {
-			vm_error_at(wk, kw_required->node, "expected type %s or %s, got %s",
+			vm_error_at(wk,
+				kw_required->node,
+				"expected type %s or %s, got %s",
 				obj_type_to_s(obj_bool),
 				obj_type_to_s(obj_feature_opt),
-				obj_type_to_s(t)
-				);
+				obj_type_to_s(t));
 			return false;
 		}
 	} else {
@@ -383,7 +365,8 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 			break;
 		case mode_output:
 			if (!path_is_basename(get_cstr(wk, val))) {
-				vm_error_at(wk, ctx->node, "output file '%s' contains path separators", get_cstr(wk, val));
+				vm_error_at(
+					wk, ctx->node, "output file '%s' contains path separators", get_cstr(wk, val));
 				return ir_err;
 			}
 
@@ -391,14 +374,11 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 			make_obj(wk, file, obj_file);
 			*get_obj_file(wk, *file) = sbuf_into_str(wk, &buf);
 			break;
-		default:
-			assert(false);
-			return ir_err;
+		default: assert(false); return ir_err;
 		}
 		break;
 	}
-	case obj_both_libs:
-		val = get_obj_both_libs(wk, val)->dynamic_lib;
+	case obj_both_libs: val = get_obj_both_libs(wk, val)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target: {
 		if (ctx->mode == mode_output) {
@@ -422,8 +402,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 		break;
 	default:
 type_error:
-		vm_error_at(wk, ctx->node, "unable to coerce object with type %s into %s",
-			obj_type_to_s(t), ctx->type);
+		vm_error_at(wk, ctx->node, "unable to coerce object with type %s into %s", obj_type_to_s(t), ctx->type);
 		return false;
 	}
 
@@ -442,8 +421,8 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 			goto type_error;
 		}
 
-		if (!obj_array_foreach(wk, get_obj_custom_target(wk, val)->output,
-			ctx, coerce_custom_target_output_iter)) {
+		if (!obj_array_foreach(
+			    wk, get_obj_custom_target(wk, val)->output, ctx, coerce_custom_target_output_iter)) {
 			return ir_err;
 		}
 		break;
@@ -462,8 +441,7 @@ coerce_into_files_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 	default:
 type_error:
-		vm_error_at(wk, ctx->node, "unable to coerce object with type %s into %s",
-			obj_type_to_s(t), ctx->type);
+		vm_error_at(wk, ctx->node, "unable to coerce object with type %s into %s", obj_type_to_s(t), ctx->type);
 		return ir_err;
 	}
 
@@ -471,8 +449,13 @@ type_error:
 }
 
 static bool
-_coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res,
-	const char *type_name, exists_func exists, enum coerce_into_files_mode mode,
+_coerce_files(struct workspace *wk,
+	uint32_t node,
+	obj val,
+	obj *res,
+	const char *type_name,
+	exists_func exists,
+	enum coerce_into_files_mode mode,
 	const char *output_dir)
 {
 	make_obj(wk, res, obj_array);
@@ -487,14 +470,11 @@ _coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res,
 	};
 
 	switch (get_obj_type(wk, val)) {
-	case obj_array:
-		return obj_array_foreach_flat(wk, val, &ctx, coerce_into_files_iter);
+	case obj_array: return obj_array_foreach_flat(wk, val, &ctx, coerce_into_files_iter);
 	default:
 		switch (coerce_into_files_iter(wk, &ctx, val)) {
-		case ir_err:
-			return false;
-		default:
-			return true;
+		case ir_err: return false;
+		default: return true;
 		}
 	}
 }

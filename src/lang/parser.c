@@ -24,6 +24,7 @@ struct parser {
 	struct source *src;
 	struct bucket_arr *nodes;
 	uint32_t mode;
+	uint32_t inside_loop;
 
 	struct {
 		char msg[2048];
@@ -253,8 +254,13 @@ parse_advance(struct parser *p)
 		}
 	}
 
-	/* LL("previous: %s, current: ", token_to_s(p->wk, &p->previous)); */
-	/* printf("%s\n", token_to_s(p->wk, &p->current)); */
+	/* LL("previous: %s, %d:%d, current: ", */
+	/* 	token_to_s(p->wk, &p->previous), */
+	/* 	p->previous.location.off, */
+	/* 	p->previous.location.len); */
+	/* log_plain("%s, %d:%d\n", token_to_s(p->wk, &p->current), p->current.location.off, p->current.location.len); */
+
+	/* list_line_range(p->src, p->current.location, 0); */
 }
 
 static bool
@@ -801,8 +807,15 @@ parse_stmt(struct parser *p)
 
 		parse_expect(p, token_type_eol);
 
+		++p->inside_loop;
 		n->r = parse_block(p, (enum token_type[]){ token_type_endforeach }, 1);
+		--p->inside_loop;
+
 		parse_expect(p, token_type_endforeach);
+	} else if (p->inside_loop && parse_accept(p, token_type_continue)) {
+		n = make_node_t(p, node_type_continue);
+	} else if (p->inside_loop && parse_accept(p, token_type_break)) {
+		n = make_node_t(p, node_type_break);
 	} else if (parse_accept(p, token_type_func)) {
 		n = make_node_t(p, node_type_func_def);
 

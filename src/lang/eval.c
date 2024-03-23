@@ -117,8 +117,6 @@ bool
 eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 {
 	TracyCZoneAutoS;
-	L("evaluating '%s'", src->label);
-	/* interpreter_init(); */
 
 	arr_push(&wk->vm.src, src);
 
@@ -129,13 +127,17 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	arr_push(&wk->vm.call_stack,
 		&(struct call_frame){
+			.type = call_frame_type_eval,
 			.return_ip = wk->vm.ip,
-			.scope_stack = 0,
 		});
 
 	wk->vm.ip = entry;
 
 	vm_execute(wk);
+
+	TracyCZoneAutoE;
+
+	return !wk->vm.error;
 
 	/* if (wk->in_analyzer) { */
 	/* 	ast->src_id = error_diagnostic_store_push_src(src); */
@@ -186,8 +188,6 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 	/* ret: */
 	/* TracyCZoneAutoE; */
 	/* return ret; */
-
-	return true;
 }
 
 bool

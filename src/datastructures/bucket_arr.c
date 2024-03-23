@@ -5,9 +5,9 @@
 
 #include "compat.h"
 
-#include <string.h>
-#include <stdint.h>
 #include <assert.h>
+#include <stdint.h>
+#include <string.h>
 
 #include "datastructures/bucket_arr.h"
 #include "log.h"
@@ -26,19 +26,18 @@ bucket_arr_size(struct bucket_arr *ba)
 }
 
 void
-bucket_arr_init(struct bucket_arr *ba,
-	uint32_t bucket_size, uint32_t item_size)
+bucket_arr_init(struct bucket_arr *ba, uint32_t bucket_size, uint32_t item_size)
 {
 	assert(item_size > 0);
 
-	*ba = (struct bucket_arr) {
+	*ba = (struct bucket_arr){
 		.item_size = item_size,
 		.bucket_size = bucket_size,
 	};
 
 	arr_init(&ba->buckets, 1, sizeof(struct bucket));
 
-	arr_push(&ba->buckets, &(struct bucket) { 0 });
+	arr_push(&ba->buckets, &(struct bucket){ 0 });
 	init_bucket(ba, arr_get(&ba->buckets, 0));
 }
 
@@ -76,8 +75,7 @@ bucket_arr_restore(struct bucket_arr *ba, const struct bucket_arr_save *save)
 	assert(save->tail_bucket_len <= b->len);
 	ba->len -= b->len - save->tail_bucket_len;
 	b->len = save->tail_bucket_len;
-	memset(&b->mem[b->len * ba->item_size], 0,
-		(ba->bucket_size - b->len) * ba->item_size);
+	memset(&b->mem[b->len * ba->item_size], 0, (ba->bucket_size - b->len) * ba->item_size);
 
 	uint32_t bi;
 	for (bi = save->tail_bucket + 1; bi < ba->buckets.len; ++bi) {
@@ -97,13 +95,13 @@ bucket_arr_pushn(struct bucket_arr *ba, const void *data, uint32_t data_len, uin
 	struct bucket *b;
 
 	assert(reserve >= data_len);
-	assert(reserve < ba->bucket_size);
+	assert(reserve <= ba->bucket_size);
 
 	b = arr_get(&ba->buckets, ba->tail_bucket);
 
 	if (b->len + reserve > ba->bucket_size) {
 		if (ba->tail_bucket >= ba->buckets.len - 1) {
-			arr_push(&ba->buckets, &(struct bucket) { 0 });
+			arr_push(&ba->buckets, &(struct bucket){ 0 });
 			++ba->tail_bucket;
 			b = arr_get(&ba->buckets, ba->tail_bucket);
 			init_bucket(ba, b);

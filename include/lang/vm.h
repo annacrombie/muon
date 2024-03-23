@@ -18,8 +18,6 @@ enum op {
 	op_mul,
 	op_div,
 	op_mod,
-	op_and,
-	op_or,
 	op_not,
 	op_eq,
 	op_in,
@@ -39,8 +37,10 @@ enum op {
 	op_iterator_next,
 	op_jmp_if_null,
 	op_jmp_if_false,
+	op_jmp_if_true,
 	op_jmp,
 	op_pop,
+	op_dup,
 	op_eval_file,
 	op_typecheck,
 };
@@ -71,6 +71,7 @@ struct source_location_mapping {
 
 enum call_frame_type {
 	call_frame_type_eval,
+	call_frame_type_expand,
 	call_frame_type_func,
 };
 
@@ -83,7 +84,7 @@ struct call_frame {
 struct vm_compiler_state {
 	struct bucket_arr nodes;
 	struct arr node_stack;
-	struct arr jmp_stack;
+	struct arr loop_jmp_stack, if_jmp_stack;
 };
 
 struct vm_dbg_state {

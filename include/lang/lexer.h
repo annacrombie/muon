@@ -91,7 +91,9 @@ union literal_data {
 	obj str;
 	int64_t num;
 	uint64_t type;
-	struct { uint32_t args, kwargs; } len;
+	struct {
+		uint32_t args, kwargs;
+	} len;
 };
 
 struct token {
@@ -109,7 +111,7 @@ struct lexer {
 	struct workspace *wk;
 	struct source *source;
 	const char *src;
-	uint32_t i, line, line_start, enclosing;
+	uint32_t i, enclosing;
 	enum lexer_mode mode;
 };
 

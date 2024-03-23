@@ -19,7 +19,7 @@ void
 arr_init(struct arr *arr, size_t initial, size_t item_size)
 {
 	assert(item_size > 0);
-	*arr = (struct arr) {
+	*arr = (struct arr){
 		.item_size = item_size,
 		.cap = initial,
 		.e = z_malloc(initial * item_size),
@@ -132,10 +132,16 @@ arr_sort(struct arr *arr, void *ctx, sort_func func)
 	qsort(arr->e, arr->len, arr->item_size, arr_sort_compare);
 }
 
-void
-arr_pop(struct arr *arr, void *e)
+void *
+arr_pop(struct arr *arr)
 {
 	assert(arr->len);
 	--arr->len;
-	memcpy(e, arr_point_at(arr, arr->len), arr->item_size);
+	return arr_point_at(arr, arr->len);
+}
+
+void *
+arr_peek(struct arr *arr, uint32_t i)
+{
+	return arr_point_at(arr, arr->len - i);
 }

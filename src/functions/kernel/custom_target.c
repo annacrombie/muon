@@ -631,7 +631,7 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 		0,
 	};
 
-	if (!pop_args(wk, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
