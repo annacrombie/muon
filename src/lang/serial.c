@@ -27,7 +27,6 @@ corrupted_dump(void)
 	return false;
 }
 
-
 static bool
 dump_uint32(uint32_t v, FILE *f)
 {
@@ -123,8 +122,7 @@ done:
 static bool
 dump_serial_header(FILE *f)
 {
-	return fs_fwrite(serial_magic, SERIAL_MAGIC_LEN, f)
-	       && dump_uint32(serial_version, f);
+	return fs_fwrite(serial_magic, SERIAL_MAGIC_LEN, f) && dump_uint32(serial_version, f);
 }
 
 static bool
@@ -248,7 +246,7 @@ get_big_string(struct workspace *wk, const struct big_string_table *bst, struct 
 	char *buf = z_calloc(1, src->len + 1);
 	memcpy(buf, &bst->data[src->s], src->len);
 
-	*res = (struct str) {
+	*res = (struct str){
 		.flags = src->flags,
 		.len = src->len,
 		.s = buf,
@@ -286,10 +284,10 @@ dump_objs(struct workspace *wk, struct arr *big_string_offsets, FILE *f)
 		}
 
 		if (o->t == obj_string) {
-			const struct str *ss =
-				bucket_arr_get(&wk->vm.objects.obj_aos[obj_string - _obj_aos_start], o->val);
+			const struct str *ss
+				= bucket_arr_get(&wk->vm.objects.obj_aos[obj_string - _obj_aos_start], o->val);
 
-			ser_s = (struct serial_str) {
+			ser_s = (struct serial_str){
 				.len = ss->len,
 				.flags = ss->flags,
 			};
@@ -347,7 +345,9 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 		bucket_arr_pushn(&wk->vm.objects.objs, NULL, 0, 1);
 		struct obj_internal *o = bucket_arr_get(&wk->vm.objects.objs, wk->vm.objects.objs.len - 1);
 
-		*o = (struct obj_internal) { .t = type_tag, };
+		*o = (struct obj_internal){
+			.t = type_tag,
+		};
 
 		if (type_tag < _obj_aos_start) {
 			if (!fs_fread(&o->val, sizeof(uint32_t), f)) {
@@ -379,7 +379,9 @@ load_objs(struct workspace *wk, const struct big_string_table *bst, FILE *f)
 				uint32_t bucket_i = ser_s.s % wk->vm.objects.chrs.bucket_size,
 					 buckets_i = ser_s.s / wk->vm.objects.chrs.bucket_size;
 				if (buckets_i > wk->vm.objects.chrs.buckets.len
-				    || bucket_i > ((struct bucket *)(arr_get(&wk->vm.objects.chrs.buckets, buckets_i)))->len) {
+					|| bucket_i > ((struct bucket *)(arr_get(
+							       &wk->vm.objects.chrs.buckets, buckets_i)))
+							      ->len) {
 					return corrupted_dump();
 				}
 
@@ -404,7 +406,7 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 {
 	bool ret = false;
 	struct workspace wk_dest = { 0 };
-	workspace_init_bare(&wk_dest);
+	vm_init_objects(&wk_dest);
 
 	struct arr big_string_offsets;
 	arr_init(&big_string_offsets, 32, sizeof(uint64_t));
@@ -416,18 +418,15 @@ serial_dump(struct workspace *wk_src, obj o, FILE *f)
 
 	/* obj_fprintf(&wk_dest, log_file(), "saving %o\n", obj_dest); */
 
-	if (!(dump_serial_header(f)
-	      && dump_uint32(obj_dest, f)
-	      && dump_bucket_arr(&wk_dest.vm.objects.chrs, f)
-	      && dump_big_strings(&wk_dest, &big_string_offsets, f)
-	      && dump_objs(&wk_dest, &big_string_offsets, f)
-	      && dump_bucket_arr(&wk_dest.vm.objects.dict_elems, f))) {
+	if (!(dump_serial_header(f) && dump_uint32(obj_dest, f) && dump_bucket_arr(&wk_dest.vm.objects.chrs, f)
+		    && dump_big_strings(&wk_dest, &big_string_offsets, f) && dump_objs(&wk_dest, &big_string_offsets, f)
+		    && dump_bucket_arr(&wk_dest.vm.objects.dict_elems, f))) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
-	workspace_destroy_bare(&wk_dest);
+	vm_destroy_objects(&wk_dest);
 	arr_destroy(&big_string_offsets);
 	return ret;
 }
@@ -437,18 +436,15 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 {
 	bool ret = false;
 	struct workspace wk_src = { 0 };
-	workspace_init_bare(&wk_src);
+	vm_init_objects(&wk_src);
 	bucket_arr_clear(&wk_src.vm.objects.dict_elems); // remove null dict_elem
 
 	struct big_string_table bst = { 0 };
 
 	obj obj_src;
-	if (!(load_serial_header(f)
-	      && load_uint32(&obj_src, f)
-	      && load_bucket_arr(&wk_src.vm.objects.chrs, f)
-	      && load_big_strings(&wk_src, &bst, f)
-	      && load_objs(&wk_src, &bst, f)
-	      && load_bucket_arr(&wk_src.vm.objects.dict_elems, f))) {
+	if (!(load_serial_header(f) && load_uint32(&obj_src, f) && load_bucket_arr(&wk_src.vm.objects.chrs, f)
+		    && load_big_strings(&wk_src, &bst, f) && load_objs(&wk_src, &bst, f)
+		    && load_bucket_arr(&wk_src.vm.objects.dict_elems, f))) {
 		goto ret;
 	}
 
@@ -464,7 +460,7 @@ ret:
 	if (bst.data) {
 		z_free(bst.data);
 	}
-	workspace_destroy_bare(&wk_src);
+	vm_destroy_objects(&wk_src);
 	return ret;
 }
 

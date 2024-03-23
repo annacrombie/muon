@@ -623,7 +623,7 @@ find_program(struct workspace *wk, struct find_program_iter_ctx *ctx, obj prog)
 		.prog = str,
 	};
 
-	enum wrap_mode wrap_mode;
+	enum wrap_mode wrap_mode = 0;
 	if (wk->vm.lang_mode == language_internal) {
 		goto find_program_step_4;
 	}
@@ -1830,15 +1830,13 @@ func_alias_target(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-bool
-func_range_common(struct workspace *wk, uint32_t args_node, struct range_params *res)
+static bool
+func_range(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { obj_number },
-		{ obj_number, .optional = true },
-		{ obj_number, .optional = true },
-		{ obj_number, .optional = true },
-		ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	struct range_params params;
+	struct args_norm an[]
+		= { { obj_number }, { obj_number, .optional = true }, { obj_number, .optional = true }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, 0)) {
 		return false;
 	}
 
@@ -1846,18 +1844,18 @@ func_range_common(struct workspace *wk, uint32_t args_node, struct range_params 
 	if (!rangecheck(wk, an[0].node, 0, UINT32_MAX, n)) {
 		return false;
 	}
-	res->start = n;
+	params.start = n;
 
 	if (an[1].set) {
 		int64_t n = get_obj_number(wk, an[1].val);
-		if (!rangecheck(wk, an[1].node, res->start, UINT32_MAX, n)) {
+		if (!rangecheck(wk, an[1].node, params.start, UINT32_MAX, n)) {
 			return false;
 		}
 
-		res->stop = n;
+		params.stop = n;
 	} else {
-		res->stop = res->start;
-		res->start = 0;
+		params.stop = params.start;
+		params.start = 0;
 	}
 
 	if (an[2].set) {
@@ -1865,31 +1863,16 @@ func_range_common(struct workspace *wk, uint32_t args_node, struct range_params 
 		if (!rangecheck(wk, an[2].node, 1, UINT32_MAX, n)) {
 			return false;
 		}
-		res->step = n;
+		params.step = n;
 	} else {
-		res->step = 1;
+		params.step = 1;
 	}
 
-	return true;
-}
+	make_obj(wk, res, obj_iterator);
+	struct obj_iterator *iter = get_obj_iterator(wk, *res);
+	iter->type = obj_iterator_type_range;
+	iter->data.range = params;
 
-static bool
-func_range(struct workspace *wk, obj _, obj *res)
-{
-	struct range_params params = { 0 };
-	if (!func_range_common(wk, 0, &params)) {
-		return false;
-	}
-
-	make_obj(wk, res, obj_array);
-
-	uint32_t i;
-	for (i = params.start; i < params.stop; i += params.step) {
-		obj num;
-		make_obj(wk, &num, obj_number);
-		set_obj_number(wk, num, i);
-		obj_array_push(wk, *res, num);
-	}
 	return true;
 }
 

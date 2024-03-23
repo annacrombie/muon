@@ -935,6 +935,7 @@ static const struct parse_rule _parse_rules[] = {
 	['-']                   = { parse_unary,    parse_binary,  parse_precedence_term       },
 	['*']                   = { 0,              parse_binary,  parse_precedence_factor     },
 	['/']                   = { 0,              parse_binary,  parse_precedence_factor     },
+	['%']                   = { 0,              parse_binary,  parse_precedence_factor     },
 	['<']                   = { 0,              parse_binary,  parse_precedence_comparison },
 	['>']                   = { 0,              parse_binary,  parse_precedence_comparison },
 	[token_type_leq]        = { 0,              parse_binary,  parse_precedence_comparison },

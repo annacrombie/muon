@@ -2136,5 +2136,5 @@ do_analyze(struct analyze_opts *opts)
 bool
 do_analyze(struct analyze_opts *opts)
 {
-	return false;
+	return true;
 }

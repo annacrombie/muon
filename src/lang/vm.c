@@ -337,7 +337,6 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 
 	argi = 0;
 
-	L("%p, %d", (void *)an, 0);
 	for (i = 0; an && an[i].type != ARG_TYPE_NULL; ++i) {
 		if (an[i].type & TYPE_TAG_GLOB) {
 			an[i].type &= ~TYPE_TAG_GLOB;
@@ -1412,17 +1411,6 @@ vm_init_objects(struct workspace *wk)
 	obj id;
 	make_obj(wk, &id, obj_null);
 	assert(id == 0);
-
-	make_obj(wk, &id, obj_disabler);
-	assert(id == disabler_id);
-
-	make_obj(wk, &id, obj_bool);
-	assert(id == obj_bool_true);
-	set_obj_bool(wk, id, true);
-
-	make_obj(wk, &id, obj_bool);
-	assert(id == obj_bool_false);
-	set_obj_bool(wk, id, false);
 }
 
 void
@@ -1457,6 +1445,18 @@ vm_init(struct workspace *wk)
 	/* objects */
 	vm_init_objects(wk);
 
+	obj id;
+	make_obj(wk, &id, obj_disabler);
+	assert(id == disabler_id);
+
+	make_obj(wk, &id, obj_bool);
+	assert(id == obj_bool_true);
+	set_obj_bool(wk, id, true);
+
+	make_obj(wk, &id, obj_bool);
+	assert(id == obj_bool_false);
+	set_obj_bool(wk, id, false);
+
 	/* func impl tables */
 	build_func_impl_tables();
 
@@ -1466,7 +1466,6 @@ vm_init(struct workspace *wk)
 	make_obj(wk, &scope, obj_dict);
 	obj_array_push(wk, wk->vm.default_scope_stack, scope);
 
-	obj id;
 	make_obj(wk, &id, obj_meson);
 	obj_dict_set(wk, scope, make_str(wk, "meson"), id);
 

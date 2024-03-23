@@ -138,7 +138,9 @@ struct vm {
 void vm_execute(struct workspace *wk);
 void vm_dis(struct workspace *wk);
 void vm_init(struct workspace *wk);
+void vm_init_objects(struct workspace *wk);
 void vm_destroy(struct workspace *wk);
+void vm_destroy_objects(struct workspace *wk);
 
 bool pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
 
