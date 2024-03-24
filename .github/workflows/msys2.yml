@@ -26,11 +26,11 @@ jobs:
         install: base-devel git mingw-w64-i686-ninja mingw-w64-i686-toolchain mingw-w64-i686-pkgconf mingw-w64-i686-curl mingw-w64-i686-libarchive
     - name: bootstrap
       run: |
-        CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
-#    - name: muon
-#      run: |
-#        ./build/muon.exe setup -Dbestline=disabled build
-#        ninja -C build
+        CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
+    - name: muon
+      run: |
+        CC=gcc CFLAGS=-std=c99 ./build/muon.exe setup build
+        ninja -C build
 
   mingw64:
     runs-on: windows-latest
@@ -46,11 +46,11 @@ jobs:
         install: base-devel git mingw-w64-x86_64-ninja mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl mingw-w64-x86_64-libarchive
     - name: bootstrap
       run: |
-        CC=cc CFLAGS=-std=c99 ./bootstrap.sh build
-#    - name: muon
-#      run: |
-#        ./build/muon.exe setup -Dbestline=disabled build
-#        ninja -C build
+        CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
+    - name: muon
+      run: |
+        CC=gcc CFLAGS=-std=c99 ./build/muon.exe setup=disabled build
+        ninja -C build
 
   msys:
     runs-on: windows-latest

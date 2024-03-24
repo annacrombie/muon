@@ -1504,6 +1504,7 @@ build_linkers(void)
 			.no_whole_archive = compiler_arg_empty_0,
 			.enable_lto = compiler_arg_empty_0,
 			.input_output = compiler_arg_empty_2s,
+			.always       = compiler_arg_empty_0,
 		}
 	};
 
