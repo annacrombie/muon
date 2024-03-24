@@ -49,7 +49,7 @@ jobs:
         CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
     - name: muon
       run: |
-        CC=gcc CFLAGS=-std=c99 ./build/muon.exe setup=disabled build
+        CC=gcc CFLAGS=-std=c99 ./build/muon.exe setup build
         ninja -C build
 
   msys:
