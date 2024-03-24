@@ -1428,6 +1428,14 @@ linker_gcc_args_no_whole_archive(void)
 /* cl linkers */
 
 static const struct args *
+linker_link_args_always(void)
+{
+	COMPILER_ARGS({ "/nologo" });
+
+	return &args;
+}
+
+static const struct args *
 linker_link_args_lib(const char *s)
 {
 	COMPILER_ARGS({ NULL });
@@ -1454,14 +1462,7 @@ linker_link_args_soname(const char *soname)
 }
 
 static const struct args *
-linker_lld_link_args_whole_archive(void)
-{
-	COMPILER_ARGS({ "/whole-archive" });
-	return &args;
-}
-
-static const struct args *
-linker_msvc_args_input_output(const char *in, const char *out)
+linker_link_args_input_output(const char *in, const char *out)
 {
 	static char buf[BUF_SIZE_S];
 	COMPILER_ARGS({ buf, NULL });
@@ -1470,6 +1471,13 @@ linker_msvc_args_input_output(const char *in, const char *out)
 
 	argv[1] = in;
 
+	return &args;
+}
+
+static const struct args *
+linker_lld_link_args_whole_archive(void)
+{
+	COMPILER_ARGS({ "/whole-archive" });
 	return &args;
 }
 
@@ -1530,7 +1538,8 @@ build_linkers(void)
 	link.args.lib = linker_link_args_lib;
 	link.args.shared = linker_link_args_shared;
 	link.args.soname = linker_link_args_soname;
-	link.args.input_output = linker_msvc_args_input_output;
+	link.args.input_output = linker_link_args_input_output;
+	link.args.always = linker_link_args_always;
 
 	struct linker lld_link = link;
 	lld_link.args.whole_archive = linker_lld_link_args_whole_archive;
@@ -1577,7 +1586,7 @@ build_static_linkers(void)
 	gcc.args.base = static_linker_ar_gcc_args_base;
 
 	struct static_linker msvc = empty;
-	msvc.args.input_output = linker_msvc_args_input_output;
+	msvc.args.input_output = linker_link_args_input_output;
 
 	static_linkers[static_linker_ar_posix] = posix;
 	static_linkers[static_linker_ar_gcc] = gcc;
