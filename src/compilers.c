@@ -1428,14 +1428,6 @@ linker_gcc_args_no_whole_archive(void)
 /* cl linkers */
 
 static const struct args *
-linker_link_args_always(void)
-{
-	COMPILER_ARGS({ "/nologo" });
-
-	return &args;
-}
-
-static const struct args *
 linker_link_args_lib(const char *s)
 {
 	COMPILER_ARGS({ NULL });
@@ -1540,10 +1532,11 @@ build_linkers(void)
 	link.args.shared = linker_link_args_shared;
 	link.args.soname = linker_link_args_soname;
 	link.args.input_output = linker_link_args_input_output;
-	link.args.always = linker_link_args_always;
+	link.args.always = compiler_cl_args_always;
 
 	struct linker lld_link = link;
 	lld_link.args.whole_archive = linker_lld_link_args_whole_archive;
+	lld_link.args.always = compiler_arg_empty_0;
 
 	linkers[linker_posix] = posix;
 	linkers[linker_gcc] = gcc;
