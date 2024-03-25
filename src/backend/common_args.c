@@ -569,6 +569,7 @@ setup_linker_args(struct workspace *wk, const struct project *proj,
 	obj_array_dedup(wk, ctx->args->link_with_not_found, &link_with_not_found);
 	ctx->args->link_with_not_found = link_with_not_found;
 
+	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.always());
 	push_args(wk, ctx->args->link_args, linkers[ctx->linker].args.as_needed());
 
 	if (proj) {
