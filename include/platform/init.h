@@ -7,5 +7,6 @@
 #define MUON_PLATFORM_INIT_H
 
 void platform_init(void);
+void platform_set_abort_handler(void((*handler)(void *ctx)), void *ctx);
 
 #endif

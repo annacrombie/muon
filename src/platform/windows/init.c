@@ -17,3 +17,8 @@ platform_init(void)
 	setmode(fileno(stdout), O_BINARY);
 	setmode(fileno(stderr), O_BINARY);
 }
+
+void
+platform_set_abort_handler(void((*handler)(void *ctx)), void *ctx)
+{
+}

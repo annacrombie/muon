@@ -18,6 +18,7 @@
 #include "lang/vm.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/init.h"
 #include "platform/mem.h"
 #include "platform/path.h"
 
@@ -529,6 +530,13 @@ vm_dis(struct workspace *wk)
 
 #define vm_pop(__it) entry = object_stack_pop_entry(&wk->vm.stack), __it = entry->o, __it##_ip = entry->ip
 #define vm_peek(__it, __i) entry = object_stack_peek_entry(&wk->vm.stack, __i), __it = entry->o, __it##_ip = entry->ip
+
+static void
+vm_abort_handler(void *ctx)
+{
+	struct workspace *wk = ctx;
+	vm_error(wk, "encountered unhandled error");
+}
 
 void
 vm_execute(struct workspace *wk)
