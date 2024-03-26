@@ -897,8 +897,8 @@ func_assert(struct workspace *wk, obj _, obj *res)
 	*res = 0;
 
 	if (!get_obj_bool(wk, an[0].val)) {
-		if (an[0].set) {
-			LOG_E("%s", get_cstr(wk, an[0].val));
+		if (an[1].set) {
+			LOG_E("%s", get_cstr(wk, an[1].val));
 		}
 		return false;
 	}
@@ -1522,7 +1522,7 @@ static bool
 func_environment(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { obj_dict, .optional = true }, ARG_TYPE_NULL };
-	if (!pop_args(wk, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
@@ -1601,17 +1601,7 @@ func_import(struct workspace *wk, obj _, obj *res)
 static bool
 func_is_disabler(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
-
-	disabler_among_args_immunity = true;
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-	disabler_among_args_immunity = false;
-
-	make_obj(wk, res, obj_bool);
-	set_obj_bool(wk, *res, an[0].val == disabler_id);
-	return true;
+	UNREACHABLE_RETURN;
 }
 
 static bool
@@ -1628,15 +1618,7 @@ func_disabler(struct workspace *wk, obj _, obj *res)
 static bool
 func_set_variable(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { obj_string }, { tc_any }, ARG_TYPE_NULL };
-	disabler_among_args_immunity = true;
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-	disabler_among_args_immunity = false;
-
-	wk->vm.behavior.assign_variable(wk, get_cstr(wk, an[0].val), an[1].val, 0, assign_local);
-	return true;
+	UNREACHABLE_RETURN;
 }
 
 static bool
@@ -1663,41 +1645,16 @@ func_unset_variable(struct workspace *wk, obj _, obj *res)
 static bool
 func_get_variable(struct workspace *wk, obj _, obj *res)
 {
-	struct args_norm an[] = { { tc_any }, { tc_any, .optional = true }, ARG_TYPE_NULL };
-	disabler_among_args_immunity = true;
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-	disabler_among_args_immunity = false;
-
-	if (an[0].val == disabler_id) {
-		*res = disabler_id;
-		return true;
-	} else if (!typecheck(wk, an[0].node, an[0].val, obj_string)) {
-		return false;
-	}
-
-	if (!wk->vm.behavior.get_variable(wk, get_cstr(wk, an[0].val), res)) {
-		if (an[1].set) {
-			*res = an[1].val;
-		} else {
-			vm_error_at(wk, an[0].node, "undefined object %o", an[0].val);
-			return false;
-		}
-	}
-
-	return true;
+	UNREACHABLE_RETURN;
 }
 
 static bool
 func_is_variable(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
-	disabler_among_args_immunity = true;
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
-	disabler_among_args_immunity = false;
 
 	obj dont_care;
 
@@ -1709,11 +1666,7 @@ func_is_variable(struct workspace *wk, obj _, obj *res)
 static bool
 func_subdir_done(struct workspace *wk, obj _, obj *res)
 {
-	if (!pop_args(wk, NULL, NULL)) {
-		return false;
-	}
-
-	return true;
+	UNREACHABLE_RETURN;
 }
 
 static bool

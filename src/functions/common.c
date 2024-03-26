@@ -1040,7 +1040,6 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 	impl_group = func_impl_groups[t];
 
 	if (!func_lookup_for_group(impl_group, wk->vm.lang_mode, name, idx)) {
-		vm_error(wk, "%s not found", func_name_str(t, name));
 		return false;
 	}
 

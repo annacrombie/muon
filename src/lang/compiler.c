@@ -118,8 +118,9 @@ comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_not);
 		break;
 	case node_type_id:
-		push_code(wk, op_load);
+		push_code(wk, op_constant);
 		push_constant(wk, n->data.str);
+		push_code(wk, op_load);
 		break;
 	case node_type_number:
 		push_code(wk, op_constant);
@@ -145,8 +146,9 @@ comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->data.len.kwargs);
 		break;
 	case node_type_assign:
-		push_code(wk, op_store);
+		push_code(wk, op_constant);
 		push_constant(wk, n->l->data.str);
+		push_code(wk, op_store);
 		break;
 	case node_type_plusassign:
 		push_code(wk, op_add_store);
@@ -164,7 +166,101 @@ comp_node(struct workspace *wk, struct node *n)
 		uint32_t idx;
 
 		if (n->r->type == node_type_id_lit) {
-			known = func_lookup(wk, 0, get_str(wk, n->r->data.str)->s, &idx, 0);
+			const struct str *name = get_str(wk, n->r->data.str);
+			if (str_eql(name, &WKSTR("subdir_done"))) {
+				push_location(wk, n);
+
+				if (!(n->l->data.len.args == 0 && n->l->data.len.kwargs == 0)) {
+				}
+
+				push_code(wk, op_return);
+				break;
+			} else if (str_eql(name, &WKSTR("set_variable"))) {
+				push_location(wk, n);
+
+				if (!(n->l->data.len.args == 2 && n->l->data.len.kwargs == 0)) {
+				}
+
+				push_code(wk, op_swap);
+				push_code(wk, op_store);
+				break;
+			} else if (str_eql(name, &WKSTR("get_variable"))) {
+				uint32_t jmp1, jmp2;
+
+				push_location(wk, n);
+
+				if (!(1 <= n->l->data.len.args && n->l->data.len.args <= 2
+					    && n->l->data.len.kwargs == 0)) {
+				}
+
+				if (n->l->data.len.args == 2) {
+					push_code(wk, op_swap);
+				}
+
+				push_code(wk, op_jmp_if_disabler);
+				jmp1 = wk->vm.code.len;
+				push_constant(wk, 0);
+
+				push_code(wk, op_jmp);
+				jmp2 = wk->vm.code.len;
+				push_constant(wk, 0);
+
+				push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp1));
+				push_code(wk, op_constant);
+				push_constant(wk, disabler_id);
+				push_code(wk, op_jmp);
+				jmp1 = wk->vm.code.len;
+				push_constant(wk, 0);
+
+				push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp2));
+
+				if (n->l->data.len.args == 2) {
+					push_code(wk, op_try_load);
+					push_code(wk, op_jmp_if_null);
+					jmp2 = wk->vm.code.len;
+					push_constant(wk, 0);
+
+					push_code(wk, op_swap);
+					push_code(wk, op_pop);
+
+					push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp1));
+					push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp2));
+				} else {
+					push_code(wk, op_load);
+
+					push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp1));
+				}
+				break;
+			} else if (str_eql(name, &WKSTR("is_disabler"))) {
+				uint32_t true_jmp_tgt, false_jmp_tgt;
+
+				push_location(wk, n);
+
+				if (!(n->l->data.len.args == 1 && n->l->data.len.kwargs == 0)) {
+				}
+
+				push_code(wk, op_jmp_if_disabler);
+				true_jmp_tgt = wk->vm.code.len;
+				push_constant(wk, 0);
+
+				push_code(wk, op_pop);
+				push_code(wk, op_constant);
+				push_constant(wk, obj_bool_false);
+
+				push_code(wk, op_jmp);
+				false_jmp_tgt = wk->vm.code.len;
+				push_constant(wk, 0);
+
+				push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, true_jmp_tgt));
+
+				push_code(wk, op_constant);
+				push_constant(wk, obj_bool_true);
+
+				push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, false_jmp_tgt));
+				break;
+			}
+
+			known = func_lookup(wk, 0, name->s, &idx, 0);
 			if (!known) {
 				n->r->type = node_type_id;
 				push_location(wk, n->r);
@@ -173,11 +269,6 @@ comp_node(struct workspace *wk, struct node *n)
 		}
 
 		push_location(wk, n);
-
-		if (known && strcmp(native_funcs[idx].name, "subdir_done") == 0) {
-			push_code(wk, op_return);
-			break;
-		}
 
 		if (known) {
 			push_code(wk, op_call_native);
@@ -220,13 +311,15 @@ comp_node(struct workspace *wk, struct node *n)
 		break_jmp_patch_tgt = wk->vm.code.len;
 		push_constant(wk, 0);
 
-		push_code(wk, op_store);
+		push_code(wk, op_constant);
 		push_constant(wk, ida->data.str);
+		push_code(wk, op_store);
 		push_code(wk, op_pop);
 
 		if (idb) {
-			push_code(wk, op_store);
+			push_code(wk, op_constant);
 			push_constant(wk, idb->data.str);
+			push_code(wk, op_store);
 			push_code(wk, op_pop);
 		}
 
@@ -270,6 +363,10 @@ comp_node(struct workspace *wk, struct node *n)
 		while (n) {
 			if (n->l->l) {
 				compile_expr(wk, n->l->l);
+				push_code(wk, op_jmp_if_disabler);
+				arr_push(&wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
+				++patch_tgts;
+				push_constant(wk, 0);
 				push_code(wk, op_jmp_if_false);
 				else_jmp = wk->vm.code.len;
 				push_constant(wk, 0);
@@ -278,9 +375,7 @@ comp_node(struct workspace *wk, struct node *n)
 			compile_block(wk, n->l->r);
 
 			push_code(wk, op_jmp);
-
-			end_jmp = wk->vm.code.len;
-			arr_push(&wk->vm.compiler_state.if_jmp_stack, &end_jmp);
+			arr_push(&wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
 			++patch_tgts;
 			push_constant(wk, 0);
 
@@ -318,22 +413,42 @@ comp_node(struct workspace *wk, struct node *n)
 		break;
 	}
 	case node_type_or: {
-		uint32_t short_circuit_jmp;
+		uint32_t jmp1, jmp2, jmp3;
 		compile_expr(wk, n->l);
+
+		push_code(wk, op_jmp_if_disabler);
+		jmp1 = wk->vm.code.len;
+		push_constant(wk, 0);
+
 		push_code(wk, op_dup);
 		push_code(wk, op_jmp_if_true);
-		short_circuit_jmp = wk->vm.code.len;
+		jmp2 = wk->vm.code.len;
 		push_constant(wk, 0);
+
 		push_code(wk, op_pop);
+
 		compile_expr(wk, n->r);
 		push_code(wk, op_typecheck);
 		push_constant(wk, obj_bool);
-		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, short_circuit_jmp));
+
+		push_code(wk, op_jmp);
+		jmp3 = wk->vm.code.len;
+		push_constant(wk, 0);
+
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp1));
+		push_code(wk, op_constant);
+		push_constant(wk, disabler_id);
+
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp2));
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, jmp3));
 		break;
 	}
 	case node_type_and: {
-		uint32_t short_circuit_jmp;
+		uint32_t short_circuit_jmp, disabler_jmp;
 		compile_expr(wk, n->l);
+		push_code(wk, op_jmp_if_disabler);
+		disabler_jmp = wk->vm.code.len;
+		push_constant(wk, 0);
 		push_code(wk, op_dup);
 		push_code(wk, op_jmp_if_false);
 		short_circuit_jmp = wk->vm.code.len;
@@ -343,6 +458,7 @@ comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_typecheck);
 		push_constant(wk, obj_bool);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, short_circuit_jmp));
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, disabler_jmp));
 		break;
 	}
 	case node_type_func_def: {
@@ -480,12 +596,19 @@ compile(struct workspace *wk, struct source *src, uint32_t flags, uint32_t *entr
 {
 	struct node *n;
 
+	bucket_arr_clear(&wk->vm.compiler_state.nodes);
+	wk->vm.compiler_state.err = false;
+
 	if (!(n = parse(wk, src, &wk->vm.compiler_state.nodes))) {
-		return false;
+		wk->vm.compiler_state.err = true;
 	}
 
 	*entry = wk->vm.code.len;
 	compile_block(wk, n);
 	push_code(wk, op_return);
-	return true;
+
+	assert(wk->vm.compiler_state.node_stack.len == 0);
+	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);
+	assert(wk->vm.compiler_state.if_jmp_stack.len == 0);
+	return !wk->vm.compiler_state.err;
 }

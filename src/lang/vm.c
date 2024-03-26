@@ -162,7 +162,7 @@ vm_diagnostic_v(struct workspace *wk, uint32_t ip, enum log_level lvl, const cha
 
 	struct source_location loc;
 	struct source *src;
-	vm_lookup_inst_location(&wk->vm, wk->vm.ip, &loc, &src);
+	vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
 
 	error_message(src, loc, lvl, buf);
 
@@ -305,6 +305,7 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	const char *kw;
 	struct obj_stack_entry *entry;
 	uint32_t i, j, argi;
+	bool saw_disabler = false;
 
 	if (wk->vm.nkwargs && !akw) {
 		vm_error(wk, "this function does not accept kwargs");
@@ -314,18 +315,25 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	for (i = 0; i < wk->vm.nkwargs; ++i) {
 		entry = object_stack_pop_entry(&wk->vm.stack);
 		kw = get_str(wk, entry->o)->s;
-
 		if (strcmp(kw, "kwargs") == 0) {
 			entry = object_stack_pop_entry(&wk->vm.stack);
+			if (entry->o == disabler_id) {
+				saw_disabler = true;
+				continue;
+			}
+
 			if (!typecheck(wk, entry->ip, entry->o, obj_dict)) {
 				return false;
 			}
 
 			obj k, v;
+			LO("%o\n", entry->o);
 			obj_dict_for(wk, entry->o, k, v) {
+				LO("%o=>%o\n", k, v);
 				if (!handle_kwarg(wk, akw, get_cstr(wk, k), entry->ip, v, entry->ip)) {
 					return false;
 				}
+				saw_disabler |= v == disabler_id;
 			}
 		} else {
 			uint32_t kw_ip = entry->ip;
@@ -333,6 +341,7 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			if (!handle_kwarg(wk, akw, kw, kw_ip, entry->o, entry->ip)) {
 				return false;
 			}
+			saw_disabler |= entry->o == disabler_id;
 		}
 	}
 
@@ -346,6 +355,7 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			make_obj(wk, &an[i].val, obj_array);
 			for (j = i; j < wk->vm.nargs; ++j) {
 				entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - argi);
+				saw_disabler |= entry->o == disabler_id;
 				obj_array_push(wk, an[i].val, entry->o);
 				an[i].node = entry->ip;
 				++argi;
@@ -361,6 +371,7 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 			}
 
 			entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - argi);
+			saw_disabler |= entry->o == disabler_id;
 			an[i].val = entry->o;
 			an[i].node = entry->ip;
 			an[i].set = true;
@@ -378,6 +389,11 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	}
 
 	object_stack_discard(&wk->vm.stack, argi);
+
+	if (saw_disabler) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -418,6 +434,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	switch ((enum op)code[ip++]) {
 	op_case(op_pop) break;
 	op_case(op_dup) break;
+	op_case(op_swap) break;
 	op_case(op_stringify) break;
 	op_case(op_index) break;
 	op_case(op_add) break;
@@ -435,14 +452,11 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	op_case(op_iterator) break;
 	op_case(op_iterator_next) break;
 	op_case(op_eval_file) break;
+	op_case(op_store) break;
+	op_case(op_try_load) break;
+	op_case(op_load) break;
 
-	op_case(op_store)
-		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
-		break;
 	op_case(op_add_store)
-		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
-		break;
-	op_case(op_load)
 		buf_push(":%s", get_str(wk, vm_get_constant(code, &ip))->s);
 		break;
 	op_case(op_constant)
@@ -481,6 +495,9 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		buf_push(":%04x", vm_get_constant(code, &ip));
 		break;
 	op_case(op_jmp_if_false)
+		buf_push(":%04x", vm_get_constant(code, &ip));
+		break;
+	op_case(op_jmp_if_disabler)
 		buf_push(":%04x", vm_get_constant(code, &ip));
 		break;
 	op_case(op_jmp)
@@ -524,7 +541,7 @@ vm_dis(struct workspace *wk)
 
 #define binop_disabler_check(a, b)                  \
 	if (a == disabler_id || b == disabler_id) { \
-		object_stack_push(wk, a);           \
+		object_stack_push(wk, disabler_id); \
 		break;                              \
 	}
 
@@ -545,15 +562,17 @@ vm_execute(struct workspace *wk)
 	uint32_t a_ip, b_ip;
 	obj a, b;
 
+	platform_set_abort_handler(vm_abort_handler, wk);
+
 	while (!wk->vm.error) {
-		/* if (log_should_print(log_debug)) { */
-		/* 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
-		/* 	object_stack_print(wk, &wk->vm.stack); */
-		/* 	struct source_location loc; */
-		/* 	struct source *src; */
-		/* 	vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); */
-		/* 	list_line_range(src, loc, 0); */
-		/* } */
+		if (log_should_print(log_debug)) {
+			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
+			/* object_stack_print(wk, &wk->vm.stack); */
+			/* struct source_location loc; */
+			/* struct source *src; */
+			/* vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); */
+			/* list_line_range(src, loc, 0); */
+		}
 
 		switch ((enum op)wk->vm.code.e[wk->vm.ip++]) {
 		case op_constant:
@@ -799,7 +818,10 @@ op_div_type_err:
 		case op_not:
 			a = object_stack_pop(&wk->vm.stack);
 
-			if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
+			if (a == disabler_id) {
+				object_stack_push(wk, disabler_id);
+				break;
+			} else if (!typecheck(wk, wk->vm.ip, a, obj_bool)) {
 				break;
 			}
 
@@ -809,7 +831,10 @@ op_div_type_err:
 		case op_negate:
 			a = object_stack_pop(&wk->vm.stack);
 
-			if (!typecheck(wk, wk->vm.ip, a, obj_number)) {
+			if (a == disabler_id) {
+				object_stack_push(wk, disabler_id);
+				break;
+			} else if (!typecheck(wk, wk->vm.ip, a, obj_number)) {
 				break;
 			}
 
@@ -827,6 +852,7 @@ op_div_type_err:
 			object_stack_push(wk, b);
 			break;
 		case op_store: {
+			a = object_stack_pop(&wk->vm.stack);
 			b = object_stack_peek(&wk->vm.stack, 1);
 
 			switch (get_obj_type(wk, b)) {
@@ -854,7 +880,6 @@ op_div_type_err:
 			default: break;
 			}
 
-			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 			wk->vm.behavior.assign_variable(wk, get_str(wk, a)->s, b, 0, assign_local);
 			/* LO("%o <= %o\n", a, b); */
 			break;
@@ -905,11 +930,22 @@ op_add_store_type_err:
 			break;
 		}
 		case op_load: {
-			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+			a = object_stack_pop(&wk->vm.stack);
 
 			if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
 				vm_error(wk, "undefined object %s", get_cstr(wk, a));
 				break;
+			}
+
+			/* LO("%o <= %o\n", b, a); */
+			object_stack_push(wk, b);
+			break;
+		}
+		case op_try_load: {
+			a = object_stack_pop(&wk->vm.stack);
+
+			if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
+				b = 0;
 			}
 
 			/* LO("%o <= %o\n", b, a); */
@@ -997,6 +1033,10 @@ op_add_store_type_err:
 			capture = get_obj_capture(wk, a);
 
 			if (!pop_args(wk, capture->func->an, capture->func->akw)) {
+				if (!wk->vm.error) {
+					object_stack_push(wk, disabler_id);
+					break;
+				}
 				break;
 			}
 
@@ -1034,10 +1074,21 @@ op_add_store_type_err:
 			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 			if (!func_lookup(wk, b, get_str(wk, a)->s, &idx, &f)) {
+				if (b == disabler_id) {
+					object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
+					object_stack_push(wk, disabler_id);
+					break;
+				}
+				vm_error(wk, "method %o not found on %s", a, obj_type_to_s(get_obj_type(wk, b)));
 				break;
 			}
 
-			native_funcs[idx].func(wk, b, &a);
+			if (!native_funcs[idx].func(wk, b, &a)) {
+				if (!wk->vm.error) {
+					a = disabler_id;
+				}
+			}
+
 			object_stack_push(wk, a);
 			break;
 		}
@@ -1046,7 +1097,13 @@ op_add_store_type_err:
 			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-			native_funcs[b].func(wk, 0, &a);
+
+			if (!native_funcs[b].func(wk, 0, &a)) {
+				if (!wk->vm.error) {
+					a = disabler_id;
+				}
+			}
+
 			object_stack_push(wk, a);
 			break;
 		}
@@ -1161,6 +1218,13 @@ op_add_store_type_err:
 			object_stack_push(wk, a);
 			break;
 		}
+		case op_swap: {
+			a = object_stack_pop(&wk->vm.stack);
+			b = object_stack_pop(&wk->vm.stack);
+			object_stack_push(wk, a);
+			object_stack_push(wk, b);
+			break;
+		}
 		case op_jmp_if_null:
 			a = object_stack_peek(&wk->vm.stack, 1);
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
@@ -1169,15 +1233,31 @@ op_add_store_type_err:
 				wk->vm.ip = b;
 			}
 			break;
+		case op_jmp_if_disabler:
+			a = object_stack_peek(&wk->vm.stack, 1);
+			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+			if (a == disabler_id) {
+				object_stack_discard(&wk->vm.stack, 1);
+				wk->vm.ip = b;
+			}
+			break;
 		case op_jmp_if_true:
-			a = object_stack_pop(&wk->vm.stack);
+			vm_pop(a);
+			if (!typecheck(wk, a_ip, a, obj_bool)) {
+				break;
+			}
+
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 			if (get_obj_bool(wk, a)) {
 				wk->vm.ip = b;
 			}
 			break;
 		case op_jmp_if_false:
-			a = object_stack_pop(&wk->vm.stack);
+			vm_pop(a);
+			if (!typecheck(wk, a_ip, a, obj_bool)) {
+				break;
+			}
+
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 			if (!get_obj_bool(wk, a)) {
 				wk->vm.ip = b;

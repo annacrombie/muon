@@ -26,7 +26,7 @@ struct func_impl_group {
 
 extern struct func_impl native_funcs[];
 
-extern bool disabler_among_args_immunity, disable_fuzz_unsafe_functions;
+extern bool disable_fuzz_unsafe_functions;
 
 void build_func_impl_tables(void);
 
