@@ -82,7 +82,7 @@ workspace_init(struct workspace *wk)
 	wk->build_root = "dummy";
 
 	SBUF(source_root);
-	path_cwd(wk, &source_root);
+	path_copy_cwd(wk, &source_root);
 	wk->source_root = get_cstr(wk, sbuf_into_str(wk, &source_root));
 
 	arr_init(&wk->projects, 16, sizeof(struct project));
@@ -224,7 +224,7 @@ workspace_add_regenerate_deps_iter(struct workspace *wk, void *_ctx, obj v)
 	SBUF(path);
 	const char *s = get_cstr(wk, v);
 	if (!path_is_absolute(s)) {
-		path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), s);
+		path_join(wk, &path, workspace_cwd(wk), s);
 		v = sbuf_into_str(wk, &path);
 		s = get_cstr(wk, v);
 	}
@@ -248,5 +248,15 @@ workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr)
 		obj_array_foreach(wk, obj_or_arr, NULL, workspace_add_regenerate_deps_iter);
 	} else {
 		workspace_add_regenerate_deps_iter(wk, NULL, obj_or_arr);
+	}
+}
+
+const char *
+workspace_cwd(struct workspace *wk)
+{
+	if (wk->vm.lang_mode == language_internal) {
+		return path_cwd();
+	} else {
+		return get_cstr(wk, current_project(wk)->cwd);
 	}
 }

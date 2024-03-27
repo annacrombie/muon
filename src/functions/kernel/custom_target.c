@@ -151,7 +151,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		 * currently processed meson.build is located in. Depending on
 		 * the backend, this may be an absolute or a relative to
 		 * current workdir path. */
-		str_relative_to_build_root(wk, ctx, get_cstr(wk, current_project(wk)->cwd), elem);
+		str_relative_to_build_root(wk, ctx, workspace_cwd(wk), elem);
 		return format_cb_found;
 	case key_private_dir: {
 		/* @PRIVATE_DIR@ (since 0.50.1): path to a directory where the
@@ -768,7 +768,7 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	obj replace_string = akw[kw_replace_string].set ? akw[kw_replace_string].val : make_str(wk, "@VCS_TAG@");
+	obj replace_string = akw[kw_replace_string].set ? akw[kw_replace_string].val : make_str(wk, "\\@VCS_TAG\\@");
 
 	obj fallback;
 	if (akw[kw_fallback].set) {

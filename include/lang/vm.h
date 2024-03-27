@@ -79,15 +79,18 @@ enum call_frame_type {
 };
 
 struct call_frame {
+	type_tag expected_return_type;
 	enum call_frame_type type;
 	obj scope_stack;
 	uint32_t return_ip;
+	enum language_mode lang_mode;
 };
 
 struct vm_compiler_state {
 	struct bucket_arr nodes;
 	struct arr node_stack;
 	struct arr loop_jmp_stack, if_jmp_stack;
+	bool err;
 };
 
 struct vm_dbg_state {
@@ -138,7 +141,7 @@ struct vm {
 	bool error;
 };
 
-void vm_execute(struct workspace *wk);
+obj vm_execute(struct workspace *wk);
 void vm_dis(struct workspace *wk);
 void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);

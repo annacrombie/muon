@@ -64,7 +64,7 @@ func_install_subdir(struct workspace *wk, obj _, obj *ret)
 	}
 
 	SBUF(path);
-	path_join(wk, &path, get_cstr(wk, current_project(wk)->cwd), get_cstr(wk, an[0].val));
+	path_join(wk, &path, workspace_cwd(wk), get_cstr(wk, an[0].val));
 	obj src = sbuf_into_str(wk, &path);
 
 	struct obj_install_target *tgt;

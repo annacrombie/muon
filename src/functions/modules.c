@@ -96,18 +96,13 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		}
 
 		if (encapsulate) {
-			/* if (!wk->returned) { */
-			/* 	vm_error_at(wk, 0, "%s did not return anything", name); */
-			/* 	goto ret; */
-			/* } else if (!typecheck(wk, 0, wk->returned, make_complex_type(wk, complex_type_nested, tc_dict, tc_func))) { */
-			/* 	goto ret; */
-			/* } */
+			if (!typecheck(wk, 0, res, make_complex_type(wk, complex_type_nested, tc_dict, tc_capture))) {
+				goto ret;
+			}
 
-			/* m->found = true; */
-			/* m->has_impl = true; */
-			/* m->exports = wk->returned; */
-
-			/* wk->returning = false; */
+			m->found = true;
+			m->has_impl = true;
+			m->exports = res;
 		}
 
 		ret = true;

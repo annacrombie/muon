@@ -46,11 +46,8 @@ check_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 	}
 	case obj_alias_target:
 	case obj_build_target:
-	case obj_both_libs:
-		break;
-	default:
-		LOG_E("invalid tgt type '%s'", obj_type_to_s(t));
-		return ir_err;
+	case obj_both_libs: break;
+	default: LOG_E("invalid tgt type '%s'", obj_type_to_s(t)); return ir_err;
 	}
 
 	return ir_cont;
@@ -74,8 +71,7 @@ write_tgt_iter(struct workspace *wk, void *_ctx, obj tgt_id)
 		ret = ninja_write_alias_tgt(wk, tgt_id, ctx);
 		name = get_cstr(wk, get_obj_alias_target(wk, tgt_id)->name);
 		break;
-	case obj_both_libs:
-		tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
+	case obj_both_libs: tgt_id = get_obj_both_libs(wk, tgt_id)->dynamic_lib;
 	/* fallthrough */
 	case obj_build_target:
 		ret = ninja_write_build_tgt(wk, tgt_id, ctx);
@@ -146,8 +142,7 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 	if (!wrote_default) {
 		fprintf(out,
 			"build muon_do_nothing: phony\n"
-			"default muon_do_nothing\n"
-			);
+			"default muon_do_nothing\n");
 	}
 
 	return true;
@@ -243,16 +238,19 @@ ninja_write_all(struct workspace *wk)
 	make_obj(wk, &ctx.compiler_rule_arr, obj_array);
 
 	if (!(with_open(wk->build_root, "build.ninja", wk, &ctx, ninja_write_build)
-	      && with_open(wk->muon_private, output_path.tests, wk, NULL, ninja_write_tests)
-	      && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
-	      && with_open(wk->muon_private, output_path.compiler_check_cache, wk, NULL, ninja_write_compiler_check_cache)
-	      && with_open(wk->muon_private, output_path.summary, wk, NULL, ninja_write_summary_file)
-	      && with_open(wk->muon_private, output_path.option_info, wk, NULL, ninja_write_option_info)
-	      )) {
+		    && with_open(wk->muon_private, output_path.tests, wk, NULL, ninja_write_tests)
+		    && with_open(wk->muon_private, output_path.install, wk, NULL, ninja_write_install)
+		    && with_open(wk->muon_private,
+			    output_path.compiler_check_cache,
+			    wk,
+			    NULL,
+			    ninja_write_compiler_check_cache)
+		    && with_open(wk->muon_private, output_path.summary, wk, NULL, ninja_write_summary_file)
+		    && with_open(wk->muon_private, output_path.option_info, wk, NULL, ninja_write_option_info))) {
 		return false;
 	}
 
-	{/* compile_commands.json */
+	{ /* compile_commands.json */
 		TracyCZoneN(tctx_compdb, "output compile_commands.json", true);
 
 		obj compdb_args;
@@ -284,7 +282,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 	SBUF_manual(cwd);
 
 	if (chdir) {
-		path_cwd(NULL, &cwd);
+		path_copy_cwd(NULL, &cwd);
 
 		if (!path_chdir(chdir)) {
 			goto ret;
@@ -328,8 +326,8 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			obj_array_push(wk, cmd_arr, make_str(wk, "samu"));
 			obj_array_extend_nodup(wk, cmd_arr, args);
 			args = cmd_arr;
-		} else if (ninja_opt->source == option_value_source_default &&
-			   (fs_find_cmd(NULL, &cmd, "samu") || fs_find_cmd(NULL, &cmd, "ninja"))) {
+		} else if (ninja_opt->source == option_value_source_default
+			   && (fs_find_cmd(NULL, &cmd, "samu") || fs_find_cmd(NULL, &cmd, "ninja"))) {
 			prepend = cmd.buf;
 		} else {
 			obj cmd_arr;

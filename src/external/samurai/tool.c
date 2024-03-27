@@ -81,17 +81,13 @@ samu_clean(struct samu_ctx *ctx, int argc, char *argv[])
 	struct samu_node *n;
 	struct samu_rule *r;
 
-	SAMU_ARGBEGIN {
-	case 'g':
-		cleangen = true;
-		break;
-	case 'r':
-		cleanrule = true;
-		break;
-	default:
-		fprintf(stderr, "usage: %s ... -t clean [-gr] [targets...]\n", ctx->argv0);
-		return 2;
-	} SAMU_ARGEND
+	SAMU_ARGBEGIN
+	{
+	case 'g': cleangen = true; break;
+	case 'r': cleanrule = true; break;
+	default: fprintf(stderr, "usage: %s ... -t clean [-gr] [targets...]\n", ctx->argv0); return 2;
+	}
+	SAMU_ARGEND
 
 	if (cleanrule) {
 		if (!argc)
@@ -185,15 +181,12 @@ samu_printjson(struct samu_ctx *ctx, const char *s, size_t n, bool join)
 		c = s[i];
 		switch (c) {
 		case '"':
-		case '\\':
-			samu_putchar(ctx, '\\');
-			break;
+		case '\\': samu_putchar(ctx, '\\'); break;
 		case '\n':
 			if (join)
 				c = ' ';
 			break;
-		case '\0':
-			return;
+		case '\0': return;
 		}
 		samu_putchar(ctx, c);
 	}
@@ -210,20 +203,16 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 	size_t off;
 	bool all = false;
 
-	SAMU_ARGBEGIN {
-	case 'x':
-		expandrsp = true;
-		break;
-	case 'a':
-		all = true;
-		break;
-	default:
-		fprintf(stderr, "usage: %s ... -t compdb [-xa] [rules...]\n", ctx->argv0);
-		return 2;
-	} SAMU_ARGEND
+	SAMU_ARGBEGIN
+	{
+	case 'x': expandrsp = true; break;
+	case 'a': all = true; break;
+	default: fprintf(stderr, "usage: %s ... -t compdb [-xa] [rules...]\n", ctx->argv0); return 2;
+	}
+	SAMU_ARGEND
 
 	SBUF_manual(dir);
-	path_cwd(0, &dir);
+	path_copy_cwd(0, &dir);
 
 	samu_putchar(ctx, '[');
 	for (e = ctx->graph.alledges; e; e = e->allnext) {
@@ -302,7 +291,8 @@ samu_graphnode(struct samu_ctx *ctx, struct samu_node *n)
 		samu_graphnode(ctx, e->in[i]);
 
 	if (e->nin == 1 && e->nout == 1) {
-		samu_printf(ctx, "\"%p\" -> \"%p\" [label=\"%s\"]\n", (void *)e->in[0], (void *)e->out[0], e->rule->name);
+		samu_printf(
+			ctx, "\"%p\" -> \"%p\" [label=\"%s\"]\n", (void *)e->in[0], (void *)e->out[0], e->rule->name);
 	} else {
 		samu_printf(ctx, "\"%p\" [label=\"%s\", shape=ellipse]\n", (void *)e, e->rule->name);
 		for (i = 0; i < e->nout; ++i)
@@ -402,10 +392,12 @@ static void
 samu_targetsusage(struct samu_ctx *ctx)
 {
 	fprintf(stderr,
-	        "usage: %s ... -t targets [depth [maxdepth]]\n"
-	        "       %s ... -t targets rule [rulename]\n"
-	        "       %s ... -t targets all\n",
-	        ctx->argv0, ctx->argv0, ctx->argv0);
+		"usage: %s ... -t targets [depth [maxdepth]]\n"
+		"       %s ... -t targets rule [rulename]\n"
+		"       %s ... -t targets all\n",
+		ctx->argv0,
+		ctx->argv0,
+		ctx->argv0);
 	exit(2);
 }
 
@@ -463,12 +455,12 @@ const struct samu_tool *
 samu_toolget(const char *name)
 {
 	static const struct samu_tool tools[] = {
-		{"clean", samu_clean},
-		{"commands", samu_commands},
-		{"compdb", samu_compdb},
-		{"graph", samu_graph},
-		{"query", samu_query},
-		{"targets", samu_targets},
+		{ "clean", samu_clean },
+		{ "commands", samu_commands },
+		{ "compdb", samu_compdb },
+		{ "graph", samu_graph },
+		{ "query", samu_query },
+		{ "targets", samu_targets },
 	};
 
 	const struct samu_tool *t;

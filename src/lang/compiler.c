@@ -173,6 +173,8 @@ comp_node(struct workspace *wk, struct node *n)
 				if (!(n->l->data.len.args == 0 && n->l->data.len.kwargs == 0)) {
 				}
 
+				push_code(wk, op_constant);
+				push_constant(wk, 0);
 				push_code(wk, op_return);
 				break;
 			} else if (str_eql(name, &WKSTR("set_variable"))) {
@@ -463,7 +465,7 @@ comp_node(struct workspace *wk, struct node *n)
 	}
 	case node_type_func_def: {
 		obj f;
-		uint32_t func_jump_over_patch_tgt;
+		uint32_t func_jump_over_patch_tgt, ndefargs = 0;
 		struct obj_func *func;
 		struct node *arg;
 
@@ -478,55 +480,60 @@ comp_node(struct workspace *wk, struct node *n)
 
 		func->entry = wk->vm.code.len;
 
-		for (arg = n->l->r; arg; arg = arg->r) {
-			/* if (arg->subtype == arg_normal) { */
-			/* 	if (f->nkwargs) { */
-			/* 		vm_error_at(wk, arg_id, "non-kwarg after kwargs"); */
-			/* 	} */
-			if (arg->l) {
-				func->an[func->nargs] = (struct args_norm){
-					.name = get_cstr(wk, arg->l->data.str),
-					.type = tc_any,
-				};
-				++func->nargs;
-			}
-			/* } else if (arg->subtype == arg_kwarg) { */
-			/* 	if (!f->nkwargs) { */
-			/* 		make_obj(wk, &f->kwarg_defaults, obj_array); */
-			/* 	} */
-			/* 	++f->nkwargs; */
-
-			/* 	obj r; */
-			/* 	if (!wk->interp_node(wk, arg->r, &r)) { */
-			/* 		return false; */
-			/* 	} */
-
-			/* 	obj_array_push(wk, f->kwarg_defaults, r); */
-			/* } */
-
-			/* if (!(arg->chflg & node_child_c)) { */
-			/* 	break; */
-			/* } */
-			/* arg_id = arg->c; */
-		}
-		func->an[func->nargs].type = ARG_TYPE_NULL;
-
 		compile_block(wk, n->r);
-		if (wk->vm.code.e[wk->vm.code.len - 1] != op_return) {
-			push_code(wk, op_constant);
-			push_constant(wk, 0);
-			push_code(wk, op_return);
-		}
+		push_code(wk, op_constant);
+		push_constant(wk, 0);
+		push_code(wk, op_return);
 
 		/* function body end */
 
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, func_jump_over_patch_tgt));
 
+		for (arg = n->l->r; arg; arg = arg->r) {
+			if (!arg->l) {
+				break;
+			}
+
+			if (arg->l->type == node_type_kw) {
+				func->akw[func->nkwargs] = (struct args_kw){
+					.key = get_cstr(wk, arg->l->r->data.str),
+					.type = arg->l->r->l->data.type,
+				};
+				++func->nkwargs;
+
+				if (arg->l->l) {
+					compile_expr(wk, arg->l->l);
+					push_code(wk, op_constant);
+					push_constant(wk, arg->l->r->data.str);
+					++ndefargs;
+				}
+			} else {
+				func->an[func->nargs] = (struct args_norm){
+					.name = get_cstr(wk, arg->l->data.str),
+					.type = arg->l->l->data.type,
+				};
+				++func->nargs;
+			}
+		}
+		func->an[func->nargs].type = ARG_TYPE_NULL;
+		func->akw[func->nkwargs].key = 0;
+		func->return_type = n->data.type;
+		func->lang_mode = wk->vm.lang_mode;
+
+		if (ndefargs) {
+			push_code(wk, op_constant_dict);
+			push_constant(wk, ndefargs);
+		} else {
+			push_code(wk, op_constant);
+			push_constant(wk, 0);
+		}
+
 		push_code(wk, op_constant_func);
 		push_constant(wk, f);
 
-		push_code(wk, op_store);
+		push_code(wk, op_constant);
 		push_constant(wk, n->l->l->data.str);
+		push_code(wk, op_store);
 
 		break;
 	}
@@ -588,23 +595,28 @@ compiler_write_initial_code_segment(struct workspace *wk)
 			.src_idx = UINT32_MAX,
 		});
 
+	push_code(wk, op_constant);
+	push_constant(wk, 0);
 	push_code(wk, op_return);
 }
 
 bool
-compile(struct workspace *wk, struct source *src, uint32_t flags, uint32_t *entry)
+compile(struct workspace *wk, struct source *src, enum compile_mode mode, uint32_t *entry)
 {
 	struct node *n;
 
 	bucket_arr_clear(&wk->vm.compiler_state.nodes);
 	wk->vm.compiler_state.err = false;
 
-	if (!(n = parse(wk, src, &wk->vm.compiler_state.nodes))) {
+	if (!(n = parse(wk, src, &wk->vm.compiler_state.nodes, mode))) {
 		wk->vm.compiler_state.err = true;
 	}
 
 	*entry = wk->vm.code.len;
 	compile_block(wk, n);
+
+	push_code(wk, op_constant);
+	push_constant(wk, 0);
 	push_code(wk, op_return);
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);

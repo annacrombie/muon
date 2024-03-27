@@ -31,7 +31,9 @@ void path_deinit(void);
 bool path_chdir(const char *path);
 
 void path_copy(struct workspace *wk, struct sbuf *sb, const char *path);
-void path_cwd(struct workspace *wk, struct sbuf *sb);
+
+const char *path_cwd(void);
+void path_copy_cwd(struct workspace *wk, struct sbuf *sb);
 
 bool path_is_absolute(const char *path);
 bool path_is_basename(const char *path);

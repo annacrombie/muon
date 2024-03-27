@@ -6,18 +6,12 @@
 #ifndef MUON_LANG_PARSER_H
 #define MUON_LANG_PARSER_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "datastructures/arr.h"
+#include "lang/compiler.h"
 #include "lang/lexer.h"
-
-enum parse_mode {
-	pm_ignore_statement_with_no_effect = 1 << 0,
-	pm_keep_formatting = 1 << 1,
-	pm_quiet = 1 << 2,
-	pm_functions = 1 << 3,
-};
 
 enum node_type {
 	node_type_stmt,
@@ -73,7 +67,7 @@ struct node {
 };
 
 void print_ast(struct workspace *wk, struct node *root);
-struct node * parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes);
+struct node *parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes, enum compile_mode mode);
 const char *node_type_to_s(enum node_type t);
 const char *node_to_s(struct workspace *wk, const struct node *n);
 #endif

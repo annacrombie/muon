@@ -194,19 +194,17 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	struct {
 		const char *filename;
 		bool print_ast, print_dis;
-		uint32_t parse_mode;
+		enum compile_mode compile_mode;
 	} opts = { 0 };
 
 	OPTSTART("pdm:") {
 	case 'p': opts.print_ast = true; break;
 	case 'd': opts.print_dis = true; break;
 	case 'm':
-		if (strcmp(optarg, "fmt") == 0) {
-			opts.parse_mode |= pm_keep_formatting;
-		} else if (strcmp(optarg, "functions") == 0) {
-			opts.parse_mode |= pm_functions;
+		if (strcmp(optarg, "x") == 0) {
+			opts.compile_mode |= compile_mode_language_extended;
 		} else {
-			LOG_E("invalid parse mode '%s'", optarg);
+			LOG_E("invalid mode '%s'", optarg);
 			return false;
 		}
 		break;
@@ -234,14 +232,14 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 
 	if (opts.print_ast) {
 		struct node *n;
-		if (!(n = parse(&wk, src, &wk.vm.compiler_state.nodes))) {
+		if (!(n = parse(&wk, src, &wk.vm.compiler_state.nodes, opts.compile_mode))) {
 			goto ret;
 		}
 
 		print_ast(&wk, n);
 	} else {
 		uint32_t _entry;
-		if (!compile(&wk, src, 0, &_entry)) {
+		if (!compile(&wk, src, opts.compile_mode, &_entry)) {
 			goto ret;
 		}
 

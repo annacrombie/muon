@@ -17,9 +17,7 @@
 #include "platform/path.h"
 
 static struct {
-	char cwd_buf[BUF_SIZE_2k],
-	     tmp1_buf[BUF_SIZE_2k],
-	     tmp2_buf[BUF_SIZE_2k];
+	char cwd_buf[BUF_SIZE_2k], tmp1_buf[BUF_SIZE_2k], tmp2_buf[BUF_SIZE_2k];
 	struct sbuf cwd, tmp1, tmp2;
 } path_ctx;
 
@@ -46,12 +44,9 @@ path_getcwd(void)
 void
 path_init(void)
 {
-	sbuf_init(&path_ctx.cwd, path_ctx.cwd_buf, ARRAY_LEN(path_ctx.cwd_buf),
-		sbuf_flag_overflow_alloc);
-	sbuf_init(&path_ctx.tmp1, path_ctx.tmp1_buf, ARRAY_LEN(path_ctx.tmp1_buf),
-		sbuf_flag_overflow_alloc);
-	sbuf_init(&path_ctx.tmp2, path_ctx.tmp2_buf, ARRAY_LEN(path_ctx.tmp2_buf),
-		sbuf_flag_overflow_alloc);
+	sbuf_init(&path_ctx.cwd, path_ctx.cwd_buf, ARRAY_LEN(path_ctx.cwd_buf), sbuf_flag_overflow_alloc);
+	sbuf_init(&path_ctx.tmp1, path_ctx.tmp1_buf, ARRAY_LEN(path_ctx.tmp1_buf), sbuf_flag_overflow_alloc);
+	sbuf_init(&path_ctx.tmp2, path_ctx.tmp2_buf, ARRAY_LEN(path_ctx.tmp2_buf), sbuf_flag_overflow_alloc);
 	path_getcwd();
 }
 
@@ -165,9 +160,15 @@ path_chdir(const char *path)
 }
 
 void
-path_cwd(struct workspace *wk, struct sbuf *sb)
+path_copy_cwd(struct workspace *wk, struct sbuf *sb)
 {
 	path_copy(wk, sb, path_ctx.cwd.buf);
+}
+
+const char *
+path_cwd(void)
+{
+	return path_ctx.cwd.buf;
 }
 
 void

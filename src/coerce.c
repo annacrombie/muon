@@ -354,7 +354,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 
 		switch (ctx->mode) {
 		case mode_input:
-			if (!coerce_string_to_file(wk, get_cstr(wk, current_project(wk)->cwd), val, file)) {
+			if (!coerce_string_to_file(wk, workspace_cwd(wk), val, file)) {
 				return ir_err;
 			}
 
@@ -538,7 +538,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 
 	if (!path_is_absolute(p)) {
 		SBUF(abs);
-		path_join(wk, &abs, get_cstr(wk, current_project(wk)->cwd), p);
+		path_join(wk, &abs, workspace_cwd(wk), p);
 		path = sbuf_into_str(wk, &abs);
 	}
 

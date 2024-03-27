@@ -307,7 +307,11 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	uint32_t i, j, argi;
 	bool saw_disabler = false;
 
-	if (wk->vm.nkwargs && !akw) {
+	if (akw) {
+		for (i = 0; akw[i].key; ++i) {
+			akw[i].set = false;
+		}
+	} else if (wk->vm.nkwargs) {
 		vm_error(wk, "this function does not accept kwargs");
 		return false;
 	}
@@ -348,6 +352,8 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	argi = 0;
 
 	for (i = 0; an && an[i].type != ARG_TYPE_NULL; ++i) {
+		an[i].set = false;
+
 		if (an[i].type & TYPE_TAG_GLOB) {
 			an[i].type &= ~TYPE_TAG_GLOB;
 			an[i].type |= TYPE_TAG_LISTIFY;
@@ -363,7 +369,7 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 		} else {
 			if (argi >= wk->vm.nargs) {
 				if (!an[i].optional) {
-					vm_error(wk, "not enough args");
+					vm_error(wk, "missing args %s", an[i].name);
 					return false;
 				} else {
 					break;
@@ -556,6 +562,56 @@ vm_abort_handler(void *ctx)
 }
 
 void
+vm_execute_capture(struct workspace *wk, obj a)
+{
+	uint32_t i;
+	struct obj_capture *capture;
+
+	capture = get_obj_capture(wk, a);
+
+	if (!pop_args(wk, capture->func->an, capture->func->akw)) {
+		if (!wk->vm.error) {
+			object_stack_push(wk, disabler_id);
+			return;
+		}
+		return;
+	}
+
+	arr_push(&wk->vm.call_stack,
+		&(struct call_frame){
+			.type = call_frame_type_func,
+			.return_ip = wk->vm.ip,
+			.scope_stack = wk->vm.scope_stack,
+			.expected_return_type = capture->func->return_type,
+			.lang_mode = wk->vm.lang_mode,
+		});
+
+	wk->vm.lang_mode = capture->func->lang_mode;
+	wk->vm.scope_stack = capture->scope_stack;
+	wk->vm.behavior.push_local_scope(wk);
+
+	for (i = 0; capture->func->an[i].type != ARG_TYPE_NULL; ++i) {
+		wk->vm.behavior.assign_variable(
+			wk, capture->func->an[i].name, capture->func->an[i].val, 0, assign_local);
+	}
+
+	for (i = 0; capture->func->akw[i].key; ++i) {
+		obj val = 0;
+		if (capture->func->akw[i].set) {
+			val = capture->func->akw[i].val;
+		} else if (capture->defargs) {
+			const struct str s = WKSTR(capture->func->akw[i].key);
+			obj_dict_index_strn(wk, capture->defargs, s.s, s.len, &val);
+		}
+
+		wk->vm.behavior.assign_variable(wk, capture->func->akw[i].key, val, 0, assign_local);
+	}
+
+	wk->vm.ip = capture->func->entry;
+	return;
+}
+
+obj
 vm_execute(struct workspace *wk)
 {
 	struct obj_stack_entry *entry;
@@ -566,8 +622,8 @@ vm_execute(struct workspace *wk)
 
 	while (!wk->vm.error) {
 		if (log_should_print(log_debug)) {
-			/* LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text); */
-			/* object_stack_print(wk, &wk->vm.stack); */
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip).text);
+			object_stack_print(wk, &wk->vm.stack);
 			/* struct source_location loc; */
 			/* struct source *src; */
 			/* vm_lookup_inst_location(&wk->vm, wk->vm.ip + 1, &loc, &src); */
@@ -605,9 +661,10 @@ vm_execute(struct workspace *wk)
 			break;
 		}
 		case op_constant_func: {
-			obj c;
+			obj c, defargs;
 			struct obj_capture *capture;
 
+			defargs = object_stack_pop(&wk->vm.stack);
 			a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 			make_obj(wk, &c, obj_capture);
@@ -615,6 +672,7 @@ vm_execute(struct workspace *wk)
 
 			capture->func = get_obj_func(wk, a);
 			capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.scope_stack);
+			capture->defargs = defargs;
 
 			object_stack_push(wk, c);
 			break;
@@ -1023,45 +1081,10 @@ op_add_store_type_err:
 			break;
 		}
 		case op_call: {
-			uint32_t i;
-			struct obj_capture *capture;
-
-			a = object_stack_pop(&wk->vm.stack);
 			wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-			capture = get_obj_capture(wk, a);
-
-			if (!pop_args(wk, capture->func->an, capture->func->akw)) {
-				if (!wk->vm.error) {
-					object_stack_push(wk, disabler_id);
-					break;
-				}
-				break;
-			}
-
-			arr_push(&wk->vm.call_stack,
-				&(struct call_frame){
-					.type = call_frame_type_func,
-					.return_ip = wk->vm.ip,
-					.scope_stack = wk->vm.scope_stack,
-				});
-
-			wk->vm.scope_stack = capture->scope_stack;
-
-			wk->vm.behavior.push_local_scope(wk);
-
-			for (i = 0; capture->func->an[i].type != ARG_TYPE_NULL; ++i) {
-				wk->vm.behavior.assign_variable(
-					wk, capture->func->an[i].name, capture->func->an[i].val, 0, assign_local);
-			}
-
-			for (i = 0; capture->func->akw[i].key; ++i) {
-				wk->vm.behavior.assign_variable(
-					wk, capture->func->akw[i].key, capture->func->akw[i].val, 0, assign_local);
-			}
-
-			wk->vm.ip = capture->func->entry;
+			vm_execute_capture(wk, object_stack_pop(&wk->vm.stack));
 			break;
 		}
 		case op_call_method: {
@@ -1083,9 +1106,15 @@ op_add_store_type_err:
 				break;
 			}
 
-			if (!native_funcs[idx].func(wk, b, &a)) {
-				if (!wk->vm.error) {
-					a = disabler_id;
+			if (f) {
+				vm_execute_capture(wk, f);
+				break;
+			} else {
+				a = 0;
+				if (!native_funcs[idx].func(wk, b, &a)) {
+					if (!wk->vm.error) {
+						a = disabler_id;
+					}
 				}
 			}
 
@@ -1096,6 +1125,7 @@ op_add_store_type_err:
 			wk->vm.nargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 			wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
+			a = 0;
 			b = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 			if (!native_funcs[b].func(wk, 0, &a)) {
@@ -1272,11 +1302,16 @@ op_add_store_type_err:
 			wk->vm.ip = frame->return_ip;
 
 			switch (frame->type) {
-			case call_frame_type_eval: return;
+			case call_frame_type_eval: {
+				return object_stack_pop(&wk->vm.stack);
+			}
 			case call_frame_type_expand: break;
 			case call_frame_type_func:
 				wk->vm.behavior.pop_local_scope(wk);
 				wk->vm.scope_stack = frame->scope_stack;
+				wk->vm.lang_mode = frame->lang_mode;
+				vm_peek(a, 1);
+				typecheck(wk, a_ip, a, frame->expected_return_type);
 				break;
 			}
 			break;
@@ -1319,6 +1354,7 @@ op_add_store_type_err:
 	/* stack_pop(&stack, a); */
 	/* LO("%o\n", a); */
 	/* printf("%04x %02x\n", i, code[i]); */
+	return 0;
 }
 
 /******************************************************************************

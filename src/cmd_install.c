@@ -46,8 +46,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 	obj rel_str = sbuf_into_str(ctx->wk, &rel);
 
 	if (fs_dir_exists(src.buf)) {
-		if (ctx->exclude_directories &&
-		    obj_array_in(ctx->wk, ctx->exclude_directories, rel_str)) {
+		if (ctx->exclude_directories && obj_array_in(ctx->wk, ctx->exclude_directories, rel_str)) {
 			LOG_I("skipping dir '%s'", src.buf);
 			return ir_cont;
 		}
@@ -75,8 +74,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 			return ir_err;
 		}
 	} else if (fs_symlink_exists(src.buf) || fs_file_exists(src.buf)) {
-		if (ctx->exclude_files &&
-		    obj_array_in(ctx->wk, ctx->exclude_files, rel_str)) {
+		if (ctx->exclude_files && obj_array_in(ctx->wk, ctx->exclude_files, rel_str)) {
 			LOG_I("skipping file '%s'", src.buf);
 			return ir_cont;
 		}
@@ -112,8 +110,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	struct obj_install_target *in = get_obj_install_target(wk, v_id);
 
 	SBUF(dest_dirname);
-	const char *dest = get_cstr(wk, in->dest),
-	*src = get_cstr(wk, in->src);
+	const char *dest = get_cstr(wk, in->dest), *src = get_cstr(wk, in->src);
 
 	assert(in->type == install_target_symlink || in->type == install_target_emptydir || path_is_absolute(src));
 
@@ -124,20 +121,11 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	}
 
 	switch (in->type) {
-	case install_target_default:
-		LOG_I("install '%s' -> '%s'", src, dest);
-		break;
-	case install_target_subdir:
-		LOG_I("install subdir '%s' -> '%s'", src, dest);
-		break;
-	case install_target_symlink:
-		LOG_I("install symlink '%s' -> '%s'", dest, src);
-		break;
-	case install_target_emptydir:
-		LOG_I("install emptydir '%s'", dest);
-		break;
-	default:
-		abort();
+	case install_target_default: LOG_I("install '%s' -> '%s'", src, dest); break;
+	case install_target_subdir: LOG_I("install subdir '%s' -> '%s'", src, dest); break;
+	case install_target_symlink: LOG_I("install symlink '%s' -> '%s'", dest, src); break;
+	case install_target_emptydir: LOG_I("install emptydir '%s'", dest); break;
+	default: abort();
 	}
 
 	if (ctx->opts->dry_run) {
@@ -205,8 +193,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			return ir_err;
 		}
 		break;
-	default:
-		abort();
+	default: abort();
 	}
 
 	if (in->has_perm && !fs_chmod(dest, in->perm)) {
@@ -307,7 +294,7 @@ install_run(struct install_options *opts)
 	obj_array_index(&wk, install, 3, &ctx.prefix);
 
 	SBUF(build_root);
-	path_cwd(&wk, &build_root);
+	path_copy_cwd(&wk, &build_root);
 	wk.build_root = get_cstr(&wk, sbuf_into_str(&wk, &build_root));
 	wk.source_root = get_cstr(&wk, source_root);
 

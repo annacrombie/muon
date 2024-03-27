@@ -89,7 +89,7 @@ struct obj_func {
 
 struct obj_capture {
 	struct obj_func *func;
-	obj scope_stack;
+	obj scope_stack, defargs;
 };
 
 enum tgt_type {

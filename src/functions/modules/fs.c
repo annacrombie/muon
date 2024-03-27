@@ -541,7 +541,7 @@ func_module_fs_cwd(struct workspace *wk, obj self, obj *res)
 	}
 
 	SBUF(cwd);
-	path_cwd(wk, &cwd);
+	path_copy_cwd(wk, &cwd);
 	*res = sbuf_into_str(wk, &cwd);
 	return true;
 }

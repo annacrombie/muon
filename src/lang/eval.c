@@ -120,8 +120,13 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	arr_push(&wk->vm.src, src);
 
+	enum compile_mode compile_mode
+		= (wk->vm.lang_mode == language_extended || wk->vm.lang_mode == language_internal) ?
+			  compile_mode_language_extended :
+			  0;
+
 	uint32_t entry;
-	if (!compile(wk, src, mode, &entry)) {
+	if (!compile(wk, src, compile_mode, &entry)) {
 		return false;
 	}
 
@@ -133,7 +138,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	wk->vm.ip = entry;
 
-	vm_execute(wk);
+	*res = vm_execute(wk);
 
 	TracyCZoneAutoE;
 

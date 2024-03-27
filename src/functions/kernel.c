@@ -664,8 +664,7 @@ find_program_step_4:
 
 	/* 5. Project's source tree relative to the current subdir */
 	/*       If you use the return value of configure_file(), the current subdir inside the build tree is used instead */
-	struct project *proj = current_project(wk);
-	path_join(wk, &buf, proj ? get_cstr(wk, proj->cwd) : "", str);
+	path_join(wk, &buf, workspace_cwd(wk), str);
 	if (fs_file_exists(buf.buf)) {
 		path = buf.buf;
 		goto found;

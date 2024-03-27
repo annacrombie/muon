@@ -23,7 +23,7 @@ struct parser {
 	struct workspace *wk;
 	struct source *src;
 	struct bucket_arr *nodes;
-	uint32_t mode;
+	enum compile_mode mode;
 	uint32_t inside_loop;
 
 	struct {
@@ -169,6 +169,16 @@ print_ast(struct workspace *wk, struct node *root)
 	print_ast_at(wk, root, 0, 'l');
 }
 
+static struct source_location
+source_location_merge(struct source_location a, struct source_location b)
+{
+	uint32_t off = a.off < b.off ? a.off : b.off;
+	uint32_t a_end = a.off + a.len;
+	uint32_t b_end = b.off + b.len;
+	uint32_t len = a_end > b_end ? a_end - off : b_end - off;
+
+	return (struct source_location){ .off = off, .len = len };
+}
 /******************************************************************************
  * error handling
  ******************************************************************************/
@@ -180,15 +190,13 @@ parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl
 		return;
 	}
 
-	/* if (p->mode & pm_quiet) { */
-	/* 	return; */
-	/* } */
-
 	if (!l) {
 		l = &p->previous.location;
 	}
 
-	error_message(p->src, *l, lvl, p->err.msg);
+	if (!(p->mode & compile_mode_quiet)) {
+		error_message(p->src, *l, lvl, p->err.msg);
+	}
 
 	if (lvl == log_error) {
 		++p->err.count;
@@ -540,7 +548,7 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 			return false;
 		}
 	} else if (parse_accept(p, token_type_func)) {
-		*type = tc_func;
+		*type = tc_capture;
 	} else {
 		return true;
 	}
@@ -617,6 +625,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 	bool got_kw = false;
 	uint32_t len = 0, kwlen = 0;
 	struct node *n, *res, *val, *key;
+	type_tag type = 0;
 
 	res = n = make_node_t(p, t);
 	while (p->current.type != end) {
@@ -641,17 +650,22 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 		case node_type_def_args:
 			parse_expect(p, token_type_identifier);
 			val = parse_id(p);
-			parse_type(p, &n->data.type, true);
+			parse_type(p, &type, true);
 
-			if (!n->data.type) {
+			if (!type) {
 				parse_error(p, 0, "expected type");
 			}
+
+			val->l = make_node_t(p, node_type_list);
+			val->l->data.type = type;
 
 			if (parse_accept(p, ':')) {
 				key = val;
 				key->type = node_type_string;
 				if (!(p->current.type == ',' || p->current.type == end)) {
 					val = parse_expr(p);
+				} else {
+					val = 0;
 				}
 			}
 			break;
@@ -707,6 +721,8 @@ parse_call(struct parser *p, struct node *l)
 	n->r = l;
 	n->l = parse_list(p, node_type_args, ')');
 
+	n->location = source_location_merge(l->location, p->previous.location);
+
 	if (n->r->type == node_type_id) {
 		n->r->type = node_type_id_lit;
 	}
@@ -718,12 +734,15 @@ parse_method(struct parser *p, struct node *l)
 {
 	struct node *n, *id, *args;
 
+	struct source_location loc = p->previous.location;
+
 	parse_expect(p, token_type_identifier);
 	id = parse_id(p);
 
 	parse_expect(p, '(');
 	n = parse_call(p, id);
 	n->type = node_type_method;
+	n->location = source_location_merge(loc, p->previous.location);
 
 	args = make_node_t(p, node_type_args);
 	args->data = n->l->data;
@@ -825,10 +844,11 @@ parse_stmt(struct parser *p)
 		parse_expect(p, '(');
 		n->l->r = parse_list(p, node_type_def_args, ')');
 
-		parse_expect(p, token_type_returntype);
-		parse_type(p, &n->data.type, true);
-		if (!n->data.type) {
-			parse_error(p, 0, "expected type");
+		if (parse_accept(p, token_type_returntype)) {
+			parse_type(p, &n->data.type, true);
+			if (!n->data.type) {
+				parse_error(p, 0, "expected type");
+			}
 		}
 
 		parse_expect(p, token_type_eol);
@@ -953,19 +973,19 @@ static const struct parse_rule _parse_rules[] = {
 // clang-format on
 
 struct node *
-parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes)
+parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes, enum compile_mode mode)
 {
 	struct parser _p = {
 		.wk = wk,
 		.nodes = nodes,
 		.src = src,
-		/* .current.type = token_type_error, */
+		.mode = mode,
 	}, *p = &_p;
 
 	// populate the global parse_rules
 	parse_rules = _parse_rules;
 
-	lexer_init(&p->lexer, wk, src, lexer_mode_functions);
+	lexer_init(&p->lexer, wk, src, p->mode & compile_mode_language_extended ? lexer_mode_functions : 0);
 
 	parse_advance(p);
 
