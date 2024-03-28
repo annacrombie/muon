@@ -78,7 +78,6 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 {
 	struct str key;
 	const struct str *ss_in = get_str(wk, str);
-	LO("formatting %o\n", str);
 
 	uint32_t i, id_start = 0, id_end = 0;
 	bool reading_id = false;
@@ -86,7 +85,6 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 	*res = make_str(wk, "");
 
 	for (i = 0; i < ss_in->len; ++i) {
-		L("%.*s", i, ss_in->s);
 		if (ss_in->s[i] == '@') {
 			if (reading_id) {
 				obj elem;
@@ -101,7 +99,6 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 				}
 
 				key = (struct str){ .s = &ss_in->s[id_start], .len = i - id_start };
-				L("got key %.*s", key.len, key.s);
 
 				switch (cb(wk, err_node, ctx, &key, &elem)) {
 				case format_cb_not_found: {

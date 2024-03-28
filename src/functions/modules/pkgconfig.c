@@ -765,7 +765,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 		[kw_conflicts] = { "conflicts", TYPE_TAG_LISTIFY | obj_string },
 		0,
 	};
-	if (!pop_args(wk, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 

@@ -84,10 +84,10 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		enum language_mode old_language_mode = wk->vm.lang_mode;
 		wk->vm.lang_mode = language_extended;
 
-		obj old_scope_stack;
 		if (encapsulate) {
-			old_scope_stack = current_project(wk)->scope_stack;
-			/* current_project(wk)->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->default_scope); */
+			stack_push(&wk->stack,
+				wk->vm.scope_stack,
+				wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 		}
 
 		obj res;
@@ -108,7 +108,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 		ret = true;
 ret:
 		if (encapsulate) {
-			current_project(wk)->scope_stack = old_scope_stack;
+			stack_pop(&wk->stack, wk->vm.scope_stack);
 		}
 		wk->vm.lang_mode = old_language_mode;
 		return ret;

@@ -397,18 +397,15 @@ comp_node(struct workspace *wk, struct node *n)
 	case node_type_ternary: {
 		uint32_t else_jmp, end_jmp;
 
-		L("comping ternary l");
 		compile_expr(wk, n->l);
 		push_code(wk, op_jmp_if_false);
 		else_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
-		L("comping ternary r->l");
 		compile_expr(wk, n->r->l);
 		push_code(wk, op_jmp);
 		end_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, else_jmp));
-		L("comping ternary r->r");
 		compile_expr(wk, n->r->r);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp));
 

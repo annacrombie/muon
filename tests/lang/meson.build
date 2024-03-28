@@ -13,6 +13,7 @@ tests = [
     ['join_paths.meson'],
     ['katie.meson'],
     ['multiline.meson'],
+    ['range.meson'],
     ['run_command.meson'],
     ['string_format_escape.meson'],
     ['strings.meson'],

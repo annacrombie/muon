@@ -10,8 +10,9 @@
  * obj_array_for
  ******************************************************************************/
 
-#define obj_array_for(__wk, __arr, __val)                                      \
-	for (struct obj_array *__a = get_obj_array(__wk, __arr); a->have_next; \
+// TODO: broken
+#define obj_array_for(__wk, __arr, __val)                                        \
+	for (struct obj_array *__a = get_obj_array(__wk, __arr); __a->have_next; \
 		__a = get_obj_array(wk, __a->next), __val = __a->val)
 
 /******************************************************************************
@@ -87,20 +88,23 @@ struct obj_array_flat_for_helper {
                                                                                                                       \
 			if (!__flat_iter.empty)
 
-#define obj_array_flat_for_end                                                              \
-	}                                                                                   \
-	if (__flat_iter.a->have_next) {                                                     \
-		__flat_iter.a = get_obj_array(__flat_iter.wk, __flat_iter.a->next);         \
-	} else if (__flat_iter.stack_base < __flat_iter.wk->stack.len) {                    \
-		stack_pop(&__flat_iter.wk->stack, __flat_iter.a);                           \
-		if (__flat_iter.a->have_next) {                                             \
-			__flat_iter.a = get_obj_array(__flat_iter.wk, __flat_iter.a->next); \
-		} else {                                                                    \
-			break;                                                              \
-		}                                                                           \
-	} else {                                                                            \
-		break;                                                                      \
-	}                                                                                   \
+#define obj_array_flat_for_end                                                                            \
+	}                                                                                                 \
+	if (__flat_iter.a->have_next) {                                                                   \
+		__flat_iter.a = get_obj_array(__flat_iter.wk, __flat_iter.a->next);                       \
+	} else if (__flat_iter.stack_base < __flat_iter.wk->stack.len) {                                  \
+		stack_pop(&__flat_iter.wk->stack, __flat_iter.a);                                         \
+		while (__flat_iter.stack_base < __flat_iter.wk->stack.len && !__flat_iter.a->have_next) { \
+			stack_pop(&__flat_iter.wk->stack, __flat_iter.a);                                 \
+		}                                                                                         \
+		if (__flat_iter.a->have_next) {                                                           \
+			__flat_iter.a = get_obj_array(__flat_iter.wk, __flat_iter.a->next);               \
+		} else {                                                                                  \
+			break;                                                                            \
+		}                                                                                         \
+	} else {                                                                                          \
+		break;                                                                                    \
+	}                                                                                                 \
 	}
 
 #endif

@@ -44,7 +44,6 @@ enum op {
 	op_pop,
 	op_dup,
 	op_swap,
-	op_eval_file,
 	op_typecheck,
 };
 
@@ -74,7 +73,6 @@ struct source_location_mapping {
 
 enum call_frame_type {
 	call_frame_type_eval,
-	call_frame_type_expand,
 	call_frame_type_func,
 };
 
@@ -137,6 +135,7 @@ struct vm {
 
 	enum language_mode lang_mode;
 
+	bool saw_disabler;
 	bool in_analyzer;
 	bool error;
 };

@@ -75,8 +75,8 @@ stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char
 	stack_push_raw(stack, &(struct stack_tag){ name, size }, sizeof(struct stack_tag));
 
 	if (stack->log) {
-		L("\033[33mstack\033[0m %s pushed:", stack->name);
-		stack_print(stack);
+		L("\033[33mstack\033[0m %05d %s pushed %s (%d)", stack->len, stack->name, name, size);
+		/* stack_print(stack); */
 	}
 }
 
@@ -91,8 +91,8 @@ stack_pop_sized(struct stack *stack, void *mem, uint32_t size)
 	stack_pop_raw(stack, mem, size);
 
 	if (stack->log) {
-		L("\033[33mstack\033[0m %s popped:", stack->name);
-		stack_print(stack);
+		L("\033[33mstack\033[0m %05d %s popped %s (%d)", stack->len, stack->name, tag.name, tag.size);
+		/* stack_print(stack); */
 	}
 }
 
