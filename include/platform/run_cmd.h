@@ -9,12 +9,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #ifdef _WIN32
-	#ifndef WIN32_LEAN_AND_MEAN
-		#define WIN32_LEAN_AND_MEAN
-	#endif
-	#include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #else
-	#include <unistd.h>
+#include <unistd.h>
 #endif
 
 #include "lang/string.h"
@@ -55,7 +55,7 @@ struct run_cmd_ctx {
 #else
 	int pipefd_out[2], pipefd_err[2];
 	int input_fd;
-	pid_t pid;
+	int pid;
 
 	bool input_fd_open;
 	bool pipefd_out_open[2], pipefd_err_open[2];
@@ -71,8 +71,11 @@ void argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32
 uint32_t argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *const **res);
 
 struct source;
-bool run_cmd_determine_interpreter(struct source *src, const char *path,
-	const char **err_msg, const char **new_argv0, const char **new_argv1);
+bool run_cmd_determine_interpreter(struct source *src,
+	const char *path,
+	const char **err_msg,
+	const char **new_argv0,
+	const char **new_argv1);
 
 bool run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc);
 bool run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc);
