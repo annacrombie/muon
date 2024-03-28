@@ -25,6 +25,12 @@ stack_init(struct stack *stack, uint32_t cap)
 	};
 }
 
+void
+stack_destroy(struct stack *stack)
+{
+	z_free(stack->mem);
+}
+
 struct stack_tag {
 	const char *name;
 	uint32_t size;

@@ -1687,4 +1687,15 @@ void
 vm_destroy(struct workspace *wk)
 {
 	vm_destroy_objects(wk);
+
+	bucket_arr_destroy(&wk->vm.stack.ba);
+	arr_destroy(&wk->vm.call_stack);
+	arr_destroy(&wk->vm.code);
+	arr_destroy(&wk->vm.src);
+	arr_destroy(&wk->vm.locations);
+
+	arr_destroy(&wk->vm.compiler_state.node_stack);
+	arr_destroy(&wk->vm.compiler_state.if_jmp_stack);
+	arr_destroy(&wk->vm.compiler_state.loop_jmp_stack);
+	bucket_arr_destroy(&wk->vm.compiler_state.nodes);
 }

@@ -26,6 +26,7 @@ struct stack {
 };
 
 void stack_init(struct stack *stack, uint32_t cap);
+void stack_destroy(struct stack *stack);
 
 void stack_print(struct stack *_stack);
 void stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name);

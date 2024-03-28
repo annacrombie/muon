@@ -112,6 +112,7 @@ void
 workspace_destroy_bare(struct workspace *wk)
 {
 	vm_destroy(wk);
+	stack_destroy(&wk->stack);
 }
 
 void
