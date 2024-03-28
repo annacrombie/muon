@@ -142,7 +142,9 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	TracyCZoneAutoE;
 
-	return !wk->vm.error;
+	bool ok = !wk->vm.error;
+	wk->vm.error = false;
+	return ok;
 
 	/* if (wk->in_analyzer) { */
 	/* 	ast->src_id = error_diagnostic_store_push_src(src); */
