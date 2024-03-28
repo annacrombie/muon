@@ -1202,7 +1202,7 @@ static bool
 func_configuration_data(struct workspace *wk, obj _, obj *res)
 {
 	struct args_norm an[] = { { obj_dict, .optional = true }, ARG_TYPE_NULL };
-	if (!pop_args(wk, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
