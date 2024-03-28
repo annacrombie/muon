@@ -18,6 +18,7 @@
 #include "lang/vm.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "memmem.h"
 #include "platform/init.h"
 #include "platform/mem.h"
 #include "platform/path.h"
