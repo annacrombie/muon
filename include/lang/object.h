@@ -483,7 +483,7 @@ enum obj_iterator_type {
 };
 
 struct range_params {
-	uint32_t start, stop, step;
+	uint32_t start, stop, step, i;
 };
 
 struct obj_iterator {

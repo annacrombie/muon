@@ -1101,9 +1101,7 @@ op_add_store_type_err:
 
 				struct obj_iterator *iter = get_obj_iterator(wk, a);
 
-				if (iter->type != obj_iterator_type_range) {
-					UNREACHABLE;
-				}
+				assert(iter->type == obj_iterator_type_range);
 
 				double r = (double)iter->data.range.stop - (double)iter->data.range.start;
 				uint32_t steps = (uint32_t)(r / (double)iter->data.range.step + 0.5);
@@ -1212,18 +1210,12 @@ op_add_store_type_err:
 			a = object_stack_pop(&wk->vm.stack);
 			enum obj_type a_type = get_obj_type(wk, a);
 
-			if (a_type == obj_iterator) {
-				// already an iterator!
-				object_stack_push(wk, a);
-				break;
-			}
-
-			make_obj(wk, &iter, obj_iterator);
-			object_stack_push(wk, iter);
-			iterator = get_obj_iterator(wk, iter);
-
-			switch (get_obj_type(wk, a)) {
+			switch (a_type) {
 			case obj_array:
+				make_obj(wk, &iter, obj_iterator);
+				object_stack_push(wk, iter);
+				iterator = get_obj_iterator(wk, iter);
+
 				iterator->type = obj_iterator_type_array;
 				iterator->data.array = get_obj_array(wk, a);
 				if (!iterator->data.array->len) {
@@ -1232,6 +1224,10 @@ op_add_store_type_err:
 				}
 				break;
 			case obj_dict: {
+				make_obj(wk, &iter, obj_iterator);
+				object_stack_push(wk, iter);
+				iterator = get_obj_iterator(wk, iter);
+
 				struct obj_dict *d = get_obj_dict(wk, a);
 				if (d->flags & obj_dict_flag_big) {
 					iterator->type = obj_iterator_type_dict_big;
@@ -1241,6 +1237,14 @@ op_add_store_type_err:
 					iterator->type = obj_iterator_type_dict_small;
 					iterator->data.dict_small = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
 				}
+				break;
+			}
+			case obj_iterator: {
+				object_stack_push(wk, a);
+				iterator = get_obj_iterator(wk, a);
+
+				assert(iterator->type == obj_iterator_type_range);
+				iterator->data.range.i = iterator->data.range.start;
 				break;
 			}
 			default: {
@@ -1266,12 +1270,12 @@ op_add_store_type_err:
 				}
 				break;
 			case obj_iterator_type_range:
-				if (iterator->data.range.start >= iterator->data.range.stop) {
+				if (iterator->data.range.i >= iterator->data.range.stop) {
 					val = 0;
 				} else {
 					make_obj(wk, &val, obj_number);
-					set_obj_number(wk, val, iterator->data.range.start);
-					iterator->data.range.start += iterator->data.range.step;
+					set_obj_number(wk, val, iterator->data.range.i);
+					iterator->data.range.i += iterator->data.range.step;
 				}
 				break;
 			case obj_iterator_type_dict_small:

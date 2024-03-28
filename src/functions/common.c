@@ -897,7 +897,7 @@ struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 	[obj_both_libs]            = { { impl_tbl_both_libs },            { 0 }                            },
 	[obj_source_set]           = { { impl_tbl_source_set },           { 0 }                            },
 	[obj_source_configuration] = { { impl_tbl_source_configuration }, { 0 }                            },
-	[obj_module]               = { { impl_tbl_module },               { 0 }                            },
+	[obj_module]               = { { impl_tbl_module },               { impl_tbl_module  }             },
 };
 // clang-format on
 
@@ -1000,7 +1000,13 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 	struct obj_module *m;
 
 	t = get_obj_type(wk, self);
+	impl_group = func_impl_groups[t];
+
 	if (t == obj_module) {
+		if (func_lookup_for_group(impl_group, wk->vm.lang_mode, name, idx)) {
+			return true;
+		}
+
 		m = get_obj_module(wk, self);
 
 		if (!m->found && strcmp(name, "found") != 0) {
@@ -1036,8 +1042,6 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 		}
 		return true;
 	}
-
-	impl_group = func_impl_groups[t];
 
 	if (!func_lookup_for_group(impl_group, wk->vm.lang_mode, name, idx)) {
 		return false;

@@ -15,6 +15,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/object.h"
+#include "lang/object_iterators.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -427,8 +428,24 @@ obj_equal(struct workspace *wk, obj left, obj right)
 		return true;
 	}
 
-	enum obj_type t = get_obj_type(wk, left);
-	if (t != get_obj_type(wk, right)) {
+	enum obj_type t = get_obj_type(wk, left), right_t = get_obj_type(wk, right);
+
+	// if we get <array> == <iterator> swap operands so we only have to
+	// deal with the <iterator> == <array> case
+	if (right_t == obj_iterator && t == obj_array) {
+		obj s = left;
+		enum obj_type st = t;
+		left = right;
+		t = right_t;
+		right = s;
+		right_t = st;
+	}
+
+	if (t == obj_iterator) {
+		if (!(right_t == obj_array || right_t == obj_iterator)) {
+			return false;
+		}
+	} else if (t != right_t) {
 		return false;
 	}
 
@@ -464,6 +481,44 @@ obj_equal(struct workspace *wk, obj left, obj right)
 		struct obj_dict *l = get_obj_dict(wk, left), *r = get_obj_dict(wk, right);
 
 		return l->len == r->len && obj_dict_foreach(wk, left, &ctx, obj_equal_dict_iter);
+	}
+	case obj_iterator: {
+		struct obj_iterator *iter = get_obj_iterator(wk, left);
+		assert(iter->type == obj_iterator_type_range);
+
+		switch (right_t) {
+		case obj_array: {
+			int64_t a = iter->data.range.start, b;
+			obj v;
+			obj_array_for(wk, right, v) {
+				if (a >= iter->data.range.step) {
+					return false;
+				}
+
+				if (get_obj_type(wk, v) != obj_number) {
+					return false;
+				}
+				b = get_obj_number(wk, v);
+				if (a != b) {
+					return false;
+				}
+
+				a += iter->data.range.step;
+			}
+			return true;
+		}
+		case obj_iterator: {
+			struct obj_iterator *riter = get_obj_iterator(wk, right);
+			assert(riter->type == obj_iterator_type_range);
+
+			return iter->data.range.start == riter->data.range.start
+			       && iter->data.range.stop == riter->data.range.stop
+			       && iter->data.range.step == riter->data.range.step;
+		}
+		default: UNREACHABLE;
+		}
+
+		break;
 	}
 	default:
 		/* LOG_W("TODO: compare %s", obj_type_to_s(t)); */

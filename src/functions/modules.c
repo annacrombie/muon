@@ -162,13 +162,5 @@ const struct func_impl impl_tbl_module[] = {
 bool
 module_func_lookup(struct workspace *wk, const char *name, enum module mod, uint32_t *idx)
 {
-	if (strcmp(name, "found") == 0) {
-		return true;
-	}
-
-	if (!func_lookup_for_group(module_func_impl_groups[mod], wk->vm.lang_mode, name, idx)) {
-		return false;
-	}
-
-	return true;
+	return func_lookup_for_group(module_func_impl_groups[mod], wk->vm.lang_mode, name, idx);
 }
