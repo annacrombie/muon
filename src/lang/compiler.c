@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-License-Identifier: GPL-3.0-only
  */
 
 #include "compat.h"
@@ -66,11 +67,11 @@ push_constant(struct workspace *wk, obj v)
 /* 	push_code(wk, (v >> 0) & 0xff); */
 /* } */
 
-static void compile_block(struct workspace *wk, struct node *n);
-static void compile_expr(struct workspace *wk, struct node *n);
+static void vm_compile_block(struct workspace *wk, struct node *n);
+static void vm_compile_expr(struct workspace *wk, struct node *n);
 
 static void
-comp_node(struct workspace *wk, struct node *n)
+vm_comp_node(struct workspace *wk, struct node *n)
 {
 	assert(n->type != node_type_stmt);
 
@@ -266,7 +267,7 @@ comp_node(struct workspace *wk, struct node *n)
 			if (!known) {
 				n->r->type = node_type_id;
 				push_location(wk, n->r);
-				comp_node(wk, n->r);
+				vm_comp_node(wk, n->r);
 			}
 		}
 
@@ -296,7 +297,7 @@ comp_node(struct workspace *wk, struct node *n)
 		uint32_t break_jmp_patch_tgt, loop_body_start;
 		struct node *ida = n->l->l->l, *idb = n->l->l->r;
 
-		compile_expr(wk, n->l->r);
+		vm_compile_expr(wk, n->l->r);
 
 		push_location(wk, n);
 
@@ -328,7 +329,7 @@ comp_node(struct workspace *wk, struct node *n)
 		uint32_t loop_jmp_stack_base = wk->vm.compiler_state.loop_jmp_stack.len;
 		arr_push(&wk->vm.compiler_state.loop_jmp_stack, &loop_body_start);
 
-		compile_block(wk, n->r);
+		vm_compile_block(wk, n->r);
 
 		push_code(wk, op_jmp);
 		push_constant(wk, loop_body_start);
@@ -364,7 +365,7 @@ comp_node(struct workspace *wk, struct node *n)
 
 		while (n) {
 			if (n->l->l) {
-				compile_expr(wk, n->l->l);
+				vm_compile_expr(wk, n->l->l);
 				push_code(wk, op_jmp_if_disabler);
 				arr_push(&wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
 				++patch_tgts;
@@ -374,7 +375,7 @@ comp_node(struct workspace *wk, struct node *n)
 				push_constant(wk, 0);
 			}
 
-			compile_block(wk, n->l->r);
+			vm_compile_block(wk, n->l->r);
 
 			push_code(wk, op_jmp);
 			arr_push(&wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
@@ -397,23 +398,23 @@ comp_node(struct workspace *wk, struct node *n)
 	case node_type_ternary: {
 		uint32_t else_jmp, end_jmp;
 
-		compile_expr(wk, n->l);
+		vm_compile_expr(wk, n->l);
 		push_code(wk, op_jmp_if_false);
 		else_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
-		compile_expr(wk, n->r->l);
+		vm_compile_expr(wk, n->r->l);
 		push_code(wk, op_jmp);
 		end_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, else_jmp));
-		compile_expr(wk, n->r->r);
+		vm_compile_expr(wk, n->r->r);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, end_jmp));
 
 		break;
 	}
 	case node_type_or: {
 		uint32_t jmp1, jmp2, jmp3;
-		compile_expr(wk, n->l);
+		vm_compile_expr(wk, n->l);
 
 		push_code(wk, op_jmp_if_disabler);
 		jmp1 = wk->vm.code.len;
@@ -426,7 +427,7 @@ comp_node(struct workspace *wk, struct node *n)
 
 		push_code(wk, op_pop);
 
-		compile_expr(wk, n->r);
+		vm_compile_expr(wk, n->r);
 		push_code(wk, op_typecheck);
 		push_constant(wk, obj_bool);
 
@@ -444,7 +445,7 @@ comp_node(struct workspace *wk, struct node *n)
 	}
 	case node_type_and: {
 		uint32_t short_circuit_jmp, disabler_jmp;
-		compile_expr(wk, n->l);
+		vm_compile_expr(wk, n->l);
 		push_code(wk, op_jmp_if_disabler);
 		disabler_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
@@ -453,7 +454,7 @@ comp_node(struct workspace *wk, struct node *n)
 		short_circuit_jmp = wk->vm.code.len;
 		push_constant(wk, 0);
 		push_code(wk, op_pop);
-		compile_expr(wk, n->r);
+		vm_compile_expr(wk, n->r);
 		push_code(wk, op_typecheck);
 		push_constant(wk, obj_bool);
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, short_circuit_jmp));
@@ -477,7 +478,7 @@ comp_node(struct workspace *wk, struct node *n)
 
 		func->entry = wk->vm.code.len;
 
-		compile_block(wk, n->r);
+		vm_compile_block(wk, n->r);
 		push_code(wk, op_constant);
 		push_constant(wk, 0);
 		push_code(wk, op_return);
@@ -499,7 +500,7 @@ comp_node(struct workspace *wk, struct node *n)
 				++func->nkwargs;
 
 				if (arg->l->l) {
-					compile_expr(wk, arg->l->l);
+					vm_compile_expr(wk, arg->l->l);
 					push_code(wk, op_constant);
 					push_constant(wk, arg->l->r->data.str);
 					++ndefargs;
@@ -538,7 +539,7 @@ comp_node(struct workspace *wk, struct node *n)
 }
 
 static void
-compile_expr(struct workspace *wk, struct node *n)
+vm_compile_expr(struct workspace *wk, struct node *n)
 {
 	struct node *peek, *prev = 0;
 
@@ -549,7 +550,7 @@ compile_expr(struct workspace *wk, struct node *n)
 			if (n->type == node_type_foreach || n->type == node_type_if || n->type == node_type_func_def
 				|| n->type == node_type_ternary || n->type == node_type_and
 				|| n->type == node_type_or) {
-				comp_node(wk, n);
+				vm_comp_node(wk, n);
 				prev = n;
 				n = 0;
 			} else {
@@ -562,7 +563,7 @@ compile_expr(struct workspace *wk, struct node *n)
 				n = peek->r;
 			} else {
 				push_location(wk, peek);
-				comp_node(wk, peek);
+				vm_comp_node(wk, peek);
 				prev = *(struct node **)arr_pop(&wk->vm.compiler_state.node_stack);
 			}
 		}
@@ -570,11 +571,11 @@ compile_expr(struct workspace *wk, struct node *n)
 }
 
 static void
-compile_block(struct workspace *wk, struct node *n)
+vm_compile_block(struct workspace *wk, struct node *n)
 {
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
-		compile_expr(wk, n->l);
+		vm_compile_expr(wk, n->l);
 		if (n->l->type != node_type_if) {
 			push_code(wk, op_pop);
 		}
@@ -583,7 +584,7 @@ compile_block(struct workspace *wk, struct node *n)
 }
 
 void
-compiler_write_initial_code_segment(struct workspace *wk)
+vm_compile_initial_code_segment(struct workspace *wk)
 {
 	arr_push(&wk->vm.locations,
 		&(struct source_location_mapping){
@@ -598,7 +599,7 @@ compiler_write_initial_code_segment(struct workspace *wk)
 }
 
 bool
-compile(struct workspace *wk, struct source *src, enum compile_mode mode, uint32_t *entry)
+vm_compile(struct workspace *wk, struct source *src, enum vm_compile_mode mode, uint32_t *entry)
 {
 	struct node *n;
 
@@ -610,7 +611,7 @@ compile(struct workspace *wk, struct source *src, enum compile_mode mode, uint32
 	}
 
 	*entry = wk->vm.code.len;
-	compile_block(wk, n);
+	vm_compile_block(wk, n);
 
 	push_code(wk, op_constant);
 	push_constant(wk, 0);

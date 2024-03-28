@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
 r = range(5)
 assert(r[0] == 0)
 assert(r[1] == 1)

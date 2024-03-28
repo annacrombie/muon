@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef LANG_OBJECT_ITERATORS_H
 #define LANG_OBJECT_ITERATORS_H
 

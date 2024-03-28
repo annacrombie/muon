@@ -1644,7 +1644,7 @@ vm_init(struct workspace *wk)
 	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
 
 	/* initial code segment */
-	compiler_write_initial_code_segment(wk);
+	vm_compile_initial_code_segment(wk);
 }
 
 void

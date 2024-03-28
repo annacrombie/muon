@@ -120,13 +120,13 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 
 	arr_push(&wk->vm.src, src);
 
-	enum compile_mode compile_mode
+	enum vm_compile_mode compile_mode
 		= (wk->vm.lang_mode == language_extended || wk->vm.lang_mode == language_internal) ?
-			  compile_mode_language_extended :
+			  vm_compile_mode_language_extended :
 			  0;
 
 	uint32_t entry;
-	if (!compile(wk, src, compile_mode, &entry)) {
+	if (!vm_compile(wk, src, compile_mode, &entry)) {
 		return false;
 	}
 

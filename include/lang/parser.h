@@ -67,7 +67,7 @@ struct node {
 };
 
 void print_ast(struct workspace *wk, struct node *root);
-struct node *parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes, enum compile_mode mode);
+struct node *parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes, enum vm_compile_mode mode);
 const char *node_type_to_s(enum node_type t);
 const char *node_to_s(struct workspace *wk, const struct node *n);
 #endif

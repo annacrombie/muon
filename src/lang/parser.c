@@ -23,7 +23,7 @@ struct parser {
 	struct workspace *wk;
 	struct source *src;
 	struct bucket_arr *nodes;
-	enum compile_mode mode;
+	enum vm_compile_mode mode;
 	uint32_t inside_loop;
 
 	struct {
@@ -194,7 +194,7 @@ parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl
 		l = &p->previous.location;
 	}
 
-	if (!(p->mode & compile_mode_quiet)) {
+	if (!(p->mode & vm_compile_mode_quiet)) {
 		error_message(p->src, *l, lvl, p->err.msg);
 	}
 
@@ -973,7 +973,7 @@ static const struct parse_rule _parse_rules[] = {
 // clang-format on
 
 struct node *
-parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes, enum compile_mode mode)
+parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes, enum vm_compile_mode mode)
 {
 	struct parser _p = {
 		.wk = wk,
@@ -985,7 +985,7 @@ parse(struct workspace *wk, struct source *src, struct bucket_arr *nodes, enum c
 	// populate the global parse_rules
 	parse_rules = _parse_rules;
 
-	lexer_init(&p->lexer, wk, src, p->mode & compile_mode_language_extended ? lexer_mode_functions : 0);
+	lexer_init(&p->lexer, wk, src, p->mode & vm_compile_mode_language_extended ? lexer_mode_functions : 0);
 
 	parse_advance(p);
 

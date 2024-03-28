@@ -194,7 +194,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	struct {
 		const char *filename;
 		bool print_ast, print_dis;
-		enum compile_mode compile_mode;
+		enum vm_compile_mode compile_mode;
 	} opts = { 0 };
 
 	OPTSTART("pdm:") {
@@ -202,7 +202,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 	case 'd': opts.print_dis = true; break;
 	case 'm':
 		if (strcmp(optarg, "x") == 0) {
-			opts.compile_mode |= compile_mode_language_extended;
+			opts.compile_mode |= vm_compile_mode_language_extended;
 		} else {
 			LOG_E("invalid mode '%s'", optarg);
 			return false;
@@ -239,7 +239,7 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 		print_ast(&wk, n);
 	} else {
 		uint32_t _entry;
-		if (!compile(&wk, src, opts.compile_mode, &_entry)) {
+		if (!vm_compile(&wk, src, opts.compile_mode, &_entry)) {
 			goto ret;
 		}
 
