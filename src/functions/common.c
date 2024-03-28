@@ -110,14 +110,10 @@ next_arg(struct workspace *wk, uint32_t *arg_node, uint32_t *kwarg_node, const c
 
 	return true;
 }
+#endif
 
 struct function_signature {
-	const char *name,
-		   *posargs,
-		   *varargs,
-		   *optargs,
-		   *kwargs,
-		   *returns;
+	const char *name, *posargs, *varargs, *optargs, *kwargs, *returns;
 	bool is_method;
 
 	const struct func_impl *impl;
@@ -150,17 +146,14 @@ arr_sort_by_string(const void *a, const void *b, void *_ctx)
 	return strcmp(*(const char **)a, *(const char **)b);
 }
 
-static void
-dump_function_signature(struct workspace *wk,
-	struct args_norm posargs[],
-	struct args_norm optargs[],
-	struct args_kw kwargs[])
+void
+dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
 {
 	uint32_t i;
 
 	struct function_signature *sig = arr_get(&function_sig_dump.sigs, function_sig_dump.sigs.len - 1);
 
-	obj s;
+	obj s, opt_s = 0;
 	if (posargs) {
 		s = make_str(wk, "");
 		for (i = 0; posargs[i].type != ARG_TYPE_NULL; ++i) {
@@ -169,7 +162,15 @@ dump_function_signature(struct workspace *wk,
 				continue;
 			}
 
-			str_appf(wk, &s, "    %s\n", dump_type(wk, posargs[i].type));
+			if (posargs[i].optional) {
+				if (!opt_s) {
+					opt_s = make_str(wk, "");
+				}
+
+				str_appf(wk, &opt_s, "    %s\n", dump_type(wk, posargs[i].type));
+			} else {
+				str_appf(wk, &s, "    %s\n", dump_type(wk, posargs[i].type));
+			}
 		}
 
 		const char *ts = get_cstr(wk, s);
@@ -178,12 +179,8 @@ dump_function_signature(struct workspace *wk,
 		}
 	}
 
-	if (optargs) {
-		s = make_str(wk, "");
-		for (i = 0; optargs[i].type != ARG_TYPE_NULL; ++i) {
-			str_appf(wk, &s, "    %s\n", dump_type(wk, optargs[i].type));
-		}
-		sig->optargs = get_cstr(wk, s);
+	if (opt_s) {
+		sig->optargs = get_cstr(wk, opt_s);
 	}
 
 	if (kwargs) {
@@ -191,7 +188,8 @@ dump_function_signature(struct workspace *wk,
 		arr_init(&kwargs_list, 8, sizeof(char *));
 
 		for (i = 0; kwargs[i].key; ++i) {
-			const char *v = get_cstr(wk, make_strf(wk, "    %s: %s\n", kwargs[i].key, dump_type(wk, kwargs[i].type)));
+			const char *v = get_cstr(
+				wk, make_strf(wk, "    %s: %s\n", kwargs[i].key, dump_type(wk, kwargs[i].type)));
 			arr_push(&kwargs_list, &v);
 		}
 
@@ -200,7 +198,6 @@ dump_function_signature(struct workspace *wk,
 		s = make_str(wk, "");
 		for (i = 0; i < kwargs_list.len; ++i) {
 			str_app(wk, &s, *(const char **)arr_get(&kwargs_list, i));
-
 		}
 		sig->kwargs = get_cstr(wk, s);
 
@@ -208,6 +205,7 @@ dump_function_signature(struct workspace *wk,
 	}
 }
 
+#if 0
 static const char *
 arity_to_s(struct args_norm positional_args[],
 	struct args_norm optional_positional_args[],
@@ -330,8 +328,7 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, type_t
 	// If obj_file or tc_file is requested, and the argument is an array of
 	// length 1, try to unpack it.
 	if (!array_of && (type == obj_file || (type & tc_file) == tc_file)) {
-		if (get_obj_type(wk, *val) == obj_array
-		    && get_obj_array(wk, *val)->len == 1) {
+		if (get_obj_type(wk, *val) == obj_array && get_obj_array(wk, *val)->len == 1) {
 			obj i0;
 			obj_array_index(wk, *val, 0, &i0);
 			if (get_obj_type(wk, i0) == obj_file) {
@@ -373,7 +370,12 @@ typecheck_function_arg(struct workspace *wk, uint32_t err_node, obj *val, type_t
 #define ARITY arity_to_s(positional_args, optional_positional_args, keyword_args)
 
 static bool
-process_kwarg(struct workspace *wk, uint32_t kwarg_node, uint32_t arg_node, struct args_kw *keyword_args, const char *kw, obj val)
+process_kwarg(struct workspace *wk,
+	uint32_t kwarg_node,
+	uint32_t arg_node,
+	struct args_kw *keyword_args,
+	const char *kw,
+	obj val)
 {
 	uint32_t i;
 	for (i = 0; keyword_args[i].key; ++i) {
@@ -458,19 +460,16 @@ obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typei
 	}
 
 	switch (get_obj_type(wk, o)) {
-	case obj_typeinfo:
-		return true;
-	case obj_array:
-		return !obj_array_foreach(wk, o, ctx, obj_tainted_by_typeinfo_array_iter);
-	case obj_dict:
-		return !obj_dict_foreach(wk, o, ctx, obj_tainted_by_typeinfo_dict_iter);
-	default:
-		return false;
+	case obj_typeinfo: return true;
+	case obj_array: return !obj_array_foreach(wk, o, ctx, obj_tainted_by_typeinfo_array_iter);
+	case obj_dict: return !obj_dict_foreach(wk, o, ctx, obj_tainted_by_typeinfo_dict_iter);
+	default: return false;
 	}
 }
 
 bool
-interp_args(struct workspace *wk, uint32_t args_node,
+interp_args(struct workspace *wk,
+	uint32_t args_node,
 	struct args_norm positional_args[],
 	struct args_norm optional_positional_args[],
 	struct args_kw keyword_args[])
@@ -497,7 +496,8 @@ interp_args(struct workspace *wk, uint32_t args_node,
 				assert(stage == 0 && "glob args must not be optional");
 				assert(!optional_positional_args && "glob args cannot be followed by optional args");
 				assert(an[stage][i + 1].type == ARG_TYPE_NULL && "glob args must come last");
-				assert(!(an[stage][i].type & TYPE_TAG_LISTIFY) && "glob args are implicitly TYPE_TAG_LISTIFY");
+				assert(!(an[stage][i].type & TYPE_TAG_LISTIFY)
+					&& "glob args are implicitly TYPE_TAG_LISTIFY");
 
 				an[stage][i].type &= ~TYPE_TAG_GLOB;
 
@@ -523,17 +523,18 @@ interp_args(struct workspace *wk, uint32_t args_node,
 
 					// If we get an array, but that isn't a valid type here, flatten it.
 					if ((get_obj_type(wk, val) == obj_array
-					     || (get_obj_type(wk, val) == obj_typeinfo
-						 && (get_obj_typeinfo(wk, val)->type & tc_array) == tc_array))
-					    && !(an[stage][i].type == tc_any
-						 || an[stage][i].type == obj_array
-						 || (an[stage][i].type & tc_array) == tc_array)
-					    ) {
+						    || (get_obj_type(wk, val) == obj_typeinfo
+							    && (get_obj_typeinfo(wk, val)->type & tc_array) == tc_array))
+						&& !(an[stage][i].type == tc_any || an[stage][i].type == obj_array
+							|| (an[stage][i].type & tc_array) == tc_array)) {
 						if (get_obj_type(wk, val) == obj_typeinfo) {
 							// TODO typecheck subtype
 							obj_array_push(wk, an[stage][i].val, val);
 						} else {
-							if (!typecheck_function_arg(wk, arg_node, &val, TYPE_TAG_LISTIFY | an[stage][i].type)) {
+							if (!typecheck_function_arg(wk,
+								    arg_node,
+								    &val,
+								    TYPE_TAG_LISTIFY | an[stage][i].type)) {
 								return false;
 							}
 
@@ -564,7 +565,8 @@ interp_args(struct workspace *wk, uint32_t args_node,
 
 			if (kw) {
 				if (stage == 0) {
-					vm_error_at(wk, kwarg_node, "unexpected kwarg before required arguments %s", ARITY);
+					vm_error_at(
+						wk, kwarg_node, "unexpected kwarg before required arguments %s", ARITY);
 					return false;
 				}
 
@@ -609,9 +611,7 @@ process_kwarg:
 				}
 
 				struct process_kwarg_dict_ctx ctx = {
-					.kwarg_node = kwarg_node,
-					.arg_node = arg_node,
-					.keyword_args = keyword_args
+					.kwarg_node = kwarg_node, .arg_node = arg_node, .keyword_args = keyword_args
 				};
 
 				if (get_obj_type(wk, val) == obj_typeinfo) {
@@ -662,7 +662,8 @@ end:
 
 				if (analyze_function_opts.allow_impure_args) {
 					continue;
-				} else if (analyze_function_opts.allow_impure_args_except_first && ((stage == 0 && i > 0) || stage > 0)) {
+				} else if (analyze_function_opts.allow_impure_args_except_first
+					   && ((stage == 0 && i > 0) || stage > 0)) {
 					continue;
 				}
 
@@ -679,7 +680,8 @@ end:
 					continue;
 				}
 
-				if (analyze_function_opts.allow_impure_args || analyze_function_opts.allow_impure_args_except_first) {
+				if (analyze_function_opts.allow_impure_args
+					|| analyze_function_opts.allow_impure_args_except_first) {
 					continue;
 				}
 
@@ -1136,72 +1138,70 @@ analyze_function(struct workspace *wk,
 	return false;
 }
 
-/* static int32_t */
-/* function_sig_sort(const void *a, const void *b, void *_ctx) */
-/* { */
-/* 	const struct function_signature *sa = a, *sb = b; */
+static int32_t
+function_sig_sort(const void *a, const void *b, void *_ctx)
+{
+	const struct function_signature *sa = a, *sb = b;
 
-/* 	if ((sa->is_method && sb->is_method) || (!sa->is_method && !sb->is_method)) { */
-/* 		return strcmp(sa->name, sb->name); */
-/* 	} else if (sa->is_method) { */
-/* 		return 1; */
-/* 	} else { */
-/* 		return -1; */
-/* 	} */
-/* } */
+	if ((sa->is_method && sb->is_method) || (!sa->is_method && !sb->is_method)) {
+		return strcmp(sa->name, sb->name);
+	} else if (sa->is_method) {
+		return 1;
+	} else {
+		return -1;
+	}
+}
 
 void
 dump_function_signatures(struct workspace *wk)
 {
-#if 0
-	analyze_function_opts.dump_signature = true;
+	wk->vm.dbg_state.dump_signature = true;
 
 	arr_init(&function_sig_dump.sigs, 64, sizeof(struct function_signature));
 	struct function_signature *sig, empty = { 0 };
+	struct func_impl_group *g;
 
 	uint32_t i;
-	for (i = 0; kernel_func_tbl[wk->lang_mode][i].name; ++i) {
-		sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
-		sig->impl = &kernel_func_tbl[wk->lang_mode][i];
-		sig->name = kernel_func_tbl[wk->lang_mode][i].name;
-		sig->returns = typechecking_type_to_s(wk, kernel_func_tbl[wk->lang_mode][i].return_type);
-		kernel_func_tbl[wk->lang_mode][i].func(wk, 0, 0, 0);
-	}
-
 	{
 		enum obj_type t;
 		for (t = 0; t < obj_type_count; ++t) {
-			if (!func_tbl[t][wk->lang_mode]) {
+			g = &func_impl_groups[t][wk->vm.lang_mode];
+			if (!g->impls) {
 				continue;
 			}
 
-			for (i = 0; func_tbl[t][wk->lang_mode][i].name; ++i) {
+			for (i = 0; g->impls[i].name; ++i) {
 				sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
-				sig->impl = &func_tbl[t][wk->lang_mode][i];
-				sig->is_method = true;
-				sig->name = get_cstr(wk, make_strf(wk, "%s.%s", obj_type_to_s(t), func_tbl[t][wk->lang_mode][i].name));
-				sig->returns = typechecking_type_to_s(wk, func_tbl[t][wk->lang_mode][i].return_type);
-				func_tbl[t][wk->lang_mode][i].func(wk, 0, 0, 0);
+				sig->impl = &g->impls[i];
+				sig->is_method = t != 0;
+				sig->name = get_cstr(wk,
+					make_strf(wk,
+						"%s%s%s",
+						t ? obj_type_to_s(t) : "",
+						t ? "." : "",
+						g->impls[i].name));
+				sig->returns = typechecking_type_to_s(wk, g->impls[i].return_type);
+				g->impls[i].func(wk, 0, 0);
 			}
 		}
 	}
 
 	for (i = 0; i < module_count; ++i) {
-		if (!module_func_tbl[i][wk->lang_mode]) {
+		g = &module_func_impl_groups[i][wk->vm.lang_mode];
+		if (!g->impls) {
 			continue;
 		}
 
 		uint32_t j;
-		for (j = 0; module_func_tbl[i][wk->lang_mode][j].name; ++j) {
+		for (j = 0; g->impls[j].name; ++j) {
 			sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
-			sig->impl = &module_func_tbl[i][wk->lang_mode][j];
+			sig->impl = &g->impls[j];
 			sig->is_method = true;
-			sig->name = get_cstr(wk, make_strf(wk, "import('%s').%s", module_names[i], module_func_tbl[i][wk->lang_mode][j].name));
-			sig->returns = typechecking_type_to_s(wk, module_func_tbl[i][wk->lang_mode][j].return_type);
-			module_func_tbl[i][wk->lang_mode][j].func(wk, 0, 0, 0);
+			sig->name = get_cstr(wk, make_strf(wk, "import('%s').%s", module_names[i], g->impls[j].name));
+			sig->returns = typechecking_type_to_s(wk, g->impls[j].return_type);
+			g->impls[j].func(wk, 0, 0);
 		}
 	}
-
 
 	arr_sort(&function_sig_dump.sigs, NULL, function_sig_sort);
 
@@ -1229,5 +1229,4 @@ dump_function_signatures(struct workspace *wk)
 	}
 
 	arr_destroy(&function_sig_dump.sigs);
-#endif
 }

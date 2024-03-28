@@ -98,7 +98,7 @@ struct vm_compiler_state {
 
 struct vm_dbg_state {
 	uint32_t node, last_line;
-	bool stepping, break_on_err;
+	bool stepping, break_on_err, dump_signature;
 	obj watched;
 	obj eval_trace;
 	bool eval_trace_subdir;

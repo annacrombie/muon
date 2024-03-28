@@ -52,5 +52,6 @@ bool analyze_function(struct workspace *wk,
 	obj *res,
 	bool *was_pure);
 
+void dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[]);
 void dump_function_signatures(struct workspace *wk);
 #endif

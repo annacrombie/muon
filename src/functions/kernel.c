@@ -1600,6 +1600,12 @@ func_import(struct workspace *wk, obj _, obj *res)
 static bool
 func_is_disabler(struct workspace *wk, obj _, obj *res)
 {
+	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
+
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
 	UNREACHABLE_RETURN;
 }
 
@@ -1617,6 +1623,11 @@ func_disabler(struct workspace *wk, obj _, obj *res)
 static bool
 func_set_variable(struct workspace *wk, obj _, obj *res)
 {
+	struct args_norm an[] = { { obj_string }, { tc_any }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
 	UNREACHABLE_RETURN;
 }
 
@@ -1644,6 +1655,11 @@ func_unset_variable(struct workspace *wk, obj _, obj *res)
 static bool
 func_get_variable(struct workspace *wk, obj _, obj *res)
 {
+	struct args_norm an[] = { { tc_any }, { tc_any, .optional = true }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
 	UNREACHABLE_RETURN;
 }
 
@@ -1665,6 +1681,10 @@ func_is_variable(struct workspace *wk, obj _, obj *res)
 static bool
 func_subdir_done(struct workspace *wk, obj _, obj *res)
 {
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
 	UNREACHABLE_RETURN;
 }
 

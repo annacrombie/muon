@@ -147,7 +147,7 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 		[kw_disabler] = { "disabler", obj_bool },
 		[kw_modules] = { "modules", TYPE_TAG_LISTIFY | obj_string },
 		0 };
-	if (!pop_args(wk, NULL, akw)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -229,7 +229,7 @@ static bool
 func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
-	if (!pop_args(wk, NULL, NULL)) {
+	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 

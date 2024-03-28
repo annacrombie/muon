@@ -311,6 +311,11 @@ pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 	struct obj_stack_entry *entry;
 	uint32_t i, j, argi;
 
+	if (wk->vm.dbg_state.dump_signature) {
+		dump_function_signature(wk, an, akw);
+		return false;
+	}
+
 	if (akw) {
 		for (i = 0; akw[i].key; ++i) {
 			akw[i].set = false;
