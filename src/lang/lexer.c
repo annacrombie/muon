@@ -1,167 +1,110 @@
 /*
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
- * SPDX-FileCopyrightText: Simon Zeni <simon@bl4ckb0ne.ca>
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
 #include "compat.h"
 
-#include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "buf_size.h"
-#include "error.h"
-#include "lang/eval.h"
 #include "lang/lexer.h"
-#include "log.h"
-#include "platform/filesystem.h"
-#include "platform/mem.h"
-#include "tracy.h"
 
-enum lex_result {
-	lex_cont,
-	lex_done,
-	lex_fail,
-};
-
-struct lexer {
-	struct tokens *toks;
-	struct source *source;
-	struct source_data *sdata;
-	const char *src;
-	uint32_t i, data_i, line, line_start;
-	struct { uint32_t paren, bracket, curl; } enclosing;
-	enum lexer_mode mode;
-};
+/******************************************************************************
+* token printing
+******************************************************************************/
 
 const char *
-tok_type_to_s(enum token_type type)
+token_type_to_s(enum token_type type)
 {
 	switch (type) {
-	case tok_eof: return "end of file";
-	case tok_eol: return "end of line";
-	case tok_lparen: return "(";
-	case tok_rparen: return ")";
-	case tok_lbrack: return "[";
-	case tok_rbrack: return "]";
-	case tok_lcurl: return "{";
-	case tok_rcurl: return "}";
-	case tok_dot: return ".";
-	case tok_comma: return ",";
-	case tok_colon: return ":";
-	case tok_assign: return "=";
-	case tok_plus: return "+";
-	case tok_minus: return "-";
-	case tok_star: return "*";
-	case tok_slash: return "/";
-	case tok_modulo: return "%";
-	case tok_plus_assign: return "+=";
-	case tok_eq: return "==";
-	case tok_neq: return "!=";
-	case tok_gt: return ">";
-	case tok_geq: return ">=";
-	case tok_lt: return "<";
-	case tok_leq: return "<=";
-	case tok_true: return "true";
-	case tok_false: return "false";
-	case tok_if: return "if";
-	case tok_else: return "else";
-	case tok_elif: return "elif";
-	case tok_endif: return "endif";
-	case tok_and: return "and";
-	case tok_or: return "or";
-	case tok_not: return "not";
-	case tok_foreach: return "foreach";
-	case tok_endforeach: return "endforeach";
-	case tok_in: return "in";
-	case tok_continue: return "continue";
-	case tok_break: return "break";
-	case tok_identifier: return "identifier";
-	case tok_string: return "string";
-	case tok_number: return "number";
-	case tok_question_mark: return "?";
-	case tok_stringify: return "stringify";
-	case tok_func: return "func";
-	case tok_endfunc: return "endfunc";
-	case tok_return: return "return";
-	case tok_bitor: return "|";
-	case tok_returntype: return "->";
-	case tok_comment: return "comment";
-	case tok_fmt_eol: return "fmt_eol";
+	case token_type_error: return "error";
+	case token_type_eof: return "end of file";
+	case token_type_eol: return "end of line";
+	case token_type_lparen: return "(";
+	case token_type_rparen: return ")";
+	case token_type_lbrack: return "[";
+	case token_type_rbrack: return "]";
+	case token_type_lcurl: return "{";
+	case token_type_rcurl: return "}";
+	case token_type_dot: return ".";
+	case token_type_comma: return ",";
+	case token_type_colon: return ":";
+	case token_type_assign: return "=";
+	case token_type_plus: return "+";
+	case token_type_minus: return "-";
+	case token_type_star: return "*";
+	case token_type_slash: return "/";
+	case token_type_modulo: return "%";
+	case token_type_plus_assign: return "+=";
+	case token_type_eq: return "==";
+	case token_type_neq: return "!=";
+	case token_type_gt: return ">";
+	case token_type_geq: return ">=";
+	case token_type_lt: return "<";
+	case token_type_leq: return "<=";
+	case token_type_true: return "true";
+	case token_type_false: return "false";
+	case token_type_if: return "if";
+	case token_type_else: return "else";
+	case token_type_elif: return "elif";
+	case token_type_endif: return "endif";
+	case token_type_and: return "and";
+	case token_type_or: return "or";
+	case token_type_not: return "not";
+	case token_type_foreach: return "foreach";
+	case token_type_endforeach: return "endforeach";
+	case token_type_in: return "in";
+	case token_type_continue: return "continue";
+	case token_type_break: return "break";
+	case token_type_identifier: return "identifier";
+	case token_type_string: return "string";
+	case token_type_fstring: return "fstring";
+	case token_type_number: return "number";
+	case token_type_question_mark: return "?";
+	case token_type_func: return "func";
+	case token_type_endfunc: return "endfunc";
+	case token_type_return: return "return";
+	case token_type_bitor: return "|";
+	case token_type_returntype: return "->";
+	case token_type_comment: return "comment";
+	case token_type_fmt_eol: return "fmt_eol";
 	}
 
-	assert(false && "unreachable");
-	return "";
-}
-
-MUON_ATTR_FORMAT(printf, 2, 3)
-static void
-lex_error(struct lexer *l, const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	struct token *last_tok = arr_get(&l->toks->tok, l->toks->tok.len - 1);
-
-	error_messagev(l->source, last_tok->line, last_tok->col, log_error, fmt, args);
-	va_end(args);
+	UNREACHABLE_RETURN;
 }
 
 const char *
-tok_to_s(struct token *token)
+token_to_s(struct workspace *wk, struct token *token)
 {
-	if (!token) {
-		return "<null>";
-	}
+	assert(token);
 
 	static char buf[BUF_SIZE_S + 1];
 	uint32_t i;
 
-	i = snprintf(buf, BUF_SIZE_S, "%s", tok_type_to_s(token->type));
-	if (token->n) {
-		i += snprintf(&buf[i], BUF_SIZE_S - i, ":'%s'", token->dat.s);
-	} else if (token->dat.n) {
-		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%" PRIi64, token->dat.n);
+	i = snprintf(buf, BUF_SIZE_S, "%s", token_type_to_s(token->type));
+	if (token->type == token_type_string
+	    || token->type == token_type_fstring
+	    || token->type == token_type_identifier
+	    || token->type == token_type_error) {
+		i += obj_snprintf(wk, &buf[i], BUF_SIZE_S - i, ":%o", token->data.str);
+	} else if (token->type == token_type_number) {
+		i += snprintf(&buf[i], BUF_SIZE_S - i, ":%" PRIi64, token->data.num);
 	}
 
-	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", token->line, token->col);
+	i += snprintf(&buf[i], BUF_SIZE_S - i, " line %d, col: %d", token->location.line, token->location.col);
 
 	return buf;
 }
 
-static void
-advance(struct lexer *l)
-{
-	if (l->i >= l->source->len) {
-		return;
-	}
+/******************************************************************************
+* char types
+******************************************************************************/
 
-	if (l->src[l->i] == '\n') {
-		++l->line;
-		l->line_start = l->i + 1;
-	}
-
-	++l->i;
-}
-
-static struct token *
-next_tok(struct lexer *l)
-{
-	uint32_t idx = arr_push(&l->toks->tok, &(struct token){ 0 });
-	struct token *tok = arr_get(&l->toks->tok, idx);
-
-	*tok = (struct token) {
-		.line = l->line,
-		.col = l->i - l->line_start + 1,
-	};
-
-	return tok;
-}
-
-static bool
+bool
 is_valid_start_of_identifier(const char c)
 {
 	return c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
@@ -179,7 +122,7 @@ is_hex_digit(const char c)
 	return is_digit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
 }
 
-static bool
+bool
 is_valid_inside_of_identifier(const char c)
 {
 	return is_valid_start_of_identifier(c) || is_digit(c);
@@ -191,29 +134,52 @@ is_skipchar(const char c)
 	return c == '\r' || c == ' ' || c == '\t' || c == '#';
 }
 
-static void
-copy_into_sdata(struct lexer *lexer, struct token *tok, uint32_t start, uint32_t end)
-{
-	tok->dat.s = &lexer->sdata->data[lexer->data_i];
-	tok->n = &lexer->src[end] - &lexer->src[start];
-	memcpy((char *)tok->dat.s, &lexer->src[start], tok->n);
+/******************************************************************************
+* lexer utils
+******************************************************************************/
 
-	lexer->sdata->data[lexer->data_i + tok->n] = 0;
-	lexer->data_i += tok->n + 1;
+#define lexer_str(__len) (struct str) { \
+		&lexer->src[lexer->i], \
+		lexer->i + __len > lexer->source->len ? lexer->source->len - lexer->i : __len \
 }
 
-struct kw_table {
-	const char *name;
-	uint32_t val;
+static void
+lex_advance(struct lexer *lexer)
+{
+	if (lexer->i >= lexer->source->len) {
+		return;
+	}
+
+	if (lexer->src[lexer->i] == '\n') {
+		++lexer->line;
+		lexer->line_start = lexer->i + 1;
+	}
+
+	++lexer->i;
+}
+
+static void
+lex_advance_n(struct lexer *lexer, uint32_t n)
+{
+	uint32_t i;
+	for (i = 0; i < n; ++i) {
+		lex_advance(lexer);
+	}
+}
+
+struct lex_str_token_table {
+	struct str str;
+	int32_t token_type;
 };
 
 static bool
-kw_lookup(const struct kw_table *table, const char *kw, uint32_t len, uint32_t *res)
+lex_str_token_lookup(struct lexer *lexer, struct token *token, const struct lex_str_token_table *table, uint32_t table_len, struct str *str)
 {
 	uint32_t i;
-	for (i = 0; table[i].name; ++i) {
-		if (strlen(table[i].name) == len && strncmp(kw, table[i].name, len) == 0) {
-			*res = table[i].val;
+
+	for (i = 0; i < table_len; ++i) {
+		if (str_eql(&table[i].str, str)) {
+			token->type = table[i].token_type;
 			return true;
 		}
 	}
@@ -221,140 +187,118 @@ kw_lookup(const struct kw_table *table, const char *kw, uint32_t len, uint32_t *
 	return false;
 }
 
-static bool
-keyword(struct lexer *lexer, const char *id, uint32_t len, enum token_type *res)
+static void
+lex_copy_str(struct lexer *lexer, struct token *token, uint32_t start, uint32_t end)
 {
-	static const struct kw_table keywords[] = {
-		{ "and", tok_and },
-		{ "break", tok_break },
-		{ "continue", tok_continue },
-		{ "elif", tok_elif },
-		{ "else", tok_else },
-		{ "endforeach", tok_endforeach },
-		{ "endif", tok_endif },
-		{ "false", tok_false },
-		{ "foreach", tok_foreach },
-		{ "if", tok_if },
-		{ "in", tok_in },
-		{ "not", tok_not },
-		{ "or", tok_or },
-		{ "true", tok_true },
-		{ 0 },
-	};
-
-	if (kw_lookup(keywords, id, len, res)) {
-		return true;
-	}
-
-	if (lexer->mode & lexer_mode_functions) {
-		static const struct kw_table func_keywords[] = {
-			{ "func", tok_func },
-			{ "endfunc", tok_endfunc },
-			{ "return", tok_return },
-			{ 0 },
-		};
-
-		if (kw_lookup(func_keywords, id, len, res)) {
-			return true;
-		}
-	}
-
-	return false;
+	token->data.str = make_strn(lexer->wk, &lexer->src[start], end - start);
 }
 
-static enum lex_result
-number(struct lexer *lexer, struct token *tok)
+static void
+MUON_ATTR_FORMAT(printf, 3, 4)
+lex_error_token(struct lexer *lexer, struct token *token, const char *fmt, ...){
+	token->type = token_type_error;
+
+	va_list args;
+	va_start(args, fmt);
+	token->data.str = make_strfv(lexer->wk, fmt, args);
+	va_end(args);
+}
+
+/******************************************************************************
+* lexer
+******************************************************************************/
+
+static const struct lex_str_token_table lex_2chr_tokens[] = {
+	{ WKSTR_STATIC("!="), token_type_neq },
+	{ WKSTR_STATIC("+="), token_type_plus_assign },
+	{ WKSTR_STATIC("<="), token_type_leq },
+	{ WKSTR_STATIC("=="), token_type_eq },
+	{ WKSTR_STATIC(">="), token_type_geq },
+};
+
+static const struct lex_str_token_table lex_2chr_tokens_func[] = {
+	{ WKSTR_STATIC("->"), token_type_returntype },
+};
+
+static const struct lex_str_token_table lex_keyword_tokens[] = {
+	{ WKSTR_STATIC("and"), token_type_and },
+	{ WKSTR_STATIC("break"), token_type_break },
+	{ WKSTR_STATIC("continue"), token_type_continue },
+	{ WKSTR_STATIC("elif"), token_type_elif },
+	{ WKSTR_STATIC("else"), token_type_else },
+	{ WKSTR_STATIC("endforeach"), token_type_endforeach },
+	{ WKSTR_STATIC("endif"), token_type_endif },
+	{ WKSTR_STATIC("false"), token_type_false },
+	{ WKSTR_STATIC("foreach"), token_type_foreach },
+	{ WKSTR_STATIC("if"), token_type_if },
+	{ WKSTR_STATIC("in"), token_type_in },
+	{ WKSTR_STATIC("not"), token_type_not },
+	{ WKSTR_STATIC("or"), token_type_or },
+	{ WKSTR_STATIC("true"), token_type_true },
+};
+
+static const struct lex_str_token_table lex_keyword_tokens_func[] = {
+	{ WKSTR_STATIC("endfunc"), token_type_endfunc },
+	{ WKSTR_STATIC("func"), token_type_func },
+	{ WKSTR_STATIC("return"), token_type_return },
+};
+
+static void
+lex_number(struct lexer *lexer, struct token *token)
 {
-	tok->type = tok_number;
+	token->type = token_type_number;
 
 	uint32_t base = 10;
 	uint32_t start = lexer->i;
 
 	if (lexer->src[lexer->i] == '0') {
 		switch (lexer->src[lexer->i + 1]) {
-		case 'X':
-		case 'x':
+		case 'X': case 'x':
 			base = 16;
 			lexer->i += 2;
 			break;
-		case 'B':
-		case 'b':
+		case 'B': case 'b':
 			base = 2;
 			lexer->i += 2;
 			break;
-		case 'O':
-		case 'o':
+		case 'O': case 'o':
 			base = 8;
 			lexer->i += 2;
 			break;
 		default:
-			advance(lexer);
+			lex_advance(lexer);
 			if (lexer->mode & lexer_mode_format) {
-				copy_into_sdata(lexer, tok, start, lexer->i);
+				lex_copy_str(lexer, token, start, lexer->i);
 			} else {
-				tok->dat.n = 0;
+				token->data.num = 0;
 			}
-			return lex_cont;
+			return;
 		}
 	}
 
-	char *endptr = NULL;
-
-	errno = 0;
+	char *endptr = 0;
 	int64_t val = strtol(&lexer->src[lexer->i], &endptr, base);
 
 	assert(endptr);
 	if (endptr == &lexer->src[lexer->i]) {
-		lex_error(lexer, "invalid number");
-		return lex_fail;
-	}
-
-	if (errno == ERANGE) {
-		if (val == LONG_MIN) {
-			lex_error(lexer, "underflow when parsing number");
-		} else if (val == LONG_MAX) {
-			lex_error(lexer, "overflow when parsing number");
-		}
-
-		return lex_fail;
+		lex_error_token(lexer, token, "invalid number");
+		return;
+	} else if (errno == ERANGE) {
+		lex_error_token(lexer, token, "number out of range");
+		return;
 	}
 
 	lexer->i += endptr - &lexer->src[lexer->i];
 
 	if (lexer->mode & lexer_mode_format) {
-		copy_into_sdata(lexer, tok, start, lexer->i);
+		lex_copy_str(lexer, token, start, lexer->i);
 	} else {
-		tok->dat.n = val;
+		token->data.num = val;
 	}
-
-	return lex_cont;
-}
-
-static enum lex_result
-lex_identifier(struct lexer *lexer, struct token *token)
-{
-	const char *start = &lexer->src[lexer->i];
-	uint32_t start_i = lexer->i;
-	uint32_t len = 0;
-
-	while (is_valid_inside_of_identifier(lexer->src[lexer->i])) {
-		++len;
-		advance(lexer);
-	}
-
-	assert(len);
-
-	if (!keyword(lexer, start, len, &token->type)) {
-		token->type = tok_identifier;
-
-		copy_into_sdata(lexer, token, start_i, start_i + len);
-	}
-
-	return lex_cont;
 }
 
 static bool
-write_utf8(struct lexer *l, struct token *tok, char *str, uint32_t val)
+lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct sbuf *buf, uint32_t val)
 {
 	uint8_t pre, b, pre_len;
 	uint32_t len, i;
@@ -367,8 +311,7 @@ write_utf8(struct lexer *l, struct token *tok, char *str, uint32_t val)
 	 * */
 
 	if (val <= 0x7f) {
-		str[tok->n] = val;
-		++tok->n;
+		sbuf_push(lexer->wk, buf, val);
 		return true;
 	} else if (val <= 0x07ff) {
 		len = 2;
@@ -386,573 +329,316 @@ write_utf8(struct lexer *l, struct token *tok, char *str, uint32_t val)
 		pre = 0xf0;
 		b = 21;
 	} else {
-		lex_error(l, "invalid utf-8 escape 0x%x", val);
+		lex_error_token(lexer, token, "invalid utf-8 escape 0x%x", val);
 		return false;
 	}
 
-	str[tok->n] = pre | (val >> (b - pre_len));
-	++tok->n;
+	sbuf_push(lexer->wk, buf, pre | (val >> (b - pre_len)));
 
 	for (i = 1; i < len; ++i) {
-		str[tok->n] = 0x80 | ((val >> (b - pre_len - (6 * i))) & 0x3f);
-		++tok->n;
+		sbuf_push(lexer->wk, buf, 0x80 | ((val >> (b - pre_len - (6 * i))) & 0x3f));
 	}
 
 	return true;
 }
 
-static enum lex_result
-lex_string_char(struct lexer *lexer, struct token **tok, bool multiline, bool fstring, char **string, uint32_t *quotes)
+static bool
+lex_string_escape(struct lexer *lexer, struct token *token, struct sbuf *buf)
 {
-	bool done = false;
-	struct token *token = *tok;
-	char *str = *string;
-
-	if (lexer->i >= lexer->source->len) {
-		return lex_fail;
-	}
-
-	switch (lexer->src[lexer->i]) {
-	case '\n':
-		if (multiline) {
-			str[token->n] = lexer->src[lexer->i];
-			++token->n;
-		} else {
-			// unterminated string
-			return lex_fail;
-		}
-		break;
-	case '\\': {
-		if (multiline) {
-			str[token->n] = lexer->src[lexer->i];
-			++token->n;
-		} else {
-			uint32_t esc_line = lexer->line;
-			uint32_t esc_col = lexer->i - lexer->line_start + 1;
-
-			switch (lexer->src[lexer->i + 1]) {
-			case '\\':
-			case '\'':
-				advance(lexer);
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-				break;
-			case 'a':
-				advance(lexer);
-				str[token->n] = '\a';
-				++token->n;
-				break;
-			case 'b':
-				advance(lexer);
-				str[token->n] = '\b';
-				++token->n;
-				break;
-			case 'f':
-				advance(lexer);
-				str[token->n] = '\f';
-				++token->n;
-				break;
-			case 'r':
-				advance(lexer);
-				str[token->n] = '\r';
-				++token->n;
-				break;
-			case 't':
-				advance(lexer);
-				str[token->n] = '\t';
-				++token->n;
-				break;
-			case 'v':
-				advance(lexer);
-				str[token->n] = '\v';
-				++token->n;
-				break;
-			case 'n':
-				advance(lexer);
-				str[token->n] = '\n';
-				++token->n;
-				break;
-			case 'x':
-			case 'u':
-			case 'U': {
-				uint32_t len = 0;
-				switch (lexer->src[lexer->i + 1]) {
-				case 'x':
-					len = 2;
-					break;
-				case 'u':
-					len = 4;
-					break;
-				case 'U':
-					len = 8;
-					break;
-				}
-				advance(lexer);
-
-				char num[9] = { 0 };
-				uint32_t i;
-
-				for (i = 0; i < len; ++i) {
-					num[i] = lexer->src[lexer->i + 1];
-					if (!is_hex_digit(num[i])) {
-						error_message(lexer->source, esc_line, esc_col, log_error, "unterminated hex escape");
-						return lex_fail;
-					}
-					advance(lexer);
-				}
-
-				uint32_t val = strtol(num, NULL, 16);
-
-				if (!write_utf8(lexer, token, str, val)) {
-					return lex_fail;
-				}
-				break;
-			}
-			case '0': case '1': case '2': case '3': case '4':
-			case '5': case '6': case '7': case '8': case '9': {
-				char num[4] = { 0 };
-				uint32_t i;
-
-				for (i = 0; i < 3; ++i) {
-					num[i] = lexer->src[lexer->i + 1];
-					if (!is_digit(num[i])) {
-						break;
-					}
-					advance(lexer);
-				}
-
-				assert(i);
-
-				str[token->n] = strtol(num, NULL, 8);
-				++token->n;
-				break;
-			}
-			default:
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-				advance(lexer);
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-				break;
-			case 0:
-				error_message(lexer->source, esc_line, esc_col, log_error, "unterminated hex escape");
-				return lex_fail;
-			}
-		}
-		break;
-	}
-	case 0:
-		// unterminated string
-		return lex_fail;
-	case '\'':
-		if (multiline) {
-			if (lexer->src[lexer->i + 1] == '\'' && lexer->src[lexer->i + 2] == '\'') {
-				advance(lexer);
-				advance(lexer);
-				done = true;
-			} else {
-				str[token->n] = lexer->src[lexer->i];
-				++token->n;
-			}
-		} else {
-			done = true;
-		}
-		break;
-	case '@': {
-		if (!fstring) {
-			str[token->n] = lexer->src[lexer->i];
-			++token->n;
+	switch (lexer->src[lexer->i + 1]) {
+	case '\\': case '\'':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
+		return true;
+	case 'a':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, '\a');
+		return true;
+	case 'b':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, '\b');
+		return true;
+	case 'f':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, '\f');
+		return true;
+	case 'r':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, '\r');
+		return true;
+	case 't':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, '\t');
+		return true;
+	case 'v':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, '\v');
+		return true;
+	case 'n':
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, '\n');
+		return true;
+	case 'x':
+	case 'u':
+	case 'U': {
+		uint32_t len = 0;
+		switch (lexer->src[lexer->i + 1]) {
+		case 'x':
+			len = 2;
+			break;
+		case 'u':
+			len = 4;
+			break;
+		case 'U':
+			len = 8;
 			break;
 		}
+		lex_advance(lexer);
 
-		uint32_t i = 1;
-		bool match = false;
-		if (is_valid_start_of_identifier(lexer->src[lexer->i + i])) {
-			for (; lexer->src[lexer->i + i]; ++i) {
-				if (!is_valid_inside_of_identifier(lexer->src[lexer->i + i])) {
-					break;
-				}
-			}
+		char num[9] = { 0 };
+		uint32_t i;
 
-			if (lexer->src[lexer->i] == '@') {
-				match = true;
+		for (i = 0; i < len; ++i) {
+			num[i] = lexer->src[lexer->i + 1];
+			if (!is_hex_digit(num[i])) {
+				lex_error_token(lexer, token, "unterminated hex escape");
+				return false;
 			}
+			lex_advance(lexer);
 		}
 
-		if (!match) {
-			str[token->n] = lexer->src[lexer->i];
-			++token->n;
-			break;
+		uint32_t val = strtol(num, 0, 16);
+
+		return lex_string_escape_utf8(lexer, token, buf, val);
+	}
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9': {
+		char num[4] = { 0 };
+		uint32_t i;
+
+		for (i = 0; i < 3; ++i) {
+			num[i] = lexer->src[lexer->i + 1];
+			if (!is_digit(num[i])) {
+				break;
+			}
+			lex_advance(lexer);
 		}
 
-		advance(lexer);
-		lexer->data_i += token->n + 1;
-
-		next_tok(lexer)->type = tok_plus;
-
-		next_tok(lexer)->type = tok_stringify;
-		lex_identifier(lexer, next_tok(lexer));
-		advance(lexer);
-
-		next_tok(lexer)->type = tok_plus;
-
-		*tok = next_tok(lexer);
-		*string = &lexer->sdata->data[lexer->data_i];
-		token = *tok;
-		str = *string;
-
-		token->type = tok_string;
-		token->dat.s = str;
-		return lex_cont;
+		sbuf_push(lexer->wk, buf, strtol(num, 0, 8));
+		return true;
 	}
 	default:
-		str[token->n] = lexer->src[lexer->i];
-		++token->n;
-		break;
+		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
+		lex_advance(lexer);
+		sbuf_push(lexer->wk, buf, lexer->src[lexer->i]);
+		return true;
+	case 0:
+		lex_error_token(lexer, token, "unterminated hex escape");
+		return false;
 	}
 
-	advance(lexer);
-
-	if (done) {
-		str[token->n] = 0;
-		return lex_done;
-	}
-
-	return lex_cont;
+	UNREACHABLE_RETURN;
 }
 
-static enum lex_result
-lex_string(struct lexer *lexer, struct token *token, bool fstring)
+static void
+lex_string(struct lexer *lexer, struct token *token)
 {
-	bool multiline;
-	uint32_t quotes = 0;
-	uint32_t start = lexer->i, data_start = lexer->data_i;
+	const struct str multiline_terminator = WKSTR("'''");
+	SBUF(buf);
 
-	if (fstring && (lexer->mode & lexer_mode_format)) {
-		start = lexer->i - 1;
-		fstring = false;
+	if (str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
+		lex_advance_n(lexer, multiline_terminator.len);
+		uint32_t start = lexer->i;
+
+		while (lexer->source->len - lexer->i >= multiline_terminator.len
+		       && !str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
+			lex_advance(lexer);
+		}
+
+		if (str_eql(&lexer_str(multiline_terminator.len), &multiline_terminator)) {
+			sbuf_pushn(lexer->wk, &buf, &lexer->src[start], lexer->i - start);
+			lex_advance_n(lexer, 3);
+			token->data.str = sbuf_into_str(lexer->wk, &buf);
+		} else {
+			lex_error_token(lexer, token, "unterminated multiline string");
+		}
+
+		return;
 	}
 
-	if (strncmp(&lexer->src[lexer->i], "'''", 3) == 0) {
-		multiline = true;
-		advance(lexer);
-		advance(lexer);
-		advance(lexer);
-	} else {
-		multiline = false;
-		advance(lexer);
-	}
+	lex_advance(lexer);
 
-	char *str = &lexer->sdata->data[lexer->data_i];
-	token->type = tok_string;
-	token->dat.s = str;
-
-	bool loop = true;
-	enum lex_result ret = lex_cont;
-	while (loop) {
-		switch (lex_string_char(lexer, &token, multiline, fstring, &str, &quotes)) {
-		case lex_cont:
-			break;
-		case lex_done:
-			loop = false;
-			break;
-		case lex_fail: {
-			bool terminated = false;
-			while (lexer->i < lexer->source->len
-			       && lexer->src[lexer->i]
-			       && (multiline || (!multiline && lexer->src[lexer->i] != '\n'))) {
-				if (lexer->src[lexer->i] == '\'') {
-					++quotes;
-					if ((multiline && quotes == 3) || (!multiline && quotes)) {
-						advance(lexer);
-						terminated = true;
-						break;
-					}
-				}
-				advance(lexer);
+	for (; lexer->i < lexer->source->len && lexer->src[lexer->i] != '\''; lex_advance(lexer)) {
+		switch (lexer->src[lexer->i]) {
+		case 0: case '\n':
+			goto untermniated_string;
+		case '\\': {
+			if (!lex_string_escape(lexer, token, &buf)) {
+				return;
 			}
-
-			if (!terminated) {
-				lex_error(lexer, "unterminated string");
-			}
-
-			loop = false;
-			ret = lex_fail;
 			break;
 		}
+		default:
+			sbuf_push(lexer->wk, &buf, lexer->src[lexer->i]);
+			break;
 		}
 	}
 
-	lexer->data_i += token->n + 1;
-
-	if (lexer->mode & lexer_mode_format) {
-		lexer->data_i = data_start;
-		copy_into_sdata(lexer, token, start, lexer->i);
+	if (lexer->src[lexer->i] != '\'') {
+untermniated_string:
+		lex_error_token(lexer, token, "unterminated string");
+		return;
 	}
-	return ret;
+
+	lex_advance(lexer);
+
+	token->data.str = sbuf_into_str(lexer->wk, &buf);
 }
 
-static enum lex_result
-lexer_tokenize_one(struct lexer *lexer)
+void
+lexer_next(struct lexer *lexer, struct token *token)
 {
+restart:
+	*token = (struct token) {
+		.location = (struct source_location) {
+			.line = lexer->line,
+			.col = lexer->i - lexer->line_start + 1,
+		}
+	};
+
+	if (lexer->i >= lexer->source->len) {
+		token->type = token_type_eof;
+		return;
+	}
+
 	while (is_skipchar(lexer->src[lexer->i])) {
 		if (lexer->src[lexer->i] == '#') {
-			advance(lexer);
+			lex_advance(lexer);
 
 			uint32_t start = lexer->i;
 
 			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
-				advance(lexer);
+				lex_advance(lexer);
 			}
 
 			if (lexer->mode & lexer_mode_format) {
-				struct token *comment = next_tok(lexer);
-				comment->type = tok_comment;
-				copy_into_sdata(lexer, comment, start, lexer->i);
+				token->type = token_type_comment;
+				lex_copy_str(lexer, token, start, lexer->i);
+				return;
 			}
 		} else {
-			advance(lexer);
+			lex_advance(lexer);
 		}
 	}
 
-	if (lexer->src[lexer->i] == '\\' && lexer->src[lexer->i + 1] == '\n') {
-		advance(lexer);
-		advance(lexer);
-		return lexer_tokenize_one(lexer);
+	if (str_eql(&lexer_str(2), &WKSTR("\\\n"))) {
+		lex_advance_n(lexer, 2);
+		goto restart;
 	}
 
-	struct token *token = next_tok(lexer);
+	struct str lexer_str_2chr = lexer_str(2);
+	if (lex_str_token_lookup(lexer, token, lex_2chr_tokens, ARRAY_LEN(lex_2chr_tokens), &lexer_str_2chr)
+	    || ((lexer->mode & lexer_mode_functions)
+		&& lex_str_token_lookup(lexer, token, lex_2chr_tokens_func, ARRAY_LEN(lex_2chr_tokens_func), &lexer_str_2chr))) {
+		lex_advance_n(lexer, 2);
+		return;
+	}
 
-	if (lexer->src[lexer->i] == 'f' && lexer->src[lexer->i + 1] == '\'') {
-		advance(lexer);
-		return lex_string(lexer, token, true);
-	} else if (lexer->src[lexer->i] == '\'') {
-		return lex_string(lexer, token, false);
+	if (str_eql(&lexer_str(2), &WKSTR("f\'"))) {
+		lex_advance(lexer);
+		token->type = token_type_fstring;
+		lex_string(lexer, token);
+		return;
 	} else if (is_valid_start_of_identifier(lexer->src[lexer->i])) {
-		return lex_identifier(lexer, token);
+		uint32_t start = lexer->i;
+		struct str str = { &lexer->src[lexer->i] };
+
+		while (is_valid_inside_of_identifier(lexer->src[lexer->i])) {
+			lex_advance(lexer);
+			++str.len;
+		}
+
+		if (lex_str_token_lookup(lexer, token, lex_keyword_tokens, ARRAY_LEN(lex_keyword_tokens), &str)
+		    || ((lexer->mode & lexer_mode_functions)
+			&& lex_str_token_lookup(lexer, token, lex_keyword_tokens_func, ARRAY_LEN(lex_keyword_tokens_func), &str))) {
+			return;
+		} else {
+			token->type = token_type_identifier;
+			lex_copy_str(lexer, token, start, lexer->i);
+		}
+
+		return;
 	} else if (is_digit(lexer->src[lexer->i])) {
-		return number(lexer, token);
-	} else {
-		switch (lexer->src[lexer->i]) {
-		case '\n':
-			if (lexer->enclosing.paren || lexer->enclosing.bracket
-			    || lexer->enclosing.curl) {
-				if (lexer->mode & lexer_mode_format) {
-					token->type = tok_fmt_eol;
-				} else {
-					goto skip;
-				}
-			} else {
-				token->type = tok_eol;
-			}
-			break;
-		case '(':
-			++lexer->enclosing.paren;
-			token->type = tok_lparen;
-			break;
-		case ')':
-			if (!lexer->enclosing.paren) {
-				lex_error(lexer, "closing ')' without a matching opening '('");
-				return lex_fail;
-			}
-			--lexer->enclosing.paren;
+		lex_number(lexer, token);
+		return;
+	}
 
-			token->type = tok_rparen;
-			break;
-		case '[':
-			++lexer->enclosing.bracket;
-			token->type = tok_lbrack;
-			break;
-		case ']':
-			if (!lexer->enclosing.bracket) {
-				lex_error(lexer, "closing ']' without a matching opening '['");
-				return lex_fail;
-			}
-			--lexer->enclosing.bracket;
+	switch (lexer->src[lexer->i]) {
+	case '\n':
+		lex_advance(lexer);
 
-			token->type = tok_rbrack;
-			break;
-		case '{':
-			++lexer->enclosing.curl;
-			token->type = tok_lcurl;
-			break;
-		case '}':
-			if (!lexer->enclosing.curl) {
-				lex_error(lexer, "closing '}' without a matching opening '{'");
-				return lex_fail;
+		if (lexer->enclosing) {
+			if (lexer->mode & lexer_mode_format) {
+				token->type = token_type_fmt_eol;
+			} else {
+				goto restart;
 			}
-			--lexer->enclosing.curl;
+		} else {
+			token->type = token_type_eol;
+		}
+		return;
+	case '\'':
+		token->type = token_type_string;
+		lex_string(lexer, token);
+		return;
+	case '(': case '[': case '{':
+		token->type = lexer->src[lexer->i];
+		++lexer->enclosing;
+		break;
+	case ')': case ']': case '}':
+		token->type = lexer->src[lexer->i];
+		if (lexer->enclosing) {
+			--lexer->enclosing;
+		}
+		break;
+	case '.': case ',': case ':': case '?':
+	case '+': case '-': case '*': case '/':
+	case '%': case '=':
+	case '>': case '<':
+		token->type = lexer->src[lexer->i];
+		break;
+	case '|':
+		if (!(lexer->mode & lexer_mode_functions)) {
+			goto unexpected_character;
+		}
 
-			token->type = tok_rcurl;
-			break;
-		case '.':
-			token->type = tok_dot;
-			break;
-		case ',':
-			token->type = tok_comma;
-			break;
-		case ':':
-			token->type = tok_colon;
-			break;
-		case '?':
-			token->type = tok_question_mark;
-			break;
-		// arithmetic
-		case '+':
-			if (lexer->src[lexer->i + 1] == '=') {
-				advance(lexer);
-				token->type = tok_plus_assign;
-			} else {
-				token->type = tok_plus;
-			}
-			break;
-		case '-':
-			if ((lexer->mode & lexer_mode_functions) && lexer->src[lexer->i + 1] == '>') {
-				advance(lexer);
-				token->type = tok_returntype;
-			} else {
-				token->type = tok_minus;
-			}
-			break;
-		case '*':
-			token->type = tok_star;
-			break;
-		case '/':
-			token->type = tok_slash;
-			break;
-		case '%':
-			token->type = tok_modulo;
-			break;
-		case '=':
-			if (lexer->src[lexer->i + 1] == '=') {
-				advance(lexer);
-				token->type = tok_eq;
-			} else {
-				token->type = tok_assign;
-			}
-			break;
-		case '!':
-			if (lexer->src[lexer->i + 1] == '=') {
-				advance(lexer);
-				token->type = tok_neq;
-			} else {
-				lex_error(lexer, "unexpected character: '%c'", lexer->src[lexer->i]);
-				return lex_fail;
-			}
-			break;
-		case '>':
-			if (lexer->src[lexer->i + 1] == '=') {
-				advance(lexer);
-				token->type = tok_geq;
-			} else {
-				token->type = tok_gt;
-			}
-			break;
-		case '<':
-			if (lexer->src[lexer->i + 1] == '=') {
-				advance(lexer);
-				token->type = tok_leq;
-			} else {
-				token->type = tok_lt;
-			}
-			break;
-		case '\0':
-			if (lexer->i != lexer->source->len) {
-				lex_error(lexer, "unexpected null byte");
-				return lex_fail;
-			}
-			token->type = tok_eof;
-			return lex_done;
-		case '|':
-			if (!(lexer->mode & lexer_mode_functions)) {
-				goto unexpected_character;
-			}
+		token->type = lexer->src[lexer->i];
+		break;
+	case '\0':
+		if (lexer->i != lexer->source->len) {
+			goto unexpected_character;
+		}
 
-			token->type = tok_bitor;
-			break;
-		default:
+		token->type = token_type_eof;
+		break;
+	default:
 unexpected_character:
-			lex_error(lexer, "unexpected character: '%c'", lexer->src[lexer->i]);
-			return lex_fail;
-		}
-
-		advance(lexer);
-		return lex_cont;
+		lex_error_token(lexer, token, "unexpected character: '%c'", lexer->src[lexer->i]);
+		break;
 	}
 
-	assert(false && "unreachable");
-	return lex_fail;
-skip:
-	advance(lexer);
-	--lexer->toks->tok.len;
-	return lex_cont;
-}
-
-static bool
-tokenize(struct lexer *lexer)
-{
-	bool success = true, loop = true;
-
-	while (loop && lexer->i <= lexer->source->len) {
-		switch (lexer_tokenize_one(lexer)) {
-		case lex_cont:
-			break;
-		case lex_fail:
-			success = false;
-			advance(lexer);
-			break;
-		case lex_done:
-			loop = false;
-			break;
-		}
-	}
-
-	if (success) {
-		assert(((struct token *)arr_get(&lexer->toks->tok, lexer->toks->tok.len - 1))->type == tok_eof
-			&& "lexer failed to terminate token stream with tok_eof");
-	}
-
-	/* { */
-	/* 	uint32_t i; */
-	/* 	struct token *tok; */
-	/* 	for (i = 0; i < lexer->toks->tok.len; ++i) { */
-	/* 		tok = arr_get(&lexer->toks->tok, i); */
-	/* 		log_plain("%s\n", tok_to_s(tok)); */
-	/* 	} */
-	/* } */
-
-	return success;
-}
-
-bool
-lexer_lex(struct tokens *toks, struct source_data *sdata, struct source *src,
-	enum lexer_mode mode)
-{
-	TracyCZoneAutoS;
-	*toks = (struct tokens) { 0 };
-
-	struct lexer lexer = {
-		.source = src,
-		.line = 1,
-		.src = src->src,
-		.toks = toks,
-		.sdata = sdata,
-		.mode = mode,
-	};
-
-	arr_init(&toks->tok, 2048, sizeof(struct token));
-
-	// TODO: this could be done much more conservatively
-	sdata->data_len = src->len + 1;
-	sdata->data = z_malloc(sdata->data_len);
-
-	bool ret = tokenize(&lexer);
-	TracyCZoneAutoE;
-	return ret;
+	lex_advance(lexer);
+	return;
 }
 
 void
-tokens_destroy(struct tokens *toks)
+lexer_init(struct lexer *lexer, struct workspace *wk, struct source *src, enum lexer_mode mode)
 {
-	arr_destroy(&toks->tok);
+	*lexer = (struct lexer) {
+		.wk = wk,
+		.source = src,
+		.line = 1,
+		.src = src->src,
+		.mode = mode,
+	};
 }

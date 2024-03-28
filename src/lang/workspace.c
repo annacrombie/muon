@@ -163,7 +163,6 @@ workspace_init(struct workspace *wk)
 
 	arr_init(&wk->projects, 16, sizeof(struct project));
 	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
-	arr_init(&wk->source_data, 4, sizeof(struct source_data));
 	bucket_arr_init(&wk->asts, 4, sizeof(struct ast));
 
 	make_obj(wk, &wk->default_scope, obj_array);
@@ -233,11 +232,6 @@ void
 workspace_destroy(struct workspace *wk)
 {
 	uint32_t i;
-	for (i = 0; i < wk->source_data.len; ++i) {
-		struct source_data *sdata = arr_get(&wk->source_data, i);
-		source_data_destroy(sdata);
-	}
-
 	for (i = 0; i < wk->asts.len; ++i) {
 		struct ast *ast = bucket_arr_get(&wk->asts, i);
 		ast_destroy(ast);
@@ -245,7 +239,6 @@ workspace_destroy(struct workspace *wk)
 
 	arr_destroy(&wk->projects);
 	arr_destroy(&wk->option_overrides);
-	arr_destroy(&wk->source_data);
 	bucket_arr_destroy(&wk->asts);
 
 	workspace_destroy_bare(wk);

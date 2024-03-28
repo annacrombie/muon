@@ -18,12 +18,12 @@
 
 struct ini_parse_ctx {
 	struct source src;
+	struct source_location location;
 	const char *comment_chars;
 	bool keyval;
 	void *octx;
 	char *sect;
 	inihcb cb;
-	uint32_t line;
 	bool success;
 };
 
@@ -43,13 +43,15 @@ static enum iteration_result
 ini_parse_line_cb(void *_ctx, char *line, size_t len)
 {
 	struct ini_parse_ctx *ctx = _ctx;
+	struct source_location location = ctx->location;
 	char *ptr, *key, *val;
 
 	if (!*line || strchr(ctx->comment_chars, *line) || line_is_whitespace(line)) {
 		goto done_with_line;
 	} else if (!ctx->keyval && *line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
-			error_messagef(&ctx->src, ctx->line, strlen(line) + 1, log_error, "expected ']'");
+			location.col = strlen(line) + 1;
+			error_messagef(&ctx->src, location, log_error, "expected ']'");
 			ctx->success = false;
 			goto done_with_line;
 		}
@@ -58,7 +60,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 
 		ctx->sect = line + 1;
 
-		if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, NULL, NULL, ctx->line)) {
+		if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, NULL, NULL, location)) {
 			ctx->success = false;
 		}
 		goto done_with_line;
@@ -66,7 +68,8 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 
 	if (!(ptr = strchr(line, '='))) {
 		if (!ctx->keyval) {
-			error_messagef(&ctx->src, ctx->line, strlen(line) + 1, log_error, "expected '='");
+			location.col = strlen(line) + 1;
+			error_messagef(&ctx->src, location, log_error, "expected '='");
 			ctx->success = false;
 		}
 		goto done_with_line;
@@ -92,7 +95,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 		--val_end;
 	}
 
-	if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, key, val, ctx->line)) {
+	if (!ctx->cb(ctx->octx, &ctx->src, ctx->sect, key, val, location)) {
 		ctx->success = false;
 	}
 
@@ -101,7 +104,7 @@ done_with_line:
 		return ir_done;
 	}
 
-	++ctx->line;
+	++ctx->location.line;
 
 	return ir_cont;
 }
@@ -113,7 +116,7 @@ ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, vo
 		.comment_chars = ";#",
 		.octx = octx,
 		.cb = cb,
-		.line = 1,
+		.location = { 1, 1 },
 		.success = true,
 		.src = *src,
 	};
@@ -150,7 +153,7 @@ keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *
 		.keyval = true,
 		.octx = octx,
 		.cb = cb,
-		.line = 1,
+		.location = { 1, 1 },
 		.success = true,
 		.src = *src,
 	};

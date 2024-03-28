@@ -66,24 +66,24 @@ lookup_wrap_str(const char *s, const char *strs[], uint32_t len, uint32_t *res)
 
 struct wrap_parse_ctx {
 	struct wrap wrap;
-	uint32_t field_lines[wrap_fields_count];
+	struct source_location wrap_field_source_location[wrap_fields_count];
 	enum wrap_type section;
 	bool have_type;
 };
 
 static bool
 wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, uint32_t line)
+	const char *k, const char *v, struct source_location location)
 {
 	uint32_t res;
 	struct wrap_parse_ctx *ctx = _ctx;
 
 	if (!sect) {
-		error_messagef(src, line, 1, log_error, "key not under wrap section");
+		error_messagef(src, location, log_error, "key not under wrap section");
 		return false;
 	} else if (!k) {
 		if (!lookup_wrap_str(sect, wrap_type_section_header, wrap_type_count, &res)) {
-			error_messagef(src, line, 1, log_error, "invalid section '%s'", sect);
+			error_messagef(src, location, log_error, "invalid section '%s'", sect);
 			return false;
 		}
 
@@ -95,7 +95,7 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 		}
 
 		if (ctx->have_type) {
-			error_messagef(src, line, 1, log_error, "conflicting wrap types");
+			error_messagef(src, location, log_error, "conflicting wrap types");
 			return false;
 		}
 
@@ -109,15 +109,15 @@ wrap_parse_cb(void *_ctx, struct source *src, const char *sect,
 	assert(k && v);
 
 	if (!lookup_wrap_str(k, wrap_field_names, wrap_fields_count, &res)) {
-		error_messagef(src, line, 1, log_error, "invalid key \"%s\"", k);
+		error_messagef(src, location, log_error, "invalid key \"%s\"", k);
 		return false;
 	} else if (ctx->wrap.fields[res]) {
-		error_messagef(src, line, 1, log_error, "duplicate key \"%s\"", k);
+		error_messagef(src, location, log_error, "duplicate key \"%s\"", k);
 		return false;
 	}
 
 	ctx->wrap.fields[res] = v;
-	ctx->field_lines[res] = line;
+	ctx->wrap_field_source_location[res] = location;
 	return true;
 }
 
@@ -130,7 +130,7 @@ struct wrap_parse_provides_ctx {
 	enum wrap_type section;
 	obj add_provides_tgt;
 	struct source *src;
-	uint32_t line;
+	struct source_location location;
 };
 
 static void
@@ -140,7 +140,7 @@ wrap_check_provide_duplication(struct workspace *wk,
 {
 	obj oldval;
 	if (obj_dict_index(wk, provides, key, &oldval)) {
-		error_messagef(ctx->src, ctx->line, 1, log_warn,
+		error_messagef(ctx->src, ctx->location, log_warn,
 			"previous provide for %o from %o, is being overridden by %o", key, oldval, val);
 	}
 }
@@ -158,11 +158,11 @@ wrap_parse_provides_cb_add_provides_iter(struct workspace *wk, void *_ctx, obj v
 
 static bool
 wrap_parse_provides_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, uint32_t line)
+	const char *k, const char *v, struct source_location location)
 {
 	struct wrap_parse_provides_ctx *ctx = _ctx;
 	ctx->src = src;
-	ctx->line = line;
+	ctx->location = location;
 
 	if (!sect) {
 		UNREACHABLE_RETURN;
@@ -183,10 +183,10 @@ wrap_parse_provides_cb(void *_ctx, struct source *src, const char *sect,
 	}
 
 	if (!*k) {
-		error_messagef(src, line, 1, log_error, "empty provides key \"%s\"", k);
+		error_messagef(src, location, log_error, "empty provides key \"%s\"", k);
 		return false;
 	} else if (!*v) {
-		error_messagef(src, line, 1, log_error, "empty provides value \"%s\"", v);
+		error_messagef(src, location, log_error, "empty provides value \"%s\"", v);
 		return false;
 	}
 
@@ -395,13 +395,13 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 			break;
 		case required:
 			if (!ctx->wrap.fields[i]) {
-				error_messagef(&ctx->wrap.src, 1, 1, log_error, "missing field '%s'", wrap_field_names[i]);
+				error_messagef(&ctx->wrap.src, (struct source_location) { 1, 1}, log_error, "missing field '%s'", wrap_field_names[i]);
 				valid = false;
 			}
 			break;
 		case invalid:
 			if (ctx->wrap.fields[i]) {
-				error_messagef(&ctx->wrap.src, ctx->field_lines[i], 1, log_error, "invalid field");
+				error_messagef(&ctx->wrap.src, ctx->wrap_field_source_location[i], log_error, "invalid field");
 				valid = false;
 			}
 			break;

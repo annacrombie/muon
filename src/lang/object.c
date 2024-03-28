@@ -2161,6 +2161,30 @@ obj_asprintf(struct workspace *wk, struct sbuf *sb, const char *fmt, ...)
 	return ret;
 }
 
+uint32_t
+obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap)
+{
+	SBUF(sbuf);
+
+	if (!obj_vasprintf(wk, &sbuf, fmt, ap)) {
+		return 0;
+	}
+	uint32_t copy = sbuf.len > len - 1 ? len - 1 : sbuf.len;
+
+	strncpy(buf, sbuf.buf, len - 1);
+	return copy;
+}
+
+uint32_t
+obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	bool ret = obj_vsnprintf(wk, buf, len, fmt, ap);
+	va_end(ap);
+	return ret;
+}
+
 bool
 obj_vfprintf(struct workspace *wk, FILE *f, const char *fmt, va_list ap)
 {

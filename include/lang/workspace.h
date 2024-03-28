@@ -103,7 +103,6 @@ struct workspace {
 
 	struct arr projects;
 	struct arr option_overrides;
-	struct arr source_data;
 	struct bucket_arr asts;
 
 	struct hash obj_hash, str_hash;

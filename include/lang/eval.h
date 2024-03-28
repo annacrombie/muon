@@ -22,12 +22,6 @@ enum eval_mode {
 	eval_mode_first,
 };
 
-struct source_data {
-	char *data;
-	uint64_t data_len;
-};
-
-void source_data_destroy(struct source_data *sdata);
 bool eval_project(struct workspace *wk, const char *subproject_name, const char *cwd,
 	const char *build_dir, uint32_t *proj_id);
 bool eval_project_file(struct workspace *wk, const char *path, bool first);

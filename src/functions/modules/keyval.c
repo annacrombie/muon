@@ -19,7 +19,7 @@ struct keyval_parse_ctx {
 };
 
 static bool
-keyval_parse_cb(void *_ctx, struct source *src, const char *sect, const char *k, const char *v, uint32_t line)
+keyval_parse_cb(void *_ctx, struct source *src, const char *sect, const char *k, const char *v, struct source_location location)
 {
 	struct keyval_parse_ctx *ctx = _ctx;
 

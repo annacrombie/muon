@@ -17,7 +17,7 @@
 #include "platform/mem.h"
 
 struct error_diagnostic_message {
-	uint32_t line, col;
+	struct source_location location;
 	enum log_level lvl;
 	const char *msg;
 	uint32_t src_idx;
@@ -33,13 +33,13 @@ static struct {
 	bool init;
 	struct {
 		struct source *src;
-		uint32_t line, col;
+		struct source_location location;
 		bool redirect;
 	} redirect;
 } error_diagnostic_store;
 
-void
-error_diagnostic_store_redirect(struct source *src, uint32_t line, uint32_t col)
+	void
+error_diagnostic_store_redirect(struct source *src, struct source_location location)
 {
 	if (error_diagnostic_store.redirect.redirect) {
 		return;
@@ -47,8 +47,7 @@ error_diagnostic_store_redirect(struct source *src, uint32_t line, uint32_t col)
 
 	error_diagnostic_store.redirect.redirect = true;
 	error_diagnostic_store.redirect.src = src;
-	error_diagnostic_store.redirect.line = line;
-	error_diagnostic_store.redirect.col = col;
+	error_diagnostic_store.redirect.location = location;
 }
 
 void
@@ -99,7 +98,7 @@ error_diagnostic_store_push_src(struct source *src)
 }
 
 void
-error_diagnostic_store_push(uint32_t src_idx, uint32_t line, uint32_t col, enum log_level lvl, const char *msg)
+error_diagnostic_store_push(uint32_t src_idx, struct source_location location, enum log_level lvl, const char *msg)
 {
 	uint32_t mlen = strlen(msg);
 	char *m = z_calloc(mlen + 1, 1);
@@ -107,8 +106,7 @@ error_diagnostic_store_push(uint32_t src_idx, uint32_t line, uint32_t col, enum 
 
 	arr_push(&error_diagnostic_store.messages,
 		&(struct error_diagnostic_message){
-		.line = line,
-		.col = col,
+		.location = location,
 		.lvl = lvl,
 		.msg = m,
 		.src_idx = src_idx,
@@ -123,10 +121,10 @@ error_diagnostic_store_compare_except_lvl(const void *_a, const void *_b, void *
 
 	if (a->src_idx != b->src_idx) {
 		return (int32_t)a->src_idx - (int32_t)b->src_idx;
-	} else if (a->line != b->line) {
-		return (int32_t)a->line - (int32_t)b->line;
-	} else if (a->col != b->col) {
-		return (int32_t)a->col - (int32_t)b->col;
+	} else if (a->location.line != b->location.line) {
+		return (int32_t)a->location.line - (int32_t)b->location.line;
+	} else if (a->location.col != b->location.col) {
+		return (int32_t)a->location.col - (int32_t)b->location.col;
 	} else if ((v = strcmp(a->msg, b->msg)) != 0) {
 		return v;
 	} else {
@@ -221,7 +219,7 @@ error_diagnostic_store_replay(enum error_diagnostic_store_replay_opts opts, bool
 			}
 		}
 
-		error_message(&src, msg->line, msg->col, msg->lvl, msg->msg);
+		error_message(&src, msg->location, msg->lvl, msg->msg);
 	}
 
 	for (i = 0; i < initial_len; ++i) {
@@ -382,20 +380,19 @@ list_line_range(struct source *src, uint32_t lno, uint32_t list_amt, uint32_t co
 }
 
 void
-error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *msg)
+error_message(struct source *src, struct source_location location, enum log_level lvl, const char *msg)
 {
 	if (error_diagnostic_store.init) {
 		if (error_diagnostic_store.redirect.redirect) {
 			src = error_diagnostic_store.redirect.src;
-			line = error_diagnostic_store.redirect.line;
-			col = error_diagnostic_store.redirect.col;
+			location = error_diagnostic_store.redirect.location;
 		}
 
-		error_diagnostic_store_push(error_diagnostic_store_push_src(src), line, col, lvl, msg);
+		error_diagnostic_store_push(error_diagnostic_store_push_src(src), location, lvl, msg);
 		return;
 	}
 
-	log_plain("%s:%d:%d: ", src->label, line, col);
+	log_plain("%s:%d:%d: ", src->label, location.line, location.col);
 
 	if (log_clr()) {
 		log_plain("\033[%sm%s\033[0m ", log_level_clr[lvl], log_level_name[lvl]);
@@ -409,11 +406,11 @@ error_message(struct source *src, uint32_t line, uint32_t col, enum log_level lv
 	reopen_source(src, &destroy_source);
 
 	uint32_t line_pre_len, sol;
-	if (!list_line_internal(src, line, &sol, &line_pre_len)) {
+	if (!list_line_internal(src, location.line, &sol, &line_pre_len)) {
 		goto ret;
 	}
 
-	list_line_col_marker(src, col, sol, line_pre_len);
+	list_line_col_marker(src, location.col, sol, line_pre_len);
 
 ret:
 	if (destroy_source) {
@@ -422,18 +419,18 @@ ret:
 }
 
 void
-error_messagev(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *fmt, va_list args)
+error_messagev(struct source *src, struct source_location location, enum log_level lvl, const char *fmt, va_list args)
 {
 	static char buf[BUF_SIZE_4k];
 	vsnprintf(buf, BUF_SIZE_4k, fmt, args);
-	error_message(src, line, col, lvl, buf);
+	error_message(src, location, lvl, buf);
 }
 
 void
-error_messagef(struct source *src, uint32_t line, uint32_t col, enum log_level lvl, const char *fmt, ...)
+error_messagef(struct source *src, struct source_location location, enum log_level lvl, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	error_messagev(src, line, col, lvl, fmt, ap);
+	error_messagev(src, location, lvl, fmt, ap);
 	va_end(ap);
 }

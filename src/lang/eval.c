@@ -98,7 +98,7 @@ ensure_project_is_first_statement(struct workspace *wk, struct ast *ast, bool ch
 
 	err_node = n->l;
 	n = get_node(ast, n->l);
-	if (!(n->type == node_id && strcmp(n->dat.s, "project") == 0)) {
+	if (!(n->type == node_id && str_eql(get_str(wk, n->data.str), &WKSTR("project")))) {
 		goto err;
 	}
 
@@ -136,9 +136,6 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		}
 	}
 
-	struct source_data *sdata =
-		arr_get(&wk->source_data, arr_push(&wk->source_data, &(struct source_data) { 0 }));
-
 	enum parse_mode parse_mode = 0;
 	if (mode == eval_mode_repl) {
 		parse_mode |= pm_ignore_statement_with_no_effect;
@@ -147,7 +144,7 @@ eval(struct workspace *wk, struct source *src, enum eval_mode mode, obj *res)
 		parse_mode |= pm_functions;
 	}
 
-	if (!parser_parse(wk, ast, sdata, src, parse_mode)) {
+	if (!parser_parse(wk, ast, src, parse_mode)) {
 		goto ret;
 	}
 
@@ -206,14 +203,6 @@ ret:
 	return ret;
 }
 
-void
-source_data_destroy(struct source_data *sdata)
-{
-	if (sdata->data) {
-		z_free(sdata->data);
-	}
-}
-
 static bool
 repl_eval_str(struct workspace *wk, const char *str, obj *repl_res)
 {
@@ -262,7 +251,7 @@ repl(struct workspace *wk, bool dbg)
 	};
 
 	if (dbg) {
-		list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 1, 0);
+		list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->location.line, 1, 0);
 
 		if (wk->dbg.stepping) {
 			cmd = repl_cmd_step;
@@ -344,7 +333,7 @@ cmd_found:
 				}
 				break;
 			case repl_cmd_list: {
-				list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->line, 11, 0);
+				list_line_range(wk->src, get_node(wk->ast, wk->dbg.node)->location.line, 11, 0);
 				break;
 			}
 			case repl_cmd_step:
@@ -415,11 +404,10 @@ determine_project_root(struct workspace *wk, const char *path)
 
 		struct ast ast = { 0 };
 		struct source src = { 0 };
-		struct source_data sdata = { 0 };
 
 		if (!fs_read_entire_file(path, &src)) {
 			return NULL;
-		} else if (!parser_parse(wk, &ast, &sdata, &src, pm_quiet)) {
+		} else if (!parser_parse(wk, &ast, &src, pm_quiet)) {
 			return NULL;
 		}
 

@@ -114,25 +114,25 @@ substitute_config(struct workspace *wk, uint32_t dict, uint32_t in_node, const c
 
 	SBUF_manual(out_buf);
 
-	uint32_t i, id_start, id_len,
-		 line = 1, start_of_line = 0, id_start_col = 0, id_start_line = 0;
+	struct source_location location = { 1, 0 }, id_location;
+	uint32_t i, id_start, id_len;
 	obj elem;
 	char tmp_buf[BUF_SIZE_1k] = { 0 };
 
 	for (i = 0; i < src.len; ++i) {
 		if (src.src[i] == '\n') {
-			start_of_line = i + 1;
-			++line;
+			location.col = i + 1;
+			++location.line;
 		}
 
-		if (i == start_of_line && strncmp(&src.src[i], define, define_len) == 0) {
+		if (i == location.col && strncmp(&src.src[i], define, define_len) == 0) {
 			i += define_len;
 
 			configure_file_skip_whitespace(&src, &i);
 
 			id_start = i;
-			id_start_line = line;
-			id_start_col = i - start_of_line + 1;
+			id_location = location;
+			id_location.col = i - location.col + 1;
 			id_len = configure_var_len(&src.src[id_start]);
 			i += id_len;
 
@@ -160,20 +160,22 @@ extraneous_cmake_chars:
 								++i;
 							}
 
-							error_messagef(&src, id_start_line, orig_i - start_of_line + 1, log_warn,
+							id_location.col = orig_i - location.col + 1;
+							error_messagef(&src, id_location, log_warn,
 								"ignoring trailing characters (%.*s) in cmakedefine",
 								i - orig_i, &src.src[orig_i]
 								);
 						}
 					}
 				} else {
-					error_messagef(&src, id_start_line, i - start_of_line + 1, log_error, "expected exactly one token on mesondefine line");
+					id_location.col = i - location.col + 1;
+					error_messagef(&src, id_location, log_error, "expected exactly one token on mesondefine line");
 					return false;
 				}
 			}
 
 			if (i == id_start) {
-				error_messagef(&src, id_start_line, id_start_col, log_error, "key of zero length not supported");
+				error_messagef(&src, id_location, log_error, "key of zero length not supported");
 				return false;
 			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], id_len, &elem)) {
 				deftype = "/* undef";
@@ -197,7 +199,7 @@ extraneous_cmake_chars:
 				sub = tmp_buf;
 				break;
 			default:
-				error_messagef(&src, id_start_line, id_start_col, log_error,
+				error_messagef(&src, id_location, log_error,
 					"invalid type for %s: '%s'",
 					define,
 					obj_type_to_s(get_obj_type(wk, elem)));
@@ -253,9 +255,9 @@ write_mesondefine:
 			}
 		} else if (strncmp(&src.src[i], varstart, varstart_len) == 0) {
 			i += varstart_len;
-			id_start_line = line;
 			id_start = i;
-			id_start_col = id_start - start_of_line + 1;
+			id_location = location;
+			id_location.col = id_start - location.col + 1;
 			i += configure_var_len(&src.src[id_start]);
 
 			if (src.src[i] != varend) {
@@ -265,16 +267,16 @@ write_mesondefine:
 			}
 
 			if (i <= id_start) {
-				error_messagef(&src, id_start_line, id_start_col, log_error, "key of zero length not supported");
+				error_messagef(&src, id_location, log_error, "key of zero length not supported");
 				return false;
 			} else if (!obj_dict_index_strn(wk, dict, &src.src[id_start], i - id_start, &elem)) {
-				error_messagef(&src, id_start_line, id_start_col, log_error, "key not found in configuration data");
+				error_messagef(&src, id_location, log_error, "key not found in configuration data");
 				return false;
 			}
 
 			obj sub;
 			if (!coerce_string(wk, in_node, elem, &sub)) {
-				error_messagef(&src, id_start_line, id_start_col, log_error, "unable to substitute value");
+				error_messagef(&src, id_location, log_error, "unable to substitute value");
 				return false;
 			}
 

@@ -36,7 +36,7 @@ interp_diagnostic(struct workspace *wk, uint32_t n_id, enum log_level lvl, const
 
 	if (n_id) {
 		struct node *n = get_node(wk->ast, n_id);
-		error_message(wk->src, n->line, n->col, lvl, buf.buf);
+		error_message(wk->src, n->location, lvl, buf.buf);
 	} else {
 		log_print(true, lvl, "%s", buf.buf);
 	}
@@ -218,7 +218,7 @@ interp_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *re
 		// NOTE: This is to simulate looking up function objects for
 		// builtins.
 		struct node *l = get_node(wk->ast, n->l);
-		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, l->dat.s)) {
+		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, get_cstr(wk, l->data.str))) {
 			have_rcvr = false;
 			l_id = 0;
 		} else {
@@ -571,7 +571,7 @@ interp_assign(struct workspace *wk, struct node *n, obj *_)
 		return false;
 	}
 
-	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, assign_local);
+	wk->assign_variable(wk, get_cstr(wk, get_node(wk->ast, n->l)->data.str), rhs, 0, assign_local);
 	return true;
 }
 
@@ -585,7 +585,7 @@ interp_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	wk->assign_variable(wk, get_node(wk->ast, n->l)->dat.s, rhs, 0, assign_reassign);
+	wk->assign_variable(wk, get_cstr(wk, get_node(wk->ast, n->l)->data.str), rhs, 0, assign_reassign);
 	return true;
 }
 
@@ -989,7 +989,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 
 	struct node *stmt_node = get_node(wk->ast, n->r);
 	if (!(args->chflg & node_child_r) && stmt_node->type == node_function) {
-		if (strcmp(get_node(wk->ast, stmt_node->l)->dat.s, "range") == 0
+		if (str_eql(get_str(wk, get_node(wk->ast, stmt_node->l)->data.str), &WKSTR("range"))
 		    && !(stmt_node->chflg & node_child_d)) {
 			struct range_params range_params;
 			if (!func_range_common(wk, stmt_node->r, &range_params)) {
@@ -997,7 +997,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 			}
 
 			struct interp_foreach_ctx ctx = {
-				.id1 = get_node(wk->ast, args->l)->dat.s,
+				.id1 = get_cstr(wk, get_node(wk->ast, args->l)->data.str),
 				.n_l = args->l,
 				.block_node = n->c,
 			};
@@ -1048,7 +1048,7 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 		}
 
 		struct interp_foreach_ctx ctx = {
-			.id1 = get_node(wk->ast, args->l)->dat.s,
+			.id1 = get_cstr(wk, get_node(wk->ast, args->l)->data.str),
 			.n_l = args->l,
 			.block_node = n->c,
 		};
@@ -1069,8 +1069,8 @@ interp_foreach(struct workspace *wk, struct node *n, obj *res)
 		assert(get_node(wk->ast, get_node(wk->ast, args->r)->type == node_foreach_args));
 
 		struct interp_foreach_ctx ctx = {
-			.id1 = get_node(wk->ast, args->l)->dat.s,
-			.id2 = get_node(wk->ast, get_node(wk->ast, args->r)->l)->dat.s,
+			.id1 = get_cstr(wk, get_node(wk->ast, args->l)->data.str),
+			.id2 = get_cstr(wk, get_node(wk->ast, get_node(wk->ast, args->r)->l)->data.str),
 			.n_l = args->l,
 			.n_r = get_node(wk->ast, args->r)->l,
 			.block_node = n->c,
@@ -1102,7 +1102,7 @@ interp_func_def(struct workspace *wk, struct node *n, obj *res)
 	f->ast = wk->ast;
 	f->lang_mode = wk->lang_mode;
 	f->scope_stack = wk->scope_stack_dup(wk, current_project(wk)->scope_stack);
-	f->return_type = n->dat.type;
+	f->return_type = n->data.type;
 
 	struct node *arg;
 	uint32_t arg_id = n->r;
@@ -1138,7 +1138,7 @@ interp_func_def(struct workspace *wk, struct node *n, obj *res)
 		arg_id = arg->c;
 	}
 
-	f->name = get_node(wk->ast, n->l)->dat.s;
+	f->name = get_cstr(wk, get_node(wk->ast, n->l)->data.str);
 	wk->assign_variable(wk, f->name, *res, n->l, assign_local);
 	return true;
 }
@@ -1189,7 +1189,7 @@ interp_node(struct workspace *wk, uint32_t n_id, obj *res)
 		ret = interp_dict(wk, n->l, res);
 		break;
 	case node_id:
-		if (!wk->get_variable(wk, n->dat.s, res, wk->cur_project)) {
+		if (!wk->get_variable(wk, get_cstr(wk,n->data.str), res, wk->cur_project)) {
 			interp_error(wk, n_id, "undefined object");
 			ret = false;
 			break;
@@ -1228,9 +1228,9 @@ interp_block:
 		if (!is_internal
 		    && was_stepping
 		    && wk->dbg.stepping
-		    && wk->dbg.last_line != get_node(wk->ast, n->l)->line) {
+		    && wk->dbg.last_line != get_node(wk->ast, n->l)->location.line) {
 			wk->dbg.node = n->l;
-			wk->dbg.last_line = get_node(wk->ast, n->l)->line;
+			wk->dbg.last_line = get_node(wk->ast, n->l)->location.line;
 			repl(wk, true);
 		}
 

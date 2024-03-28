@@ -96,16 +96,17 @@ enum {
 
 struct node {
 	enum node_type type;
-	uint32_t line, col;
+	struct source_location location;
 	uint32_t subtype;
-	union token_data dat;
 	uint32_t l, r, c, d;
+	union literal_data data;
 	struct { uint32_t start, len; } comments;
 	uint8_t chflg;
 };
 
 struct ast {
-	struct arr nodes, comments;
+	struct bucket_arr nodes;
+	struct arr comments;
 	uint32_t root;
 	uint32_t src_id; // used for diagnostics in the analyzer
 };
@@ -117,13 +118,12 @@ enum parse_mode {
 	pm_functions = 1 << 3,
 };
 
-bool parser_parse(struct workspace *wk, struct ast *ast, struct source_data *sdata, struct source *src,
-	enum parse_mode mode);
-void print_ast(struct ast *ast);
-void print_ast_at(struct node *nodes, uint32_t id, uint32_t d, char label);
+void print_ast(struct workspace *wk, struct ast *ast);
+void print_ast_at(struct workspace *wk, struct ast *ast, uint32_t id, uint32_t d, char label);
+bool parser_parse(struct workspace *wk, struct ast *ast, struct source *src, enum parse_mode mode);
 struct node *get_node(struct ast *ast, uint32_t i);
 uint32_t *get_node_child(struct node *n, uint32_t c);
-const char *node_to_s(struct node *n);
+const char *node_to_s(struct workspace *wk, const struct node *n);
 const char *node_type_to_s(enum node_type t);
 void ast_destroy(struct ast *ast);
-#endif // MUON_PARSER_H
+#endif

@@ -13,6 +13,7 @@
 struct workspace;
 
 #define WKSTR(cstring) (struct str){ .s = cstring, .len = strlen(cstring) }
+#define WKSTR_STATIC(str) { str, sizeof(str) - 1 }
 
 
 /* sbuf */
@@ -62,6 +63,7 @@ obj make_str(struct workspace *wk, const char *str);
 obj make_strn(struct workspace *wk, const char *str, uint32_t n);
 obj make_strf(struct workspace *wk, const char *fmt, ...)
 MUON_ATTR_FORMAT(printf, 2, 3);
+obj make_strfv(struct workspace *wk, const char *fmt, va_list args);
 
 void str_app(struct workspace *wk, obj *s, const char *str);
 void str_appf(struct workspace *wk, obj *s, const char *fmt, ...)

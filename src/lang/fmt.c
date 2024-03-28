@@ -75,7 +75,7 @@ fmt_str_startwith(struct fmt_ctx *ctx, uint32_t n_id, const char *pre)
 		return false;
 	}
 
-	const char *s = n->dat.s;
+	const char *s = get_cstr(ctx->wk, n->data.str);
 	if (*s == 'f') {
 		++s;
 	}
@@ -97,7 +97,7 @@ fmt_id_eql(struct fmt_ctx *ctx, uint32_t n_id, const char *id)
 		return false;
 	}
 
-	return strcmp(n->dat.s, id) == 0;
+	return str_eql(get_str(ctx->wk, n->data.str), &WKSTR(id));
 }
 
 static struct fmt_stack *
@@ -346,12 +346,12 @@ fmt_files_args_sort_cmp(const void *a, const void *b, void *_ctx)
 		    *v2 = get_node(ctx->ast, ae2->val);
 
 	if (v1->type == node_string && v2->type == node_string) {
-		const char *s1 = v1->dat.s, *s2 = v2->dat.s;
+		const char *s1 = get_cstr(ctx->wk, v1->data.str), *s2 = get_cstr(ctx->wk, v2->data.str);
 		bool s1_hasdir = strchr(s1, '/') != NULL,
 		     s2_hasdir = strchr(s2, '/') != NULL;
 
 		if ((s1_hasdir && s2_hasdir) || (!s1_hasdir && !s2_hasdir)) {
-			return strcmp(v1->dat.s, v2->dat.s);
+			return strcmp(s1, s2);
 		} else if (s1_hasdir) {
 			return -1;
 		} else {
@@ -412,7 +412,7 @@ fmt_args(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_args)
 			ae->val = arg->l;
 		}
 
-		ae->type = arg->dat.type;
+		ae->type = arg->data.type;
 
 		arg_val = get_node(ctx->ast, ae->val);
 
@@ -550,7 +550,7 @@ fmt_function_common(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t 
 
 	uint32_t len = 0;
 	if (n_name) {
-		const char *name = get_node(ctx->ast, n_name)->dat.s;
+		const char *name = get_cstr(ctx->wk, get_node(ctx->ast, n_name)->data.str);
 		len += fmt_writes(ctx, &fst, name);
 		fst.parent = n_name;
 	}
@@ -789,7 +789,7 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_writes(ctx, &fst, n->subtype ? "true" : "false");
 		break;
 	case node_string:
-		len += fmt_writeml(ctx, &fst, n->dat.s);
+		len += fmt_writeml(ctx, &fst, get_cstr(ctx->wk, n->data.str));
 		break;
 	case node_array:
 	case node_dict:
@@ -800,10 +800,10 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		len += fmt_check(ctx, &fst, fmt_arg_container, n_id);
 		break;
 	case node_id:
-		len += fmt_writes(ctx, &fst, n->dat.s);
+		len += fmt_writes(ctx, &fst, get_cstr(ctx->wk, n->data.str));
 		break;
 	case node_number:
-		len += fmt_writes(ctx, &fst, n->dat.s);
+		len += fmt_writes(ctx, &fst, get_cstr(ctx->wk, n->data.str));
 		break;
 
 	/* control flow */
@@ -878,9 +878,9 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 		arg_fst.ml = false;
 		len += fmt_check(ctx, &arg_fst, fmt_arg_container, n->r);
 
-		if (n->dat.type) {
+		if (n->data.type) {
 			len += fmt_writes(ctx, &fst, " -> ");
-			len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, n->dat.type));
+			len += fmt_writes(ctx, &fst, typechecking_type_to_s(ctx->wk, n->data.type));
 		}
 
 		struct node *block = get_node(ctx->ast, n->c);
@@ -998,7 +998,7 @@ fmt_node(struct fmt_ctx *ctx, const struct fmt_stack *pfst, uint32_t n_id)
 
 static bool
 fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, uint32_t line)
+	const char *k, const char *v, struct source_location location)
 {
 	struct fmt_ctx *ctx = _ctx;
 
@@ -1020,13 +1020,13 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 	};
 
 	if (!k || !*k) {
-		error_messagef(src, line, 1, log_error, "missing key");
+		error_messagef(src, location, log_error, "missing key");
 		return false;
 	} else if (!v || !*v) {
-		error_messagef(src, line, 1, log_error, "missing value");
+		error_messagef(src, location, log_error, "missing value");
 		return false;
 	} else if (sect) {
-		error_messagef(src, line, 1, log_error, "invalid section");
+		error_messagef(src, location, log_error, "invalid section");
 		return false;
 	}
 
@@ -1040,10 +1040,10 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				char *endptr = NULL;
 				long long lval = strtoll(v, &endptr, 10);
 				if (*endptr) {
-					error_messagef(src, line, 1, log_error, "unable to parse integer");
+					error_messagef(src, location, log_error, "unable to parse integer");
 					return false;
 				} else if (lval < 0 || lval > (long long)UINT32_MAX) {
-					error_messagef(src, line, 1, log_error, "integer outside of range 0-%u", UINT32_MAX);
+					error_messagef(src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
 					return false;
 				}
 
@@ -1057,7 +1057,7 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				end = strrchr(v, '\'');
 
 				if (!start || !end || start == end) {
-					error_messagef(src, line, 1, log_error, "expected single-quoted string");
+					error_messagef(src, location, log_error, "expected single-quoted string");
 					return false;
 				}
 
@@ -1074,7 +1074,7 @@ fmt_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
 				} else if (strcmp(v, "false") == 0) {
 					val = false;
 				} else {
-					error_messagef(src, line, 1, log_error, "invalid value for bool, expected true/false");
+					error_messagef(src, location, log_error, "invalid value for bool, expected true/false");
 					return false;
 				}
 
@@ -1093,7 +1093,6 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 {
 	bool ret = false;
 	struct ast ast = { 0 };
-	struct source_data sdata = { 0 };
 	struct sbuf out_buf;
 	struct workspace wk = { 0 };
 	workspace_init_bare(&wk);
@@ -1142,7 +1141,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		parse_mode |= pm_functions;
 	}
 
-	if (!parser_parse(&wk, &ast, &sdata, src, parse_mode)) {
+	if (!parser_parse(&wk, &ast, src, parse_mode)) {
 		goto ret;
 	}
 
@@ -1167,6 +1166,5 @@ ret:
 	sbuf_destroy(&out_buf);
 	fs_source_destroy(&cfg_src);
 	ast_destroy(&ast);
-	source_data_destroy(&sdata);
 	return ret;
 }

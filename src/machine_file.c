@@ -56,7 +56,7 @@ struct machine_file_parse_ctx {
 
 static bool
 machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
-	const char *k, const char *v, uint32_t line)
+	const char *k, const char *v, struct source_location location)
 {
 	struct machine_file_parse_ctx *ctx = _ctx;
 	enum machine_file_section sect;
@@ -64,7 +64,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 	if (!mfile_lookup(_sect, machine_file_section_names,
 		machine_file_section_count, &sect)) {
 		if (!k) {
-			error_messagef(src, line, 1, log_error, "invalid section '%s'", _sect);
+			error_messagef(src, location, log_error, "invalid section '%s'", _sect);
 		}
 		return false;
 	} else if (!k) {
@@ -73,7 +73,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 	}
 
 	if (!_sect) {
-		error_messagef(src, line, 1, log_error, "key not under any section");
+		error_messagef(src, location, log_error, "key not under any section");
 		return false;
 	}
 
@@ -81,7 +81,7 @@ machine_file_parse_cb(void *_ctx, struct source *src, const char *_sect,
 
 	obj res;
 	if (!eval(ctx->wk, &val_src, eval_mode_default, &res)) {
-		error_messagef(src, line, 1, log_error, "failed to parse value");
+		error_messagef(src, location, log_error, "failed to parse value");
 		return false;
 	}
 

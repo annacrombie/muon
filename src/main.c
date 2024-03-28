@@ -232,25 +232,27 @@ cmd_check(uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct source src = { 0 };
 	struct ast ast = { 0 };
-	struct source_data sdata = { 0 };
 
 	if (!fs_read_entire_file(opts.filename, &src)) {
 		goto ret;
 	}
 
-	if (!parser_parse(NULL, &ast, &sdata, &src, opts.parse_mode)) {
+	struct workspace wk;
+	workspace_init_bare(&wk);
+
+	if (!parser_parse(&wk, &ast, &src, opts.parse_mode)) {
 		goto ret;
 	}
 
 	if (opts.print_ast) {
-		print_ast(&ast);
+		print_ast(&wk, &ast);
 	}
 
 	ret = true;
 ret:
+	workspace_destroy(&wk);
 	fs_source_destroy(&src);
 	ast_destroy(&ast);
-	source_data_destroy(&sdata);
 	return ret;
 }
 

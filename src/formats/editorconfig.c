@@ -223,7 +223,7 @@ editorconfig_pat_match(struct editorconfig_pat *pat, const char *path, const cha
 
 static bool
 editorconfig_cfg_parse_cb(void *_ctx, struct source *src, const char *sect,
-	const char *k, const char *v, uint32_t line)
+	const char *k, const char *v, struct source_location location)
 {
 	struct parse_editorconfig_ctx *ctx = _ctx;
 

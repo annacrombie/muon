@@ -771,7 +771,7 @@ func_declare_dependency(struct workspace *wk, obj _, uint32_t args_node, obj *re
 	dep->name = make_strf(wk, "%s:declared_dep@%s:%d",
 		get_cstr(wk, current_project(wk)->cfg.name),
 		wk->src->label,
-		get_node(wk->ast, args_node)->line);
+		get_node(wk->ast, args_node)->location.line);
 	dep->flags |= dep_flag_found;
 	dep->type = dependency_type_declared;
 

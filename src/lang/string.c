@@ -97,7 +97,6 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 	return str;
 }
 
-
 static struct str *
 grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
 {
@@ -176,14 +175,14 @@ make_str(struct workspace *wk, const char *str)
 }
 
 obj
-make_strf(struct workspace *wk, const char *fmt, ...)
+make_strfv(struct workspace *wk, const char *fmt, va_list args)
 {
 	uint32_t len;
-	va_list args, args_copy;
-	va_start(args, fmt);
-	va_copy(args_copy, args);
+	va_list args_copy;
 
+	va_copy(args_copy, args);
 	len = vsnprintf(NULL, 0, fmt, args_copy);
+	va_end(args_copy);
 
 	obj s;
 	struct str *ss = reserve_str(wk, &s, len);
@@ -194,7 +193,15 @@ make_strf(struct workspace *wk, const char *fmt, ...)
 	/* obj_vsnprintf(wk, (char *)ss->s, len + 1, fmt, args); */
 	vsnprintf((char *)ss->s, len + 1, fmt, args);
 
-	va_end(args_copy);
+	return s;
+}
+
+obj
+make_strf(struct workspace *wk, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	obj s = make_strfv(wk, fmt, args);
 	va_end(args);
 
 	return s;

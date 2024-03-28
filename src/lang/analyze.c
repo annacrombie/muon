@@ -39,7 +39,8 @@ static struct {
 struct analyze_file_entrypoint {
 	bool is_root, has_diagnostic;
 	enum log_level lvl;
-	uint32_t line, col, src_idx;
+	struct source_location location;
+	uint32_t src_idx;
 };
 
 static struct arr analyze_entrypoint_stack,
@@ -49,7 +50,8 @@ struct assignment {
 	const char *name;
 	obj o;
 	bool accessed, default_var;
-	uint32_t line, col, src_idx;
+	struct source_location location;
+	uint32_t src_idx;
 
 	uint32_t ep_stacks_i;
 	uint32_t ep_stack_len;
@@ -345,8 +347,7 @@ check_reassign_to_different_type(struct workspace *wk, struct assignment *a, obj
 		if (new_a) {
 			error_diagnostic_store_push(
 				new_a->src_idx,
-				new_a->line,
-				new_a->col,
+				new_a->location,
 				log_warn,
 				buf
 				);
@@ -377,8 +378,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 	bucket_arr_push(&assignments, &(struct assignment) {
 		.name = name,
 		.o = o,
-		.line = n ? n->line : 0,
-		.col = n ? n->col : 0,
+		.location = n ? n->location : (struct source_location) { 0 },
 		.src_idx = src_idx,
 		.ep_stacks_i = ep_stacks_i,
 		.ep_stack_len = ep_stack_len,
@@ -532,8 +532,7 @@ merge_scope_group_scope_with_base_iter(struct workspace *wk, void *_ctx, obj k, 
 
 		b = scope_assign(wk, a->name, a->o, 0, assign_local);
 		b->accessed = a->accessed;
-		b->line = a->line;
-		b->col = a->col;
+		b->location = a->location;
 		b->src_idx = a->src_idx;
 
 		a->accessed = true;
@@ -666,12 +665,12 @@ analyze_func_obj_immediate(struct workspace *wk, uint32_t n_id, obj func_obj)
 
 	uint32_t arg_id = f->args_id;
 	while (true) {
-		struct node *arg = arr_get(&f->ast->nodes, arg_id);
+		struct node *arg = bucket_arr_get(&f->ast->nodes, arg_id);
 		if (arg->type == node_empty) {
 			break;
 		}
 
-		type_tag t = arg->dat.type;
+		type_tag t = arg->data.type;
 		if (t & TYPE_TAG_COMPLEX) {
 			t = flatten_type(wk, t);
 		}
@@ -713,7 +712,7 @@ analyze_func_obj_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, o
 
 	if (analyze_diagnostic_enabled(analyze_diagnostic_redirect_script_error)) {
 		struct node *n = get_node(wk->ast, n_id);
-		error_diagnostic_store_redirect(wk->src, n->line, n->col);
+		error_diagnostic_store_redirect(wk->src, n->location);
 	}
 
 	if (!func_obj_eval(wk, func_obj, func_module, args_node, res) || analyzer.error) {
@@ -749,8 +748,7 @@ analyze_function_call(struct workspace *wk, uint32_t n_id, uint32_t args_node, c
 
 		arr_push(&analyze_entrypoint_stack, &(struct analyze_file_entrypoint) {
 			.src_idx = error_diagnostic_store_push_src(wk->src),
-			.line = n->line,
-			.col = n->col,
+			.location = n->location,
 			.is_root = analyze_entrypoint_stack.len == 0,
 		});
 
@@ -800,7 +798,7 @@ analyze_method(struct workspace *wk, struct analyze_ctx *ctx, uint32_t n_id, typ
 {
 	struct node *n = get_node(wk->ast, n_id);
 
-	const char *name = get_node(wk->ast, n->r)->dat.s;
+	const char *name = get_cstr(wk, get_node(wk->ast, n->r)->data.str);
 	mark_node_visited(get_node(wk->ast, n->r));
 
 	obj func_obj = 0, func_module = 0;
@@ -891,8 +889,8 @@ analyze_func(struct workspace *wk, uint32_t n_id, bool chained, obj l_id, obj *r
 	const char *name = 0;
 	if (!chained) {
 		struct node *l = get_node(wk->ast, n->l);
-		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, l->dat.s)) {
-			name = l->dat.s;
+		if (l->type == node_id && func_lookup(kernel_func_tbl, wk->lang_mode, get_cstr(wk, l->data.str))) {
+			name = get_cstr(wk, l->data.str);
 			mark_node_visited(get_node(wk->ast, n->l));
 		} else {
 			if (!wk->interp_node(wk, n->l, &l_id)) {
@@ -983,7 +981,7 @@ analyze_chained(struct workspace *wk, uint32_t n_id, obj l_id, obj *res)
 			if (rcvr_is_not_found_module || rcvr_is_module_object) {
 				tmp = make_typeinfo(wk, tc_any, tc_module);
 			} else {
-				interp_error(wk, n_id, "method %s not found on %s", get_node(wk->ast, n->r)->dat.s, inspect_typeinfo(wk, l_id));
+				interp_error(wk, n_id, "method %s not found on %s", get_cstr(wk, get_node(wk->ast, n->r)->data.str), inspect_typeinfo(wk, l_id));
 				ret = false;
 				tmp = make_typeinfo(wk, tc_any, 0);
 			}
@@ -1486,10 +1484,10 @@ analyze_foreach(struct workspace *wk, uint32_t n_id, obj *res)
 		// two variables
 		n_r = get_node(wk->ast, args->r)->l;
 
-		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_string, 0), n_l, assign_local);
-		scope_assign(wk, get_node(wk->ast, n_r)->dat.s, make_typeinfo(wk, tc_any, 0), n_r, assign_local);
+		scope_assign(wk, get_cstr(wk, get_node(wk->ast, n_l)->data.str), make_typeinfo(wk, tc_string, 0), n_l, assign_local);
+		scope_assign(wk, get_cstr(wk, get_node(wk->ast, n_r)->data.str), make_typeinfo(wk, tc_any, 0), n_r, assign_local);
 	} else {
-		scope_assign(wk, get_node(wk->ast, n_l)->dat.s, make_typeinfo(wk, tc_any, 0), n_l, assign_local);
+		scope_assign(wk, get_cstr(wk, get_node(wk->ast, n_l)->data.str), make_typeinfo(wk, tc_any, 0), n_l, assign_local);
 	}
 
 	++analyzer.impure_loop_depth;
@@ -1548,7 +1546,7 @@ analyze_assign(struct workspace *wk, struct node *n)
 		ret = false;
 	}
 
-	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, n->subtype);
+	scope_assign(wk, get_cstr(wk, get_node(wk->ast, n->l)->data.str), rhs, n->l, n->subtype);
 	return ret;
 }
 
@@ -1562,7 +1560,7 @@ analyze_plusassign(struct workspace *wk, uint32_t n_id, obj *_)
 		return false;
 	}
 
-	scope_assign(wk, get_node(wk->ast, n->l)->dat.s, rhs, n->l, assign_reassign);
+	scope_assign(wk, get_cstr(wk, get_node(wk->ast, n->l)->data.str), rhs, n->l, assign_reassign);
 	return true;
 }
 
@@ -1662,8 +1660,8 @@ analyze_node(struct workspace *wk, uint32_t n_id, obj *res)
 		break;
 	case node_id: {
 		struct assignment *a;
-		if (!(a = assign_lookup(wk, n->dat.s))) {
-			interp_error(wk, n_id, "undefined object %s", n->dat.s);
+		if (!(a = assign_lookup(wk, get_cstr(wk, n->data.str)))) {
+			interp_error(wk, n_id, "undefined object %s", get_cstr(wk, n->data.str));
 			*res = make_typeinfo(wk, tc_any, 0);
 			ret = false;
 		} else {
@@ -1731,7 +1729,7 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 
 	uint32_t i;
 	for (i = 0; i < ast->nodes.len; ++i) {
-		struct node *n = arr_get(&ast->nodes, i);
+		struct node *n = bucket_arr_get(&ast->nodes, i);
 		switch (n->type) {
 		case node_foreach:
 		case node_if:
@@ -1746,7 +1744,7 @@ analyze_check_dead_code(struct workspace *wk, struct ast *ast)
 		}
 
 		if (!(n->chflg & node_visited)) {
-			error_diagnostic_store_push(ast->src_id, n->line, n->col, log_warn, "dead code");
+			error_diagnostic_store_push(ast->src_id, n->location, log_warn, "dead code");
 
 			if (analyze_entrypoint_stack.len) {
 				uint32_t ep_stacks_i, ep_stack_len;
@@ -2051,7 +2049,7 @@ do_analyze(struct analyze_opts *opts)
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(&wk, make_strf(&wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
-				error_diagnostic_store_push(a->src_idx, a->line, a->col, lvl, msg);
+				error_diagnostic_store_push(a->src_idx, a->location, lvl, msg);
 
 				if (analyzer.opts->subdir_error && a->ep_stack_len) {
 					mark_analyze_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
@@ -2085,8 +2083,7 @@ do_analyze(struct analyze_opts *opts)
 			for (j = 0; j < len; ++j) {
 				error_diagnostic_store_push(
 					ep_stack[j].src_idx,
-					ep_stack[j].line,
-					ep_stack[j].col,
+					ep_stack[j].location,
 					lvl,
 					"in subdir"
 					);
@@ -2110,7 +2107,7 @@ do_analyze(struct analyze_opts *opts)
 			struct assignment *a = bucket_arr_get(&assignments, i);
 			if (strcmp(a->name, analyzer.opts->get_definition_for) == 0) {
 				struct source *src = error_get_stored_source(a->src_idx);
-				list_line_range(src, a->line, 1, a->col);
+				list_line_range(src, a->location.line, 1, a->location.col);
 				found = true;
 			}
 		}

@@ -82,7 +82,7 @@ interp_args_interp_node(struct workspace *wk, uint32_t arg_node, obj *res)
 }
 
 static bool
-next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char **kw, struct node **args)
+next_arg(struct workspace *wk, uint32_t *arg_node, uint32_t *kwarg_node, const char **kw, struct node **args)
 {
 	if (!*args || (*args)->type == node_empty) {
 		return false;
@@ -91,7 +91,7 @@ next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char *
 	assert((*args)->type == node_argument);
 
 	if ((*args)->subtype == arg_kwarg) {
-		*kw = get_node(ast, (*args)->l)->dat.s;
+		*kw = get_cstr(wk, get_node(wk->ast, (*args)->l)->data.str);
 		*kwarg_node = (*args)->l;
 		*arg_node = (*args)->r;
 	} else {
@@ -102,7 +102,7 @@ next_arg(struct ast *ast, uint32_t *arg_node, uint32_t *kwarg_node, const char *
 	/* L("got arg %s:%s", *kw, node_to_s(*arg)); */
 
 	if ((*args)->chflg & node_child_c) {
-		*args = get_node(ast, (*args)->c);
+		*args = get_node(wk->ast, (*args)->c);
 	} else {
 		*args = NULL;
 	}
@@ -505,7 +505,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 				make_obj(wk, &an[stage][i].val, obj_array);
 				an[stage][i].set = true;
 
-				while (next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
+				while (next_arg(wk, &arg_node, &kwarg_node, &kw, &args)) {
 					if (kw) {
 						goto kwargs;
 					}
@@ -552,7 +552,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 				continue;
 			}
 
-			if (!next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
+			if (!next_arg(wk, &arg_node, &kwarg_node, &kw, &args)) {
 				if (stage == 0) { // required
 					interp_error(wk, args_node, "missing arguments %s", ARITY);
 					return false;
@@ -584,7 +584,7 @@ interp_args(struct workspace *wk, uint32_t args_node,
 	}
 
 	if (keyword_args) {
-		while (next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
+		while (next_arg(wk, &arg_node, &kwarg_node, &kw, &args)) {
 			goto process_kwarg;
 kwargs:
 			if (!keyword_args) {
@@ -626,7 +626,7 @@ process_kwarg:
 				}
 			}
 		}
-	} else if (next_arg(wk->ast, &arg_node, &kwarg_node, &kw, &args)) {
+	} else if (next_arg(wk, &arg_node, &kwarg_node, &kw, &args)) {
 		if (kw) {
 			interp_error(wk, kwarg_node, "this function does not accept kwargs %s", ARITY);
 		} else {
@@ -735,7 +735,7 @@ func_obj_call(struct workspace *wk, struct obj_func *f, obj args, obj *res)
 
 	{ // assign arg values
 		uint32_t i = 0;
-		struct node *arg = arr_get(&f->ast->nodes, f->args_id);
+		struct node *arg = bucket_arr_get(&f->ast->nodes, f->args_id);
 		while (arg->type != node_empty) {
 			obj val = 0;
 			obj_array_index(wk, args, i, &val);
@@ -743,15 +743,15 @@ func_obj_call(struct workspace *wk, struct obj_func *f, obj args, obj *res)
 				obj_array_index(wk, f->kwarg_defaults, i - f->nargs, &val);
 			}
 
-			struct node *arg_name = arr_get(&f->ast->nodes, arg->l);
-			wk->assign_variable(wk, arg_name->dat.s, val, arg->l, assign_local);
+			struct node *arg_name = bucket_arr_get(&f->ast->nodes, arg->l);
+			wk->assign_variable(wk, get_cstr(wk, arg_name->data.str), val, arg->l, assign_local);
 			++i;
 
 			if (!(arg->chflg & node_child_c)) {
 				break;
 			}
 
-			arg = arr_get(&f->ast->nodes, arg->c);
+			arg = bucket_arr_get(&f->ast->nodes, arg->c);
 		}
 	}
 
@@ -807,18 +807,18 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 
 	uint32_t pos_i = 0, kw_i = 0, arg_id = f->args_id;
 	while (true) {
-		struct node *arg = arr_get(&f->ast->nodes, arg_id);
+		struct node *arg = bucket_arr_get(&f->ast->nodes, arg_id);
 		if (arg->type == node_empty) {
 			break;
 		}
 
 		if (arg->subtype == arg_normal) {
-			an[pos_i].type = arg->dat.type;
+			an[pos_i].type = arg->data.type;
 			++pos_i;
 		} else if (arg->subtype == arg_kwarg) {
-			struct node *key = arr_get(&f->ast->nodes, arg->l);
-			akw[kw_i].key = key->dat.s;
-			akw[kw_i].type = arg->dat.type;
+			struct node *key = bucket_arr_get(&f->ast->nodes, arg->l);
+			akw[kw_i].key = get_cstr(wk, key->data.str);
+			akw[kw_i].type = arg->data.type;
 			++kw_i;
 		}
 
@@ -843,7 +843,7 @@ func_obj_eval(struct workspace *wk, obj func_obj, obj func_module, uint32_t args
 	arg_id = f->args_id;
 	pos_i = kw_i = 0;
 	while (true) {
-		struct node *arg = arr_get(&f->ast->nodes, arg_id);
+		struct node *arg = bucket_arr_get(&f->ast->nodes, arg_id);
 		if (arg->type == node_empty) {
 			break;
 		}
@@ -989,7 +989,7 @@ builtin_run(struct workspace *wk, bool have_rcvr, obj rcvr_id, uint32_t node_id,
 	if (rcvr_type == obj_func) {
 		name = get_obj_func(wk, rcvr_id)->name;
 	} else {
-		name = get_node(wk->ast, name_node)->dat.s;
+		name = get_cstr(wk, get_node(wk->ast, name_node)->data.str);
 	}
 
 	if (have_rcvr && rcvr_type == obj_module) {
